@@ -1,0 +1,42 @@
+name: memory-map
+
+services:
+
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: memory-map-postgres
+
+    restart: unless-stopped
+
+    env_file:
+      - ../.env
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    container_name: memory-map-minio
+
+    restart: unless-stopped
+
+    env_file:
+      - ../.env
+
+    command: server /data --console-address ":9001"
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+    volumes:
+      - minio_data:/data
+
+volumes:
+
+  postgres_data:
+
+  minio_data:
