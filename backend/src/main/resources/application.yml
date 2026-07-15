@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: memory-map-backend
+
+  profiles:
+    default: dev
