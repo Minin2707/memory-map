@@ -1,0 +1,18 @@
+# IntelliJ IDEA
+.idea/
+
+# Gradle
+.gradle/
+build/
+
+# Environment
+.env
+
+# Local backend configuration
+backend/config/application-local.yml
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
