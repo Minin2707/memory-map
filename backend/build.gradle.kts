@@ -18,6 +18,7 @@ repositories {
 }
 
 dependencies {
+	testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.3"))
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-jdbc")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
@@ -33,6 +34,10 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	testImplementation ("org.springframework.boot:spring-boot-starter-test")
+	testImplementation ("org.testcontainers:junit-jupiter")
+	testImplementation ("org.testcontainers:postgresql")
+	testImplementation ("org.springframework.boot:spring-boot-testcontainers")
 }
 
 tasks.withType<Test> {
