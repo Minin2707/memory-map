@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Component
@@ -19,8 +20,8 @@ public class UserRowMapper implements RowMapper<User> {
         String googleSubject = rs.getString("google_subject");
         String displayName = rs.getString("display_name");
         String avatarUrl = rs.getString("avatar_url");
-        Instant createdAt = rs.getTimestamp("created_at").toInstant();
-        Instant updatedAt = rs.getTimestamp("updated_at").toInstant();
+        Instant createdAt = rs.getObject("created_at", OffsetDateTime.class).toInstant();
+        Instant updatedAt = rs.getObject("updated_at", OffsetDateTime.class).toInstant();
 
         return new User(
                 id,

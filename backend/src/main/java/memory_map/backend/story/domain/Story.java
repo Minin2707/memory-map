@@ -1,26 +1,27 @@
-package memory_map.backend.user.domain;
+package memory_map.backend.story.domain;
 
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-public record User(
+public record Story(
 
         UUID id,
 
-        String googleSubject,
+        UUID ownerId,
 
-        String displayName,
+        String title,
 
-        String avatarUrl,
+        String description,
 
         Instant createdAt,
 
         Instant updatedAt
 
 ) {
-    public User {
+    public Story {
         Objects.requireNonNull(id, "id must not be null");
+        Objects.requireNonNull(ownerId, "ownerId must not be null");
         Objects.requireNonNull(createdAt, "createdAt must not be null");
         Objects.requireNonNull(updatedAt, "updatedAt must not be null");
     }

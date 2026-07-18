@@ -1,5 +1,6 @@
 package memory_map.backend.user.repository;
 
+import memory_map.backend.common.database.DatabaseTimestamps;
 import memory_map.backend.user.domain.User;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -12,16 +13,28 @@ public class JdbcUserRepository implements UserRepository {
 
     private static final String INSERT_SQL = """
             INSERT INTO users (
+                id,
                 google_subject,
                 display_name,
-                avatar_url
+                avatar_url,
+                created_at,
+                updated_at
             )
             VALUES (
+                :id,
                 :googleSubject,
                 :displayName,
-                :avatarUrl
+                :avatarUrl,
+                :createdAt,
+                :updatedAt
             )
-            RETURNING *
+            RETURNING
+                id,
+                google_subject,
+                display_name,
+                avatar_url,
+                created_at,
+                updated_at
             """;
 
     private static final String FIND_BY_ID_SQL = """
@@ -51,9 +64,12 @@ public class JdbcUserRepository implements UserRepository {
     public User save(User user) {
 
         return jdbcClient.sql(INSERT_SQL)
+                .param("id", user.id())
                 .param("googleSubject", user.googleSubject())
                 .param("displayName", user.displayName())
                 .param("avatarUrl", user.avatarUrl())
+                .param("createdAt", DatabaseTimestamps.toOffsetDateTime(user.createdAt()))
+                .param("updatedAt", DatabaseTimestamps.toOffsetDateTime(user.updatedAt()))
                 .query(rowMapper)
                 .single();
     }

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +23,9 @@ class UserRepositoryTest extends IntegrationTest {
 
     @Autowired
     private JdbcClient jdbcClient;
+
+    @Autowired
+    private Clock clock;
 
     private static final String CLEAN_DATABASE_SQL = """
         TRUNCATE TABLE users
@@ -38,10 +42,10 @@ class UserRepositoryTest extends IntegrationTest {
             String displayName,
             String avatarUrl
     ) {
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
 
         return new User(
-                null,
+                UUID.randomUUID(),
                 googleSubject,
                 displayName,
                 avatarUrl,
