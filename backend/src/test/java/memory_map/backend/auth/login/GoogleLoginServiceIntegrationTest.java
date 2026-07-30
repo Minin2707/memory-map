@@ -21,6 +21,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,6 +61,10 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
             UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID NEW_REFRESH_TOKEN_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final UUID SECOND_NEW_USER_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000004");
+    private static final UUID SECOND_REFRESH_TOKEN_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000005");
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
     private static final Instant UPDATED_AT =
@@ -229,6 +238,87 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
                 .contains(duplicateRefreshToken);
     }
 
+    @Test
+    void shouldCompleteConcurrentFirstLoginWithSinglePersistedUser()
+            throws Exception {
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch startLatch = new CountDownLatch(1);
+
+        try {
+            Future<GoogleLoginResult> firstLogin = executor.submit(() -> {
+                startLatch.await();
+
+                return loginService.login(
+                        GOOGLE_ID_TOKEN,
+                        NEW_USER_ID,
+                        NEW_REFRESH_TOKEN_ID,
+                        CURRENT_TIME
+                );
+            });
+            Future<GoogleLoginResult> secondLogin = executor.submit(() -> {
+                startLatch.await();
+
+                return loginService.login(
+                        GOOGLE_ID_TOKEN,
+                        SECOND_NEW_USER_ID,
+                        SECOND_REFRESH_TOKEN_ID,
+                        CURRENT_TIME
+                );
+            });
+
+            startLatch.countDown();
+
+            GoogleLoginResult firstResult =
+                    firstLogin.get(10, TimeUnit.SECONDS);
+            GoogleLoginResult secondResult =
+                    secondLogin.get(10, TimeUnit.SECONDS);
+
+            User persistedUser = userRepository
+                    .findByGoogleSubject(GOOGLE_SUBJECT)
+                    .orElseThrow();
+            RefreshToken firstRefreshToken = refreshTokenRepository
+                    .findById(NEW_REFRESH_TOKEN_ID)
+                    .orElseThrow();
+            RefreshToken secondRefreshToken = refreshTokenRepository
+                    .findById(SECOND_REFRESH_TOKEN_ID)
+                    .orElseThrow();
+
+            assertThat(firstResult.user().id())
+                    .isEqualTo(persistedUser.id());
+            assertThat(secondResult.user().id())
+                    .isEqualTo(persistedUser.id());
+            assertThat(userCountByGoogleSubject(GOOGLE_SUBJECT))
+                    .isEqualTo(1);
+            assertThat(refreshTokenCountByUserId(persistedUser.id()))
+                    .isEqualTo(2);
+            assertThat(firstRefreshToken.userId())
+                    .isEqualTo(persistedUser.id());
+            assertThat(secondRefreshToken.userId())
+                    .isEqualTo(persistedUser.id());
+            assertThat(firstRefreshToken.revokedAt()).isNull();
+            assertThat(secondRefreshToken.revokedAt()).isNull();
+            assertThat(firstResult.accessToken()).isNotBlank();
+            assertThat(secondResult.accessToken()).isNotBlank();
+            assertThat(firstResult.refreshToken().value()).isNotBlank();
+            assertThat(secondResult.refreshToken().value()).isNotBlank();
+            assertThat(firstResult.refreshToken().value())
+                    .isNotEqualTo(secondResult.refreshToken().value());
+            assertThat(firstRefreshToken.tokenHash())
+                    .isEqualTo(refreshTokenHasher.hash(
+                            firstResult.refreshToken()
+                    ))
+                    .isNotEqualTo(firstResult.refreshToken().value());
+            assertThat(secondRefreshToken.tokenHash())
+                    .isEqualTo(refreshTokenHasher.hash(
+                            secondResult.refreshToken()
+                    ))
+                    .isNotEqualTo(secondResult.refreshToken().value());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     private User saveUser(
             UUID id,
             String googleSubject,
@@ -257,6 +347,28 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
         );
     }
 
+    private int userCountByGoogleSubject(String googleSubject) {
+        return jdbcClient.sql("""
+                SELECT COUNT(*)
+                FROM users
+                WHERE google_subject = :googleSubject
+                """)
+                .param("googleSubject", googleSubject)
+                .query(Integer.class)
+                .single();
+    }
+
+    private int refreshTokenCountByUserId(UUID userId) {
+        return jdbcClient.sql("""
+                SELECT COUNT(*)
+                FROM refresh_tokens
+                WHERE user_id = :userId
+                """)
+                .param("userId", userId)
+                .query(Integer.class)
+                .single();
+    }
+
     @TestConfiguration(proxyBeanMethods = false)
     static class GoogleLoginTestConfiguration {
 
@@ -270,8 +382,8 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
     static final class FakeGoogleIdentityVerifier
             implements GoogleIdentityVerifier {
 
-        private GoogleIdentity identity = googleIdentity();
-        private String receivedGoogleIdToken;
+        private volatile GoogleIdentity identity = googleIdentity();
+        private volatile String receivedGoogleIdToken;
 
         @Override
         public GoogleIdentity verify(String idToken) {

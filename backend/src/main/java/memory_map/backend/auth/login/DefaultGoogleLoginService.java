@@ -3,6 +3,7 @@ package memory_map.backend.auth.login;
 import memory_map.backend.auth.domain.GoogleIdentity;
 import memory_map.backend.auth.google.GoogleIdentityVerificationException;
 import memory_map.backend.auth.google.GoogleIdentityVerifier;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -59,11 +60,34 @@ public class DefaultGoogleLoginService implements GoogleLoginService {
         GoogleIdentity identity =
                 googleIdentityVerifier.verify(googleIdToken);
 
-        return googleLoginTransaction.login(
+        return loginTransactionally(
                 identity,
                 newUserId,
                 newRefreshTokenId,
                 currentTime
         );
+    }
+
+    private GoogleLoginResult loginTransactionally(
+            GoogleIdentity identity,
+            UUID newUserId,
+            UUID newRefreshTokenId,
+            Instant currentTime
+    ) {
+        try {
+            return googleLoginTransaction.login(
+                    identity,
+                    newUserId,
+                    newRefreshTokenId,
+                    currentTime
+            );
+        } catch (DuplicateKeyException exception) {
+            return googleLoginTransaction.login(
+                    identity,
+                    newUserId,
+                    newRefreshTokenId,
+                    currentTime
+            );
+        }
     }
 }

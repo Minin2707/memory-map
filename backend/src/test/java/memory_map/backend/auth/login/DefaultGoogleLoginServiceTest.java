@@ -6,6 +6,7 @@ import memory_map.backend.auth.google.GoogleIdentityVerifier;
 import memory_map.backend.auth.refresh.RawRefreshToken;
 import memory_map.backend.user.domain.User;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -47,6 +48,19 @@ class DefaultGoogleLoginServiceTest {
                     ),
                     "issued-access-token",
                     new RawRefreshToken("raw-refresh-token")
+            );
+    private static final GoogleLoginResult RECOVERY_RESULT =
+            new GoogleLoginResult(
+                    new User(
+                            NEW_USER_ID,
+                            "google-subject-123",
+                            "Konstantin",
+                            "https://example.com/avatar.png",
+                            CURRENT_TIME,
+                            CURRENT_TIME
+                    ),
+                    "issued-access-token-after-retry",
+                    new RawRefreshToken("raw-refresh-token-after-retry")
             );
 
     @Test
@@ -239,6 +253,159 @@ class DefaultGoogleLoginServiceTest {
         assertThat(context.transaction().calls()).isZero();
     }
 
+    @Test
+    void shouldRetryTransactionOnceWhenFirstAttemptFailsWithDuplicateKey() {
+
+        TestContext context = testContext();
+        context.transaction().firstAttemptDuplicateThenReturn(
+                RECOVERY_RESULT
+        );
+
+        GoogleLoginResult result = context.service().login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(result).isEqualTo(RECOVERY_RESULT);
+        assertThat(context.transaction().calls()).isEqualTo(2);
+        assertThat(context.events()).containsExactly(
+                "verify",
+                "transaction",
+                "transaction"
+        );
+    }
+
+    @Test
+    void shouldVerifyGoogleTokenOnlyOnceDuringRecovery() {
+
+        TestContext context = testContext();
+        context.transaction().firstAttemptDuplicateThenReturn(
+                RECOVERY_RESULT
+        );
+
+        context.service().login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(context.verifier().calls()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReuseVerifiedIdentityDuringRecovery() {
+
+        TestContext context = testContext();
+        context.transaction().firstAttemptDuplicateThenReturn(
+                RECOVERY_RESULT
+        );
+
+        context.service().login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(context.transaction().receivedIdentities())
+                .containsExactly(
+                        IDENTITY,
+                        IDENTITY
+                );
+    }
+
+    @Test
+    void shouldReuseProvidedIdentifiersAndCurrentTimeDuringRecovery() {
+
+        TestContext context = testContext();
+        context.transaction().firstAttemptDuplicateThenReturn(
+                RECOVERY_RESULT
+        );
+
+        context.service().login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(context.transaction().receivedNewUserIds())
+                .containsExactly(
+                        NEW_USER_ID,
+                        NEW_USER_ID
+                );
+        assertThat(context.transaction().receivedRefreshTokenIds())
+                .containsExactly(
+                        NEW_REFRESH_TOKEN_ID,
+                        NEW_REFRESH_TOKEN_ID
+                );
+        assertThat(context.transaction().receivedTimes())
+                .containsExactly(
+                        CURRENT_TIME,
+                        CURRENT_TIME
+                );
+    }
+
+    @Test
+    void shouldReturnResultFromSecondAttempt() {
+
+        TestContext context = testContext();
+        context.transaction().firstAttemptDuplicateThenReturn(
+                RECOVERY_RESULT
+        );
+
+        GoogleLoginResult result = context.service().login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(result).isEqualTo(RECOVERY_RESULT);
+    }
+
+    @Test
+    void shouldPropagateDuplicateKeyWhenSecondAttemptAlsoFails() {
+
+        TestContext context = testContext();
+        context.transaction().alwaysDuplicate();
+
+        assertThatThrownBy(() -> context.service().login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        ))
+                .isInstanceOf(DuplicateKeyException.class);
+
+        assertThat(context.transaction().calls()).isEqualTo(2);
+        assertThat(context.verifier().calls()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldNotRetryForNonDuplicateRuntimeException() {
+
+        TestContext context = testContext();
+        context.transaction().failWith(
+                new IllegalStateException("database unavailable")
+        );
+
+        assertThatThrownBy(() -> context.service().login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("database unavailable");
+
+        assertThat(context.transaction().calls()).isEqualTo(1);
+        assertThat(context.verifier().calls()).isEqualTo(1);
+    }
+
     private static TestContext testContext() {
         List<String> events = new ArrayList<>();
         FakeGoogleIdentityVerifier verifier =
@@ -271,6 +438,7 @@ class DefaultGoogleLoginServiceTest {
         private final List<String> events;
         private boolean verificationFailure;
         private String receivedGoogleIdToken;
+        private int calls;
 
         private FakeGoogleIdentityVerifier(List<String> events) {
             this.events = events;
@@ -279,6 +447,7 @@ class DefaultGoogleLoginServiceTest {
         @Override
         public GoogleIdentity verify(String idToken) {
             events.add("verify");
+            calls++;
             receivedGoogleIdToken = idToken;
 
             if (verificationFailure) {
@@ -297,12 +466,23 @@ class DefaultGoogleLoginServiceTest {
         private String receivedGoogleIdToken() {
             return receivedGoogleIdToken;
         }
+
+        private int calls() {
+            return calls;
+        }
     }
 
     private static final class FakeGoogleLoginTransaction
             implements GoogleLoginTransaction {
 
         private final List<String> events;
+        private final List<Object> outcomes = new ArrayList<>();
+        private final List<GoogleIdentity> receivedIdentities =
+                new ArrayList<>();
+        private final List<UUID> receivedNewUserIds = new ArrayList<>();
+        private final List<UUID> receivedRefreshTokenIds =
+                new ArrayList<>();
+        private final List<Instant> receivedTimes = new ArrayList<>();
         private GoogleIdentity receivedIdentity;
         private UUID receivedNewUserId;
         private UUID receivedNewRefreshTokenId;
@@ -311,6 +491,7 @@ class DefaultGoogleLoginServiceTest {
 
         private FakeGoogleLoginTransaction(List<String> events) {
             this.events = events;
+            outcomes.add(RESULT);
         }
 
         @Override
@@ -326,8 +507,51 @@ class DefaultGoogleLoginServiceTest {
             receivedNewUserId = newUserId;
             receivedNewRefreshTokenId = newRefreshTokenId;
             receivedCurrentTime = currentTime;
+            receivedIdentities.add(identity);
+            receivedNewUserIds.add(newUserId);
+            receivedRefreshTokenIds.add(newRefreshTokenId);
+            receivedTimes.add(currentTime);
 
-            return RESULT;
+            Object outcome = outcomes.size() >= calls
+                    ? outcomes.get(calls - 1)
+                    : RESULT;
+
+            if (outcome instanceof RuntimeException exception) {
+                throw exception;
+            }
+
+            return (GoogleLoginResult) outcome;
+        }
+
+        private void firstAttemptDuplicateThenReturn(
+                GoogleLoginResult result
+        ) {
+            outcomes.clear();
+            outcomes.add(
+                    new DuplicateKeyException(
+                            "duplicate google subject"
+                    )
+            );
+            outcomes.add(result);
+        }
+
+        private void alwaysDuplicate() {
+            outcomes.clear();
+            outcomes.add(
+                    new DuplicateKeyException(
+                            "duplicate google subject"
+                    )
+            );
+            outcomes.add(
+                    new DuplicateKeyException(
+                            "duplicate google subject"
+                    )
+            );
+        }
+
+        private void failWith(RuntimeException exception) {
+            outcomes.clear();
+            outcomes.add(exception);
         }
 
         private GoogleIdentity receivedIdentity() {
@@ -348,6 +572,22 @@ class DefaultGoogleLoginServiceTest {
 
         private int calls() {
             return calls;
+        }
+
+        private List<GoogleIdentity> receivedIdentities() {
+            return receivedIdentities;
+        }
+
+        private List<UUID> receivedNewUserIds() {
+            return receivedNewUserIds;
+        }
+
+        private List<UUID> receivedRefreshTokenIds() {
+            return receivedRefreshTokenIds;
+        }
+
+        private List<Instant> receivedTimes() {
+            return receivedTimes;
         }
     }
 }
