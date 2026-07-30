@@ -10,7 +10,17 @@ final class AppConfig {
       'MM_API_BASE_URL',
       defaultValue: 'http://10.0.2.2:8080',
     ),
+    this.googleServerClientId = const String.fromEnvironment(
+      'MM_GOOGLE_SERVER_CLIENT_ID',
+      defaultValue: '',
+    ),
+    this.googleIosClientId = const String.fromEnvironment(
+      'MM_GOOGLE_IOS_CLIENT_ID',
+      defaultValue: '',
+    ),
   });
 
   final String apiBaseUrl;
+  final String googleServerClientId;
+  final String googleIosClientId;
 }
