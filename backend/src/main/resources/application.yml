@@ -4,3 +4,13 @@ spring:
 
   profiles:
     default: dev
+
+app:
+  auth:
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+
+    jwt:
+      issuer: memory-map-backend
+      access-token-ttl: PT15M
+      secret-base64: ${JWT_SECRET_BASE64:}
