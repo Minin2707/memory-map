@@ -5,6 +5,9 @@ spring:
   profiles:
     default: dev
 
+  config:
+    import: optional:file:./config/application-local.yml
+
 app:
   auth:
     google:
@@ -17,3 +20,4 @@ app:
 
     refresh-token:
       ttl: P30D
+
