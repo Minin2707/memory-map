@@ -49,7 +49,7 @@ void main() {
 
     await pumpApp(tester, fakeRepository);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Continue with Google'));
+    await tapVisibleText(tester, 'Continue with Google');
     await tester.pump();
 
     expect(find.text('Signing in…'), findsOneWidget);
@@ -66,7 +66,7 @@ void main() {
 
     await pumpApp(tester, fakeRepository);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Continue with Google'));
+    await tapVisibleText(tester, 'Continue with Google');
     await tester.pumpAndSettle();
 
     expect(find.text('Continue with Google'), findsOneWidget);
@@ -247,6 +247,14 @@ void main() {
     fakeRepository.logoutCompleter?.complete();
     await logout;
   });
+}
+
+Future<void> tapVisibleText(WidgetTester tester, String text) async {
+  final finder = find.text(text);
+
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
 }
 
 Future<void> pumpApp(

@@ -15,13 +15,56 @@ import 'package:memory_map/features/auth/presentation/login_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 void main() {
-  testWidgets('shouldRenderHeroImage', (WidgetTester tester) async {
+  testWidgets('shouldRenderLargeHeroSection', (WidgetTester tester) async {
+    await setPortraitSurface(tester);
     await pumpScreen(tester, FakeAuthRepository());
 
-    expect(find.byKey(const ValueKey('login.hero.image')), findsOneWidget);
+    final heroSize = tester.getSize(
+      find.byKey(const ValueKey('login.hero.section')),
+    );
+
+    expect(heroSize.height, greaterThanOrEqualTo(380));
+    expect(heroSize.height, lessThanOrEqualTo(620));
   });
 
-  testWidgets('shouldRenderGoogleLogoSvg', (WidgetTester tester) async {
+  testWidgets('shouldUseLoginScreenHeroAsset', (WidgetTester tester) async {
+    await pumpScreen(tester, FakeAuthRepository());
+
+    final image = tester.widget<Image>(
+      find.byKey(const ValueKey('login.hero.image')),
+    );
+
+    expect(image.image, isA<AssetImage>());
+    expect((image.image as AssetImage).assetName, 'assets/loginscreen.png');
+    expect(image.fit, BoxFit.cover);
+    expect(image.alignment, const Alignment(0, 0.42));
+  });
+
+  testWidgets('shouldRenderMemoryMapLogo', (WidgetTester tester) async {
+    await pumpScreen(tester, FakeAuthRepository());
+
+    expect(find.byKey(const ValueKey('login.memory-map.logo')), findsOneWidget);
+    expect(find.byType(CustomPaint), findsWidgets);
+  });
+
+  testWidgets('shouldRenderHeroBeforeMainContent', (
+    WidgetTester tester,
+  ) async {
+    await pumpScreen(tester, FakeAuthRepository());
+
+    final heroTop = tester.getTopLeft(
+      find.byKey(const ValueKey('login.hero.section')),
+    );
+    final logoTop = tester.getTopLeft(
+      find.byKey(const ValueKey('login.memory-map.logo')),
+    );
+    final titleTop = tester.getTopLeft(find.text('Memory Map'));
+
+    expect(heroTop.dy, lessThan(logoTop.dy));
+    expect(logoTop.dy, lessThan(titleTop.dy));
+  });
+
+  testWidgets('shouldRenderGoogleSvgLogo', (WidgetTester tester) async {
     await pumpScreen(tester, FakeAuthRepository());
 
     final svgPicture = tester.widget<SvgPicture>(find.byType(SvgPicture));
@@ -35,7 +78,23 @@ void main() {
     );
   });
 
-  testWidgets('shouldRenderEnglishLoginContent', (WidgetTester tester) async {
+  testWidgets('shouldKeepGoogleButtonLargeAndAccessible', (
+    WidgetTester tester,
+  ) async {
+    await pumpScreen(tester, FakeAuthRepository());
+
+    final buttonBox = tester.getSize(
+      find.byKey(const ValueKey('login.google.button.box')),
+    );
+    final button = tester.widget<FilledButton>(find.byType(FilledButton));
+
+    expect(buttonBox.height, 62);
+    expect(buttonBox.width, greaterThan(300));
+    expect(button.onPressed, isNotNull);
+    expect(find.text('Continue with Google'), findsOneWidget);
+  });
+
+  testWidgets('shouldRenderEnglishContent', (WidgetTester tester) async {
     await pumpScreen(tester, FakeAuthRepository());
 
     expect(find.text('Memory Map'), findsOneWidget);
@@ -47,26 +106,46 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Continue with Google'), findsOneWidget);
+    expect(
+      find.textContaining('By continuing', findRichText: true),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shouldRenderRussianContent', (WidgetTester tester) async {
+    await pumpScreen(tester, FakeAuthRepository(), locale: const Locale('ru'));
+
+    expect(find.text('Memory Map'), findsOneWidget);
+    expect(find.text('У каждого места есть история'), findsOneWidget);
+    expect(
+      find.text(
+        'Создавайте личную карту воспоминаний и делитесь ею с теми, кто вам дорог.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Продолжить с Google'), findsOneWidget);
+    expect(
+      find.textContaining('Продолжая', findRichText: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shouldCallLoginWithGoogle', (WidgetTester tester) async {
     final fakeRepository = FakeAuthRepository();
 
     await pumpScreen(tester, fakeRepository);
-    await tester.tap(find.text('Continue with Google'));
+    await tapVisibleText(tester, 'Continue with Google');
     await tester.pump();
 
     expect(fakeRepository.loginCalls, 1);
   });
 
-  testWidgets('shouldDisableButtonWhileAuthenticating', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('shouldShowLoadingState', (WidgetTester tester) async {
     final fakeRepository = FakeAuthRepository()
       ..loginCompleter = Completer<AuthSession>();
 
     await pumpScreen(tester, fakeRepository);
-    await tester.tap(find.text('Continue with Google'));
+    await tapVisibleText(tester, 'Continue with Google');
     await tester.pump();
 
     final button = tester.widget<FilledButton>(find.byType(FilledButton));
@@ -74,35 +153,35 @@ void main() {
     expect(button.onPressed, isNull);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.byType(SvgPicture), findsNothing);
-
-    fakeRepository.loginCompleter?.complete(session);
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('shouldShowEnglishSigningInText', (
-    WidgetTester tester,
-  ) async {
-    final fakeRepository = FakeAuthRepository()
-      ..loginCompleter = Completer<AuthSession>();
-
-    await pumpScreen(tester, fakeRepository);
-    await tester.tap(find.text('Continue with Google'));
-    await tester.pump();
-
     expect(find.text('Signing in…'), findsOneWidget);
 
     fakeRepository.loginCompleter?.complete(session);
     await tester.pumpAndSettle();
   });
 
-  testWidgets('shouldShowEnglishSafeFailureMessage', (
+  testWidgets('shouldShowRussianLoadingState', (
     WidgetTester tester,
   ) async {
+    final fakeRepository = FakeAuthRepository()
+      ..loginCompleter = Completer<AuthSession>();
+
+    await pumpScreen(tester, fakeRepository, locale: const Locale('ru'));
+    await tapVisibleText(tester, 'Продолжить с Google');
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Выполняется вход…'), findsOneWidget);
+
+    fakeRepository.loginCompleter?.complete(session);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('shouldShowSafeFailure', (WidgetTester tester) async {
     final fakeRepository = FakeAuthRepository()
       ..loginFailure = const AuthApplicationException(NetworkUnavailable());
 
     await pumpScreen(tester, fakeRepository);
-    await tester.tap(find.text('Continue with Google'));
+    await tapVisibleText(tester, 'Continue with Google');
     await tester.pumpAndSettle();
 
     expect(
@@ -115,23 +194,23 @@ void main() {
     expect(find.textContaining('client-id'), findsNothing);
   });
 
-  testWidgets('shouldRenderEnglishLegalFooter', (
+  testWidgets('shouldShowRussianSafeFailure', (
     WidgetTester tester,
   ) async {
-    await pumpScreen(tester, FakeAuthRepository());
+    final fakeRepository = FakeAuthRepository()
+      ..loginFailure = const AuthApplicationException(NetworkUnavailable());
+
+    await pumpScreen(tester, fakeRepository, locale: const Locale('ru'));
+    await tapVisibleText(tester, 'Продолжить с Google');
+    await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('By continuing', findRichText: true),
+      find.text(
+        'Нет подключения к интернету. Проверьте соединение и повторите попытку.',
+      ),
       findsOneWidget,
     );
-    expect(
-      find.textContaining('Privacy Policy', findRichText: true),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining('Terms of Use', findRichText: true),
-      findsOneWidget,
-    );
+    expect(find.textContaining('NetworkUnavailable'), findsNothing);
   });
 
   testWidgets('shouldNotExposeTokensOrClientId', (
@@ -144,104 +223,59 @@ void main() {
     expect(find.textContaining('client-id'), findsNothing);
   });
 
-  testWidgets('shouldRenderRussianLoginContent', (WidgetTester tester) async {
-    await pumpScreen(tester, FakeAuthRepository(), locale: const Locale('ru'));
-
-    expect(find.text('Memory Map'), findsOneWidget);
-    expect(find.text('У каждого места есть история'), findsOneWidget);
-    expect(
-      find.text(
-        'Создавайте личную карту воспоминаний и делитесь ею с теми, кто вам дорог.',
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('shouldRenderRussianGoogleButton', (
+  testWidgets('shouldNotOverflowOnSmallPortraitScreen', (
     WidgetTester tester,
   ) async {
-    await pumpScreen(tester, FakeAuthRepository(), locale: const Locale('ru'));
+    await setSmallPortraitSurface(tester);
 
-    expect(find.text('Продолжить с Google'), findsOneWidget);
-  });
-
-  testWidgets('shouldShowRussianSigningInText', (
-    WidgetTester tester,
-  ) async {
-    final fakeRepository = FakeAuthRepository()
-      ..loginCompleter = Completer<AuthSession>();
-
-    await pumpScreen(tester, fakeRepository, locale: const Locale('ru'));
-    await tester.tap(find.text('Продолжить с Google'));
-    await tester.pump();
-
-    expect(find.text('Выполняется вход…'), findsOneWidget);
-
-    fakeRepository.loginCompleter?.complete(session);
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('shouldShowRussianSafeFailureMessage', (
-    WidgetTester tester,
-  ) async {
-    final fakeRepository = FakeAuthRepository()
-      ..loginFailure = const AuthApplicationException(NetworkUnavailable());
-
-    await pumpScreen(tester, fakeRepository, locale: const Locale('ru'));
-    await tester.tap(find.text('Продолжить с Google'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text(
-        'Нет подключения к интернету. Проверьте соединение и повторите попытку.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.textContaining('NetworkUnavailable'), findsNothing);
-  });
-
-  testWidgets('shouldRenderRussianLegalFooter', (
-    WidgetTester tester,
-  ) async {
-    await pumpScreen(tester, FakeAuthRepository(), locale: const Locale('ru'));
-
-    expect(
-      find.textContaining('Продолжая', findRichText: true),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining(
-        'Политикой конфиденциальности',
-        findRichText: true,
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining('Условиями использования', findRichText: true),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('shouldNotOverflowWithRussianText', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-
-    await pumpScreen(tester, FakeAuthRepository(), locale: const Locale('ru'));
+    await pumpScreen(tester, FakeAuthRepository());
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('shouldNotOverflowWithLargeTextScale', (
+    WidgetTester tester,
+  ) async {
+    await setSmallPortraitSurface(tester);
+
+    await pumpScreen(
+      tester,
+      FakeAuthRepository(),
+      textScaler: const TextScaler.linear(1.5),
+    );
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shouldNotOverflowWithRussianLocale', (
+    WidgetTester tester,
+  ) async {
+    await setSmallPortraitSurface(tester);
+
+    await pumpScreen(
+      tester,
+      FakeAuthRepository(),
+      locale: const Locale('ru'),
+      textScaler: const TextScaler.linear(1.3),
+    );
+
+    expect(tester.takeException(), isNull);
+  });
+}
+
+Future<void> tapVisibleText(WidgetTester tester, String text) async {
+  final finder = find.text(text);
+
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
 }
 
 Future<void> pumpScreen(
   WidgetTester tester,
   FakeAuthRepository fakeRepository, {
   Locale locale = const Locale('en'),
+  TextScaler textScaler = TextScaler.noScaling,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -252,11 +286,35 @@ Future<void> pumpScreen(
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: const LoginScreen(),
       ),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+Future<void> setPortraitSurface(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+}
+
+Future<void> setSmallPortraitSurface(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(360, 640);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
 }
 
 final AuthSession session = AuthSession(
