@@ -5,6 +5,7 @@ import memory_map.backend.common.database.DatabaseTimestamps;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,6 +60,13 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
             UPDATE refresh_tokens
             SET revoked_at = :revokedAt
             WHERE id = :id
+            """;
+
+    private static final String REVOKE_IF_ACTIVE_SQL = """
+            UPDATE refresh_tokens
+            SET revoked_at = :revokedAt
+            WHERE id = :id
+              AND revoked_at IS NULL
             """;
 
     private static final String DELETE_SQL = """
@@ -131,6 +139,22 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
                                 : DatabaseTimestamps.toOffsetDateTime(refreshToken.revokedAt())
                 )
                 .update();
+    }
+
+    @Override
+    public boolean revokeIfActive(
+            UUID id,
+            Instant revokedAt
+    ) {
+        int updatedRows = jdbcClient.sql(REVOKE_IF_ACTIVE_SQL)
+                .param("id", id)
+                .param(
+                        "revokedAt",
+                        DatabaseTimestamps.toOffsetDateTime(revokedAt)
+                )
+                .update();
+
+        return updatedRows == 1;
     }
 
     @Override

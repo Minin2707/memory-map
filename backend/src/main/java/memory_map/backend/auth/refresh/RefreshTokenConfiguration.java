@@ -1,5 +1,7 @@
 package memory_map.backend.auth.refresh;
 
+import memory_map.backend.auth.jwt.AccessTokenService;
+import memory_map.backend.auth.repository.RefreshTokenRepository;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,5 +49,35 @@ public class RefreshTokenConfiguration {
     @Bean
     public RefreshTokenValidator refreshTokenValidator() {
         return new DefaultRefreshTokenValidator();
+    }
+
+    @Bean
+    public RefreshTokenRotationService refreshTokenRotationService(
+            RefreshTokenHasher refreshTokenHasher,
+            RefreshTokenRepository refreshTokenRepository,
+            RefreshTokenValidator refreshTokenValidator,
+            AccessTokenService accessTokenService,
+            RefreshTokenIssuer refreshTokenIssuer
+    ) {
+        return new TransactionalRefreshTokenRotationService(
+                refreshTokenHasher,
+                refreshTokenRepository,
+                refreshTokenValidator,
+                accessTokenService,
+                refreshTokenIssuer
+        );
+    }
+
+    @Bean
+    public RefreshTokenLogoutService refreshTokenLogoutService(
+            RefreshTokenHasher refreshTokenHasher,
+            RefreshTokenRepository refreshTokenRepository,
+            RefreshTokenValidator refreshTokenValidator
+    ) {
+        return new DefaultRefreshTokenLogoutService(
+                refreshTokenHasher,
+                refreshTokenRepository,
+                refreshTokenValidator
+        );
     }
 }
