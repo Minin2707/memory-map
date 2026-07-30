@@ -11,9 +11,10 @@ import 'package:memory_map/features/auth/domain/auth_session.dart';
 import 'package:memory_map/features/auth/domain/auth_tokens.dart';
 import 'package:memory_map/features/auth/domain/auth_user.dart';
 import 'package:memory_map/features/auth/presentation/authenticated_home_screen.dart';
+import 'package:memory_map/l10n/app_localizations.dart';
 
 void main() {
-  testWidgets('shouldRenderAuthenticatedHomeScreen', (
+  testWidgets('shouldRenderEnglishAuthenticatedHomeScreen', (
     WidgetTester tester,
   ) async {
     await pumpScreen(tester, FakeAuthRepository());
@@ -21,6 +22,16 @@ void main() {
     expect(find.text('Memory Map'), findsOneWidget);
     expect(find.text('Welcome, Ada Lovelace'), findsOneWidget);
     expect(find.text('Authenticated session is ready'), findsOneWidget);
+  });
+
+  testWidgets('shouldRenderRussianAuthenticatedHomeScreen', (
+    WidgetTester tester,
+  ) async {
+    await pumpScreen(tester, FakeAuthRepository(), locale: const Locale('ru'));
+
+    expect(find.text('Memory Map'), findsOneWidget);
+    expect(find.text('Добро пожаловать, Ada Lovelace'), findsOneWidget);
+    expect(find.text('Сеанс авторизации готов'), findsOneWidget);
   });
 
   testWidgets('shouldShowLogoutButton', (WidgetTester tester) async {
@@ -60,7 +71,9 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('shouldShowLogoutProgress', (WidgetTester tester) async {
+  testWidgets('shouldShowEnglishLogoutProgress', (
+    WidgetTester tester,
+  ) async {
     final fakeRepository = FakeAuthRepository()
       ..logoutCompleter = Completer<void>();
 
@@ -69,7 +82,24 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('Logging out...'), findsOneWidget);
+    expect(find.text('Logging out…'), findsOneWidget);
+
+    fakeRepository.logoutCompleter?.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('shouldShowRussianLogoutProgress', (
+    WidgetTester tester,
+  ) async {
+    final fakeRepository = FakeAuthRepository()
+      ..logoutCompleter = Completer<void>();
+
+    await pumpScreen(tester, fakeRepository, locale: const Locale('ru'));
+    await tester.tap(find.text('Выйти'));
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Выполняется выход…'), findsOneWidget);
 
     fakeRepository.logoutCompleter?.complete();
     await tester.pumpAndSettle();
@@ -153,15 +183,19 @@ void main() {
 
 Future<void> pumpScreen(
   WidgetTester tester,
-  FakeAuthRepository fakeRepository,
-) async {
+  FakeAuthRepository fakeRepository, {
+  Locale locale = const Locale('en'),
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         authRepositoryProvider.overrideWithValue(fakeRepository),
       ],
-      child: const MaterialApp(
-        home: AuthenticatedHomeScreen(),
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AuthenticatedHomeScreen(),
       ),
     ),
   );

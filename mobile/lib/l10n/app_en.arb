@@ -1,0 +1,46 @@
+{
+  "@@locale": "en",
+  "appName": "Memory Map",
+  "@appName": {
+    "description": "Application name"
+  },
+  "loginHeadline": "Every place has a story",
+  "loginDescription": "Create your private map of memories and share it with the people you love.",
+  "continueWithGoogle": "Continue with Google",
+  "signingIn": "Signing in…",
+  "loginLegalPrefix": "By continuing, you agree to our",
+  "privacyPolicy": "Privacy Policy",
+  "termsOfUse": "Terms of Use",
+  "legalSeparator": "and",
+  "authCancelled": "Sign-in was cancelled.",
+  "googleAuthenticationUnavailable": "Google sign-in is unavailable on this device.",
+  "googleAuthenticationFailed": "Could not sign in with Google. Please try again.",
+  "backendUnauthorized": "Authentication was rejected. Please try again.",
+  "requestValidationFailed": "The request was invalid. Please try again.",
+  "networkUnavailable": "No network connection. Check your connection and try again.",
+  "requestTimedOut": "The request timed out. Please try again.",
+  "serverFailure": "The server is temporarily unavailable. Please try again.",
+  "secureStorageFailure": "Could not securely save your session. Please try again.",
+  "corruptSession": "Local session data was invalid. Please try again.",
+  "unknownAuthFailure": "Something went wrong. Please try again.",
+  "checkingSession": "Checking your session…",
+  "restoreSessionTitle": "Could not restore your session",
+  "retry": "Retry",
+  "unexpectedErrorTitle": "Something went wrong",
+  "unexpectedErrorDescription": "Please restart the app or try again.",
+  "tryAgain": "Try again",
+  "welcomeUser": "Welcome, {displayName}",
+  "@welcomeUser": {
+    "description": "Greeting shown on the authenticated home screen",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "fallbackDisplayName": "friend",
+  "authenticatedSessionReady": "Authenticated session is ready",
+  "logOut": "Log out",
+  "loggingOut": "Logging out…",
+  "tryLogoutAgain": "Try to log out again"
+}

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memory_map/features/auth/application/auth_notifier.dart';
 import 'package:memory_map/features/auth/application/auth_state.dart';
 import 'package:memory_map/features/auth/presentation/auth_failure_message.dart';
+import 'package:memory_map/l10n/app_localizations.dart';
 
 class AuthRestoreFailureScreen extends ConsumerWidget {
   const AuthRestoreFailureScreen({super.key});
@@ -10,10 +11,11 @@ class AuthRestoreFailureScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authValue = ref.watch(authNotifierProvider);
+    final l10n = AppLocalizations.of(context);
     final authState = authValue.asData?.value;
     final message = authState is AuthRestoreFailure
-        ? authFailureMessage(authState.failure)
-        : 'Something went wrong. Please try again.';
+        ? authFailureMessage(l10n, authState.failure)
+        : l10n.unknownAuthFailure;
 
     return Scaffold(
       body: SafeArea(
@@ -23,10 +25,10 @@ class AuthRestoreFailureScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Could not restore your session',
+                Text(
+                  l10n.restoreSessionTitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                   ),
@@ -43,7 +45,7 @@ class AuthRestoreFailureScreen extends ConsumerWidget {
                         .read(authNotifierProvider.notifier)
                         .retrySessionRestore();
                   },
-                  child: const Text('Retry'),
+                  child: Text(l10n.retry),
                 ),
               ],
             ),

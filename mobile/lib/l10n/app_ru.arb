@@ -1,0 +1,46 @@
+{
+  "@@locale": "ru",
+  "appName": "Memory Map",
+  "@appName": {
+    "description": "Application name"
+  },
+  "loginHeadline": "У каждого места есть история",
+  "loginDescription": "Создавайте личную карту воспоминаний и делитесь ею с теми, кто вам дорог.",
+  "continueWithGoogle": "Продолжить с Google",
+  "signingIn": "Выполняется вход…",
+  "loginLegalPrefix": "Продолжая, вы соглашаетесь с",
+  "privacyPolicy": "Политикой конфиденциальности",
+  "termsOfUse": "Условиями использования",
+  "legalSeparator": "и",
+  "authCancelled": "Вход был отменён.",
+  "googleAuthenticationUnavailable": "Вход через Google недоступен на этом устройстве.",
+  "googleAuthenticationFailed": "Не удалось войти через Google. Попробуйте ещё раз.",
+  "backendUnauthorized": "Сервер отклонил вход. Попробуйте ещё раз.",
+  "requestValidationFailed": "Запрос содержит ошибку. Попробуйте ещё раз.",
+  "networkUnavailable": "Нет подключения к интернету. Проверьте соединение и повторите попытку.",
+  "requestTimedOut": "Время ожидания истекло. Попробуйте ещё раз.",
+  "serverFailure": "Сервер временно недоступен. Попробуйте ещё раз.",
+  "secureStorageFailure": "Не удалось безопасно сохранить сеанс. Попробуйте ещё раз.",
+  "corruptSession": "Локальные данные сеанса повреждены. Попробуйте ещё раз.",
+  "unknownAuthFailure": "Что-то пошло не так. Попробуйте ещё раз.",
+  "checkingSession": "Проверяем ваш сеанс…",
+  "restoreSessionTitle": "Не удалось восстановить сеанс",
+  "retry": "Повторить",
+  "unexpectedErrorTitle": "Что-то пошло не так",
+  "unexpectedErrorDescription": "Перезапустите приложение или попробуйте ещё раз.",
+  "tryAgain": "Попробовать снова",
+  "welcomeUser": "Добро пожаловать, {displayName}",
+  "@welcomeUser": {
+    "description": "Greeting shown on the authenticated home screen",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "fallbackDisplayName": "друг",
+  "authenticatedSessionReady": "Сеанс авторизации готов",
+  "logOut": "Выйти",
+  "loggingOut": "Выполняется выход…",
+  "tryLogoutAgain": "Попробовать выйти снова"
+}

@@ -29,7 +29,7 @@ void main() {
 
     await pumpApp(tester, fakeRepository);
 
-    expect(find.text('Checking your session...'), findsOneWidget);
+    expect(find.text('Checking your session…'), findsOneWidget);
   });
 
   testWidgets('shouldRouteUnauthenticatedStateToLogin', (
@@ -52,7 +52,7 @@ void main() {
     await tester.tap(find.text('Continue with Google'));
     await tester.pump();
 
-    expect(find.text('Signing in...'), findsOneWidget);
+    expect(find.text('Signing in…'), findsOneWidget);
 
     fakeRepository.loginCompleter?.complete(session);
     await tester.pumpAndSettle();
@@ -113,7 +113,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Welcome, Ada Lovelace'), findsOneWidget);
-    expect(find.text('Logging out...'), findsOneWidget);
+    expect(find.text('Logging out…'), findsOneWidget);
 
     fakeRepository.logoutCompleter?.complete();
     await tester.pumpAndSettle();

@@ -1,71 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:memory_map/features/auth/application/auth_application_exception.dart';
 import 'package:memory_map/features/auth/application/auth_application_providers.dart';
-import 'package:memory_map/features/auth/domain/auth_failure.dart';
 import 'package:memory_map/features/auth/domain/auth_repository.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
-import 'package:memory_map/features/auth/presentation/auth_restore_failure_screen.dart';
+import 'package:memory_map/features/auth/presentation/auth_unexpected_error_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 void main() {
-  testWidgets('shouldRenderEnglishRestoreFailureScreen', (
+  testWidgets('shouldRenderEnglishUnexpectedErrorScreen', (
     WidgetTester tester,
   ) async {
-    final fakeRepository = FakeAuthRepository()
-      ..restoreFailure = const AuthApplicationException(NetworkUnavailable());
+    await pumpScreen(tester, FakeAuthRepository());
 
-    await pumpScreen(tester, fakeRepository);
-
-    expect(find.text('Could not restore your session'), findsOneWidget);
-    expect(
-      find.text('No network connection. Check your connection and try again.'),
-      findsOneWidget,
-    );
-    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('Something went wrong'), findsOneWidget);
+    expect(find.text('Please restart the app or try again.'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
   });
 
-  testWidgets('shouldRenderRussianRestoreFailureScreen', (
+  testWidgets('shouldRenderRussianUnexpectedErrorScreen', (
     WidgetTester tester,
   ) async {
-    final fakeRepository = FakeAuthRepository()
-      ..restoreFailure = const AuthApplicationException(NetworkUnavailable());
+    await pumpScreen(tester, FakeAuthRepository(), locale: const Locale('ru'));
 
-    await pumpScreen(tester, fakeRepository, locale: const Locale('ru'));
-
-    expect(find.text('Не удалось восстановить сеанс'), findsOneWidget);
+    expect(find.text('Что-то пошло не так'), findsOneWidget);
     expect(
-      find.text(
-        'Нет подключения к интернету. Проверьте соединение и повторите попытку.',
-      ),
+      find.text('Перезапустите приложение или попробуйте ещё раз.'),
       findsOneWidget,
     );
-    expect(find.text('Повторить'), findsOneWidget);
+    expect(find.text('Попробовать снова'), findsOneWidget);
   });
 
   testWidgets('shouldRetrySessionRestoreWhenPressed', (
     WidgetTester tester,
   ) async {
-    final fakeRepository = FakeAuthRepository()
-      ..restoreFailure = const AuthApplicationException(NetworkUnavailable());
+    final fakeRepository = FakeAuthRepository();
 
     await pumpScreen(tester, fakeRepository);
-    await tester.tap(find.text('Retry'));
+    await tester.tap(find.text('Try again'));
     await tester.pump();
 
-    expect(fakeRepository.restoreCalls, 2);
+    expect(fakeRepository.restoreCalls, 1);
   });
 
   testWidgets('shouldNotExposeInfrastructureDetailsOrTokens', (
     WidgetTester tester,
   ) async {
-    final fakeRepository = FakeAuthRepository()
-      ..restoreFailure = const AuthApplicationException(NetworkUnavailable());
+    await pumpScreen(tester, FakeAuthRepository());
 
-    await pumpScreen(tester, fakeRepository);
-
-    expect(find.textContaining('NetworkUnavailable'), findsNothing);
+    expect(find.textContaining('UnexpectedAuthException'), findsNothing);
     expect(find.textContaining('AuthApplicationException'), findsNothing);
     expect(find.textContaining('Dio'), findsNothing);
     expect(find.textContaining('signed-access-token'), findsNothing);
@@ -87,7 +70,7 @@ Future<void> pumpScreen(
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AuthRestoreFailureScreen(),
+        home: const AuthUnexpectedErrorScreen(),
       ),
     ),
   );
@@ -96,17 +79,10 @@ Future<void> pumpScreen(
 
 final class FakeAuthRepository implements AuthRepository {
   int restoreCalls = 0;
-  Object? restoreFailure;
 
   @override
   Future<AuthSession?> restoreSession() async {
     restoreCalls += 1;
-
-    final failure = restoreFailure;
-    if (failure != null) {
-      throw failure;
-    }
-
     return null;
   }
 

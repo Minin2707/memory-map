@@ -1,24 +1,18 @@
 import 'package:memory_map/features/auth/domain/auth_failure.dart';
+import 'package:memory_map/l10n/app_localizations.dart';
 
-String authFailureMessage(AuthFailure failure) {
+String authFailureMessage(AppLocalizations l10n, AuthFailure failure) {
   return switch (failure) {
-    AuthCancelled() => 'Sign-in was cancelled.',
-    GoogleAuthenticationUnavailable() =>
-      'Google sign-in is unavailable on this device.',
-    GoogleAuthenticationFailed() =>
-      'Could not sign in with Google. Please try again.',
-    BackendUnauthorized() =>
-      'Authentication was rejected. Please try again.',
-    RequestValidationFailed() =>
-      'The sign-in request was invalid. Please try again.',
-    NetworkUnavailable() =>
-      'No network connection. Check your connection and try again.',
-    RequestTimedOut() => 'The request timed out. Please try again.',
-    ServerFailure() =>
-      'The server is temporarily unavailable. Please try again.',
-    SecureStorageFailure() =>
-      'Could not securely save your session. Please try again.',
-    CorruptSession() => 'Local session data was invalid. Please try again.',
-    UnknownAuthFailure() => 'Something went wrong. Please try again.',
+    AuthCancelled() => l10n.authCancelled,
+    GoogleAuthenticationUnavailable() => l10n.googleAuthenticationUnavailable,
+    GoogleAuthenticationFailed() => l10n.googleAuthenticationFailed,
+    BackendUnauthorized() => l10n.backendUnauthorized,
+    RequestValidationFailed() => l10n.requestValidationFailed,
+    NetworkUnavailable() => l10n.networkUnavailable,
+    RequestTimedOut() => l10n.requestTimedOut,
+    ServerFailure() => l10n.serverFailure,
+    SecureStorageFailure() => l10n.secureStorageFailure,
+    CorruptSession() => l10n.corruptSession,
+    UnknownAuthFailure() => l10n.unknownAuthFailure,
   };
 }

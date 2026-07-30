@@ -4,6 +4,7 @@ import 'package:memory_map/features/auth/application/auth_notifier.dart';
 import 'package:memory_map/features/auth/application/auth_state.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
 import 'package:memory_map/features/auth/presentation/auth_failure_message.dart';
+import 'package:memory_map/l10n/app_localizations.dart';
 
 class AuthenticatedHomeScreen extends ConsumerWidget {
   const AuthenticatedHomeScreen({super.key});
@@ -11,17 +12,18 @@ class AuthenticatedHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authValue = ref.watch(authNotifierProvider);
+    final l10n = AppLocalizations.of(context);
     final authState = authValue.asData?.value;
     final session = _sessionFor(authState);
-    final displayName = session?.user.displayName ?? 'there';
+    final displayName = session?.user.displayName ?? l10n.fallbackDisplayName;
     final isLoggingOut = authState is AuthLoggingOut;
     final logoutFailure = authState is AuthLogoutFailure
-        ? authFailureMessage(authState.failure)
+        ? authFailureMessage(l10n, authState.failure)
         : null;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Memory Map'),
+        title: Text(l10n.appName),
       ),
       body: SafeArea(
         child: Center(
@@ -31,7 +33,7 @@ class AuthenticatedHomeScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Welcome, $displayName',
+                  l10n.welcomeUser(displayName),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 24,
@@ -39,7 +41,7 @@ class AuthenticatedHomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('Authenticated session is ready'),
+                Text(l10n.authenticatedSessionReady),
                 if (logoutFailure != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -58,20 +60,20 @@ class AuthenticatedHomeScreen extends ConsumerWidget {
                           ref.read(authNotifierProvider.notifier).logout();
                         },
                   child: isLoggingOut
-                      ? const Row(
+                      ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            SizedBox.square(
+                            const SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                               ),
                             ),
-                            SizedBox(width: 12),
-                            Text('Logging out...'),
+                            const SizedBox(width: 12),
+                            Text(l10n.loggingOut),
                           ],
                         )
-                      : const Text('Log out'),
+                      : Text(l10n.logOut),
                 ),
               ],
             ),
