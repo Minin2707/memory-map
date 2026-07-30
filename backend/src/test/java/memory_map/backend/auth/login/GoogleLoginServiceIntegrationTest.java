@@ -1,0 +1,297 @@
+package memory_map.backend.auth.login;
+
+import memory_map.backend.IntegrationTest;
+import memory_map.backend.auth.domain.GoogleIdentity;
+import memory_map.backend.auth.domain.RefreshToken;
+import memory_map.backend.auth.google.GoogleIdentityVerificationException;
+import memory_map.backend.auth.google.GoogleIdentityVerifier;
+import memory_map.backend.auth.refresh.RefreshTokenHasher;
+import memory_map.backend.auth.repository.RefreshTokenRepository;
+import memory_map.backend.user.domain.User;
+import memory_map.backend.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.simple.JdbcClient;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+@Import(GoogleLoginServiceIntegrationTest.GoogleLoginTestConfiguration.class)
+class GoogleLoginServiceIntegrationTest extends IntegrationTest {
+
+    @Autowired
+    private GoogleLoginService loginService;
+
+    @Autowired
+    private FakeGoogleIdentityVerifier googleIdentityVerifier;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private RefreshTokenHasher refreshTokenHasher;
+
+    @Autowired
+    private JdbcClient jdbcClient;
+
+    private static final String GOOGLE_ID_TOKEN =
+            "raw-google-id-token";
+    private static final String GOOGLE_SUBJECT =
+            "google-subject-123";
+    private static final UUID NEW_USER_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID EXISTING_USER_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000002");
+    private static final UUID NEW_REFRESH_TOKEN_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final Instant BASE_TIME =
+            Instant.parse("2026-01-01T10:00:00.123456Z");
+    private static final Instant UPDATED_AT =
+            Instant.parse("2026-01-02T10:00:00.123456Z");
+    private static final Instant CURRENT_TIME =
+            Instant.parse("2026-01-10T10:00:00.123456Z");
+    private static final Instant EXPIRES_AT =
+            Instant.parse("2026-02-01T10:00:00.123456Z");
+    private static final String CLEAN_DATABASE_SQL = """
+        TRUNCATE TABLE users
+        RESTART IDENTITY CASCADE
+        """;
+
+    @BeforeEach
+    void cleanDatabase() {
+        jdbcClient.sql(CLEAN_DATABASE_SQL).update();
+        googleIdentityVerifier.identity(
+                googleIdentity()
+        );
+    }
+
+    @Test
+    void shouldCreateUserAndSessionForFirstGoogleLogin() {
+
+        GoogleLoginResult result = loginService.login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        User persistedUser = userRepository
+                .findById(NEW_USER_ID)
+                .orElseThrow();
+        RefreshToken persistedRefreshToken = refreshTokenRepository
+                .findById(NEW_REFRESH_TOKEN_ID)
+                .orElseThrow();
+
+        assertThat(googleIdentityVerifier.receivedGoogleIdToken())
+                .isEqualTo(GOOGLE_ID_TOKEN);
+        assertThat(persistedUser.googleSubject())
+                .isEqualTo(GOOGLE_SUBJECT);
+        assertThat(persistedUser.displayName())
+                .isEqualTo("Konstantin");
+        assertThat(persistedUser.avatarUrl())
+                .isEqualTo("https://example.com/avatar.png");
+        assertThat(persistedUser.createdAt())
+                .isEqualTo(CURRENT_TIME);
+        assertThat(persistedUser.updatedAt())
+                .isEqualTo(CURRENT_TIME);
+        assertThat(result.user()).isEqualTo(persistedUser);
+        assertThat(result.accessToken()).isNotBlank();
+        assertThat(result.refreshToken().value()).isNotBlank();
+        assertThat(persistedRefreshToken.userId())
+                .isEqualTo(persistedUser.id());
+        assertThat(persistedRefreshToken.tokenHash())
+                .isEqualTo(refreshTokenHasher.hash(result.refreshToken()))
+                .isNotEqualTo(result.refreshToken().value());
+        assertThat(persistedRefreshToken.createdAt())
+                .isEqualTo(CURRENT_TIME);
+        assertThat(persistedRefreshToken.revokedAt()).isNull();
+    }
+
+    @Test
+    void shouldReuseExistingUserForSubsequentGoogleLogin() {
+
+        User existingUser = saveUser(
+                EXISTING_USER_ID,
+                GOOGLE_SUBJECT,
+                "Persisted Name",
+                "https://example.com/persisted.png",
+                BASE_TIME,
+                UPDATED_AT
+        );
+        googleIdentityVerifier.identity(
+                new GoogleIdentity(
+                        GOOGLE_SUBJECT,
+                        "New Google Name",
+                        "https://example.com/new.png"
+                )
+        );
+
+        GoogleLoginResult result = loginService.login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        User loadedExistingUser = userRepository
+                .findById(EXISTING_USER_ID)
+                .orElseThrow();
+        RefreshToken persistedRefreshToken = refreshTokenRepository
+                .findById(NEW_REFRESH_TOKEN_ID)
+                .orElseThrow();
+
+        assertThat(userRepository.findById(NEW_USER_ID)).isEmpty();
+        assertThat(result.user()).isEqualTo(existingUser);
+        assertThat(loadedExistingUser).isEqualTo(existingUser);
+        assertThat(persistedRefreshToken.userId())
+                .isEqualTo(EXISTING_USER_ID);
+    }
+
+    @Test
+    void shouldUseFallbackDisplayNameWhenGoogleNameIsMissing() {
+
+        googleIdentityVerifier.identity(
+                new GoogleIdentity(
+                        GOOGLE_SUBJECT,
+                        null,
+                        "https://example.com/avatar.png"
+                )
+        );
+
+        loginService.login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        User persistedUser = userRepository
+                .findById(NEW_USER_ID)
+                .orElseThrow();
+
+        assertThat(persistedUser.displayName())
+                .isEqualTo("Memory Map User");
+    }
+
+    @Test
+    void shouldRollbackNewUserWhenRefreshTokenPersistenceFails() {
+
+        User tokenOwner = saveUser(
+                EXISTING_USER_ID,
+                "existing-google-subject",
+                "Existing User",
+                null,
+                BASE_TIME,
+                BASE_TIME
+        );
+        RefreshToken duplicateRefreshToken = new RefreshToken(
+                NEW_REFRESH_TOKEN_ID,
+                tokenOwner.id(),
+                "existing-refresh-token-hash",
+                BASE_TIME,
+                EXPIRES_AT,
+                null
+        );
+        refreshTokenRepository.save(duplicateRefreshToken);
+        googleIdentityVerifier.identity(
+                new GoogleIdentity(
+                        "rollback-google-subject",
+                        "Rollback User",
+                        null
+                )
+        );
+
+        assertThatThrownBy(() -> loginService.login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        ))
+                .isInstanceOf(DuplicateKeyException.class);
+
+        assertThat(userRepository.findById(NEW_USER_ID)).isEmpty();
+        assertThat(userRepository.findByGoogleSubject(
+                "rollback-google-subject"
+        )).isEmpty();
+        assertThat(refreshTokenRepository.findById(NEW_REFRESH_TOKEN_ID))
+                .contains(duplicateRefreshToken);
+    }
+
+    private User saveUser(
+            UUID id,
+            String googleSubject,
+            String displayName,
+            String avatarUrl,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+        return userRepository.save(
+                new User(
+                        id,
+                        googleSubject,
+                        displayName,
+                        avatarUrl,
+                        createdAt,
+                        updatedAt
+                )
+        );
+    }
+
+    private static GoogleIdentity googleIdentity() {
+        return new GoogleIdentity(
+                GOOGLE_SUBJECT,
+                "Konstantin",
+                "https://example.com/avatar.png"
+        );
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class GoogleLoginTestConfiguration {
+
+        @Bean
+        @Primary
+        FakeGoogleIdentityVerifier fakeGoogleIdentityVerifier() {
+            return new FakeGoogleIdentityVerifier();
+        }
+    }
+
+    static final class FakeGoogleIdentityVerifier
+            implements GoogleIdentityVerifier {
+
+        private GoogleIdentity identity = googleIdentity();
+        private String receivedGoogleIdToken;
+
+        @Override
+        public GoogleIdentity verify(String idToken) {
+            receivedGoogleIdToken = idToken;
+
+            if (!GOOGLE_ID_TOKEN.equals(idToken)) {
+                throw new GoogleIdentityVerificationException(
+                        "Google ID token verification failed"
+                );
+            }
+
+            return identity;
+        }
+
+        private void identity(GoogleIdentity identity) {
+            this.identity = identity;
+        }
+
+        private String receivedGoogleIdToken() {
+            return receivedGoogleIdToken;
+        }
+    }
+}
