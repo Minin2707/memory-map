@@ -30,4 +30,17 @@ public class RefreshTokenConfiguration {
     public RefreshTokenHasher refreshTokenHasher() {
         return new Sha256RefreshTokenHasher();
     }
+
+    @Bean
+    public RefreshTokenIssuer refreshTokenIssuer(
+            RawRefreshTokenGenerator rawTokenGenerator,
+            RefreshTokenHasher refreshTokenHasher,
+            RefreshTokenProperties properties
+    ) {
+        return new DefaultRefreshTokenIssuer(
+                rawTokenGenerator,
+                refreshTokenHasher,
+                properties
+        );
+    }
 }
