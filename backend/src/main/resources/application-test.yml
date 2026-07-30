@@ -11,3 +11,6 @@ app:
       issuer: memory-map-backend-test
       access-token-ttl: PT15M
       secret-base64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+
+    refresh-token:
+      ttl: P30D
