@@ -11,6 +11,17 @@ import java.util.UUID;
 @Repository
 public class JdbcUserRepository implements UserRepository {
 
+    private static final String SELECT_COLUMNS_SQL = """
+            SELECT
+                id,
+                google_subject,
+                display_name,
+                avatar_url,
+                created_at,
+                updated_at
+            FROM users
+            """;
+
     private static final String INSERT_SQL = """
             INSERT INTO users (
                 id,
@@ -37,15 +48,11 @@ public class JdbcUserRepository implements UserRepository {
                 updated_at
             """;
 
-    private static final String FIND_BY_ID_SQL = """
-            SELECT *
-            FROM users
+    private static final String FIND_BY_ID_SQL = SELECT_COLUMNS_SQL + """
             WHERE id = :id
             """;
 
-    private static final String FIND_BY_GOOGLE_SUBJECT_SQL = """
-            SELECT *
-            FROM users
+    private static final String FIND_BY_GOOGLE_SUBJECT_SQL = SELECT_COLUMNS_SQL + """
             WHERE google_subject = :googleSubject
             """;
 

@@ -22,7 +22,12 @@ public record Story(
     public Story {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(ownerId, "ownerId must not be null");
+        Objects.requireNonNull(title, "title must not be null");
         Objects.requireNonNull(createdAt, "createdAt must not be null");
         Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+
+        if (title.isBlank()) {
+            throw new IllegalArgumentException("title must not be blank");
+        }
     }
 }
