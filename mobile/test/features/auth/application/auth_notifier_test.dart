@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/auth/application/auth_application_exception.dart';
 import 'package:memory_map/features/auth/application/auth_application_providers.dart';
+import 'package:memory_map/features/auth/application/auth_network_providers.dart';
 import 'package:memory_map/features/auth/application/auth_notifier.dart';
 import 'package:memory_map/features/auth/application/auth_state.dart';
 import 'package:memory_map/features/auth/domain/auth_failure.dart';
@@ -549,6 +550,168 @@ void main() {
     });
   });
 
+  group('AuthNotifier background session synchronization', () {
+    test('shouldUpdateAuthenticatedSessionAfterAutomaticRefresh', () async {
+      final fakeRepository = FakeAuthRepository()
+        ..restoreResult = session;
+      final container = createContainer(fakeRepository);
+      addTearDown(container.dispose);
+      await container.read(authNotifierProvider.future);
+
+      container.read(authSessionStoreProvider).setSession(refreshedSession);
+
+      expect(
+        container.read(authNotifierProvider),
+        isA<AsyncData<AuthState>>().having(
+          (value) => value.value,
+          'value',
+          AuthAuthenticated(refreshedSession),
+        ),
+      );
+    });
+
+    test('shouldBecomeUnauthenticatedAfterSessionInvalidation', () async {
+      final fakeRepository = FakeAuthRepository()
+        ..restoreResult = session;
+      final container = createContainer(fakeRepository);
+      addTearDown(container.dispose);
+      await container.read(authNotifierProvider.future);
+
+      container.read(authSessionStoreProvider).clear();
+
+      expect(
+        container.read(authNotifierProvider),
+        isA<AsyncData<AuthState>>().having(
+          (value) => value.value,
+          'value',
+          const AuthUnauthenticated(),
+        ),
+      );
+    });
+
+    test('shouldNotExposeBackgroundRefreshingState', () async {
+      final fakeRepository = FakeAuthRepository()
+        ..restoreResult = session;
+      final container = createContainer(fakeRepository);
+      addTearDown(container.dispose);
+      await container.read(authNotifierProvider.future);
+
+      container.read(authSessionStoreProvider).setSession(refreshedSession);
+
+      expect(
+        container.read(authNotifierProvider),
+        isNot(isA<AsyncLoading<AuthState>>()),
+      );
+    });
+
+    test('shouldIgnoreDuplicateIdenticalSessionEvent', () async {
+      final fakeRepository = FakeAuthRepository()
+        ..restoreResult = session;
+      final container = createContainer(fakeRepository);
+      addTearDown(container.dispose);
+      await container.read(authNotifierProvider.future);
+
+      container.read(authSessionStoreProvider).setSession(session);
+
+      expect(
+        container.read(authNotifierProvider),
+        isA<AsyncData<AuthState>>().having(
+          (value) => value.value,
+          'value',
+          AuthAuthenticated(session),
+        ),
+      );
+    });
+
+    test('shouldNotOverrideAuthenticatingStateWithStoreEvent', () async {
+      final loginCompleter = Completer<AuthSession>();
+      final fakeRepository = FakeAuthRepository()
+        ..loginCompleter = loginCompleter;
+      final container = createContainer(fakeRepository);
+      addTearDown(container.dispose);
+      await container.read(authNotifierProvider.future);
+
+      final login = container
+          .read(authNotifierProvider.notifier)
+          .loginWithGoogle();
+      await pumpEventQueue();
+      container.read(authSessionStoreProvider).setSession(refreshedSession);
+
+      expect(
+        container.read(authNotifierProvider),
+        isA<AsyncData<AuthState>>().having(
+          (value) => value.value,
+          'value',
+          const AuthAuthenticating(),
+        ),
+      );
+
+      loginCompleter.complete(session);
+      await login;
+    });
+
+    test('shouldNotOverrideLoggingOutStateWithNonNullStoreEvent', () async {
+      final logoutCompleter = Completer<void>();
+      final fakeRepository = FakeAuthRepository()
+        ..restoreResult = session
+        ..logoutCompleter = logoutCompleter;
+      final container = createContainer(fakeRepository);
+      addTearDown(container.dispose);
+      await container.read(authNotifierProvider.future);
+
+      final logout = container.read(authNotifierProvider.notifier).logout();
+      await pumpEventQueue();
+      container.read(authSessionStoreProvider).setSession(refreshedSession);
+
+      expect(
+        container.read(authNotifierProvider),
+        isA<AsyncData<AuthState>>().having(
+          (value) => value.value,
+          'value',
+          AuthLoggingOut(session),
+        ),
+      );
+
+      logoutCompleter.complete();
+      await logout;
+    });
+
+    test('shouldHandleStoreClearDuringAuthenticatedState', () async {
+      final fakeRepository = FakeAuthRepository()
+        ..restoreResult = session;
+      final container = createContainer(fakeRepository);
+      addTearDown(container.dispose);
+      await container.read(authNotifierProvider.future);
+
+      container.read(authSessionStoreProvider).clear();
+
+      expect(
+        container.read(authNotifierProvider),
+        isA<AsyncData<AuthState>>().having(
+          (value) => value.value,
+          'value',
+          const AuthUnauthenticated(),
+        ),
+      );
+    });
+
+    test('shouldNotExposeTokensThroughUpdatedState', () async {
+      final fakeRepository = FakeAuthRepository()
+        ..restoreResult = session;
+      final container = createContainer(fakeRepository);
+      addTearDown(container.dispose);
+      await container.read(authNotifierProvider.future);
+
+      container.read(authSessionStoreProvider).setSession(refreshedSession);
+
+      final state = container.read(authNotifierProvider).toString();
+      expect(state, isNot(contains('new-access-token')));
+      expect(state, isNot(contains('new-refresh-token')));
+      expect(state, isNot(contains('user-id')));
+      expect(state, isNot(contains('Ada Lovelace')));
+    });
+  });
+
   group('AuthNotifier security', () {
     test('shouldNotExposeSessionTokensThroughNotifierStateToString', () async {
       final fakeRepository = FakeAuthRepository()
@@ -584,6 +747,14 @@ final AuthSession session = AuthSession(
   tokens: AuthTokens(
     accessToken: 'signed-access-token',
     refreshToken: 'raw-refresh-token',
+  ),
+);
+
+final AuthSession refreshedSession = AuthSession(
+  user: session.user,
+  tokens: AuthTokens(
+    accessToken: 'new-access-token',
+    refreshToken: 'new-refresh-token',
   ),
 );
 

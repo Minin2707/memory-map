@@ -5,6 +5,7 @@ import 'package:memory_map/features/auth/data/storage/auth_session_storage.dart'
 import 'package:memory_map/features/auth/domain/auth_failure.dart';
 import 'package:memory_map/features/auth/domain/auth_repository.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
+import 'package:memory_map/features/auth/domain/auth_session_store.dart';
 import 'package:memory_map/features/auth/domain/auth_tokens.dart';
 import 'package:memory_map/features/auth/domain/google_identity_exception.dart';
 import 'package:memory_map/features/auth/domain/google_identity_provider.dart';
@@ -14,13 +15,16 @@ final class DefaultAuthRepository implements AuthRepository {
     required GoogleIdentityProvider googleIdentityProvider,
     required AuthRemoteDataSource authRemoteDataSource,
     required AuthSessionStorage authSessionStorage,
+    required AuthSessionStore authSessionStore,
   })  : _googleIdentityProvider = googleIdentityProvider,
         _authRemoteDataSource = authRemoteDataSource,
-        _authSessionStorage = authSessionStorage;
+        _authSessionStorage = authSessionStorage,
+        _authSessionStore = authSessionStore;
 
   final GoogleIdentityProvider _googleIdentityProvider;
   final AuthRemoteDataSource _authRemoteDataSource;
   final AuthSessionStorage _authSessionStorage;
+  final AuthSessionStore _authSessionStore;
 
   @override
   Future<AuthSession> loginWithGoogle() async {
@@ -28,6 +32,7 @@ final class DefaultAuthRepository implements AuthRepository {
     final session = await _loginWithBackend(idToken);
 
     await _writeSession(session);
+    _authSessionStore.setSession(session);
 
     return session;
   }
@@ -36,6 +41,7 @@ final class DefaultAuthRepository implements AuthRepository {
   Future<AuthSession?> restoreSession() async {
     final storedSession = await _readStoredSession();
     if (storedSession == null) {
+      _authSessionStore.clear();
       return null;
     }
 
@@ -43,6 +49,7 @@ final class DefaultAuthRepository implements AuthRepository {
     try {
       refreshedTokens = await _refreshStoredSession(storedSession);
     } on _NoRestoredSession {
+      _authSessionStore.clear();
       return null;
     }
     final refreshedSession = AuthSession(
@@ -51,6 +58,7 @@ final class DefaultAuthRepository implements AuthRepository {
     );
 
     await _writeRefreshedSession(refreshedSession);
+    _authSessionStore.setSession(refreshedSession);
 
     return refreshedSession;
   }
@@ -60,6 +68,7 @@ final class DefaultAuthRepository implements AuthRepository {
     final refreshToken = session.tokens.refreshToken;
 
     await _clearSessionForLogout();
+    _authSessionStore.clear();
 
     try {
       await _authRemoteDataSource.logout(refreshToken);
@@ -109,9 +118,11 @@ final class DefaultAuthRepository implements AuthRepository {
       await _authSessionStorage.write(session);
     } on CorruptStoredAuthSessionException {
       await _clearAfterWriteFailure();
+      _authSessionStore.clear();
       throw const AuthApplicationException(CorruptSession());
     } on AuthSessionStorageException {
       await _clearAfterWriteFailure();
+      _authSessionStore.clear();
       throw const AuthApplicationException(SecureStorageFailure());
     }
   }
@@ -148,6 +159,7 @@ final class DefaultAuthRepository implements AuthRepository {
   Future<void> _clearCorruptStoredSession() async {
     try {
       await _authSessionStorage.clear();
+      _authSessionStore.clear();
     } on AuthSessionStorageException {
       throw const AuthApplicationException(SecureStorageFailure());
     }
@@ -179,6 +191,7 @@ final class DefaultAuthRepository implements AuthRepository {
   Future<void> _clearUnauthorizedStoredSession() async {
     try {
       await _authSessionStorage.clear();
+      _authSessionStore.clear();
     } on AuthSessionStorageException {
       throw const AuthApplicationException(SecureStorageFailure());
     }
@@ -189,6 +202,7 @@ final class DefaultAuthRepository implements AuthRepository {
       await _authSessionStorage.write(session);
     } on AuthSessionStorageException {
       await _clearAfterWriteFailure();
+      _authSessionStore.clear();
       throw const AuthApplicationException(SecureStorageFailure());
     }
   }

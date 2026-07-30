@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/auth/application/auth_application_exception.dart';
 import 'package:memory_map/features/auth/application/default_auth_repository.dart';
+import 'package:memory_map/features/auth/application/in_memory_auth_session_store.dart';
 import 'package:memory_map/features/auth/data/remote/auth_remote_data_source.dart';
 import 'package:memory_map/features/auth/data/remote/auth_remote_exception.dart';
 import 'package:memory_map/features/auth/data/storage/auth_session_storage.dart';
@@ -59,6 +60,15 @@ void main() {
 
       expect(fakes.storage.readCalls, 0);
     });
+
+    test('shouldClearInMemorySessionAfterLogoutSuccess', () async {
+      final fakes = LogoutFakes();
+      final repository = fakes.createRepository();
+
+      await repository.logout(session);
+
+      expect(fakes.store.session, isNull);
+    });
   });
 
   group('DefaultAuthRepository logout local failure', () {
@@ -109,6 +119,7 @@ void main() {
       );
 
       expect(fakes.storage.session, session);
+      expect(fakes.store.session, session);
     });
   });
 
@@ -259,12 +270,15 @@ final class LogoutFakes {
       FakeAuthRemoteDataSource(calls);
   late final FakeAuthSessionStorage storage =
       FakeAuthSessionStorage(calls);
+  late final InMemoryAuthSessionStore store =
+      InMemoryAuthSessionStore()..setSession(session);
 
   DefaultAuthRepository createRepository() {
     return DefaultAuthRepository(
       googleIdentityProvider: google,
       authRemoteDataSource: remote,
       authSessionStorage: storage,
+      authSessionStore: store,
     );
   }
 }

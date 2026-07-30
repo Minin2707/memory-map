@@ -2,10 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memory_map/core/config/app_config.dart';
 
-final dioProvider = Provider<Dio>((ref) {
+final publicDioProvider = Provider<Dio>((ref) {
   final config = ref.watch(appConfigProvider);
 
-  return Dio(
+  final dio = Dio(
     BaseOptions(
       baseUrl: config.apiBaseUrl,
       contentType: Headers.jsonContentType,
@@ -15,4 +15,10 @@ final dioProvider = Provider<Dio>((ref) {
       receiveTimeout: const Duration(seconds: 20),
     ),
   );
+
+  ref.onDispose(dio.close);
+
+  return dio;
 });
+
+final dioProvider = publicDioProvider;

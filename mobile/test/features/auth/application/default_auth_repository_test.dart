@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/auth/application/auth_application_exception.dart';
 import 'package:memory_map/features/auth/application/default_auth_repository.dart';
+import 'package:memory_map/features/auth/application/in_memory_auth_session_store.dart';
 import 'package:memory_map/features/auth/data/remote/auth_remote_data_source.dart';
 import 'package:memory_map/features/auth/data/remote/auth_remote_exception.dart';
 import 'package:memory_map/features/auth/data/storage/auth_session_storage.dart';
@@ -84,6 +85,15 @@ void main() {
       expect(fakes.storage.writtenSession, isNotNull);
       expect(fakes.storage.writtenSession.toString(), 'AuthSession[REDACTED]');
       expect(fakes.storage.receivedRawGoogleIdToken, isFalse);
+    });
+
+    test('shouldSetInMemorySessionAfterLoginSuccess', () async {
+      final fakes = AuthRepositoryFakes();
+      final repository = fakes.createRepository();
+
+      await repository.loginWithGoogle();
+
+      expect(fakes.store.session, backendSession);
     });
   });
 
@@ -395,12 +405,14 @@ final class AuthRepositoryFakes {
       FakeAuthRemoteDataSource(calls);
   late final FakeAuthSessionStorage storage =
       FakeAuthSessionStorage(calls);
+  late final InMemoryAuthSessionStore store = InMemoryAuthSessionStore();
 
   DefaultAuthRepository createRepository() {
     return DefaultAuthRepository(
       googleIdentityProvider: google,
       authRemoteDataSource: remote,
       authSessionStorage: storage,
+      authSessionStore: store,
     );
   }
 }

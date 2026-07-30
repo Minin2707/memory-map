@@ -11,7 +11,7 @@ import 'package:memory_map/features/auth/domain/auth_session.dart';
 import 'package:memory_map/features/auth/domain/auth_tokens.dart';
 
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
-  return DioAuthRemoteDataSource(ref.watch(dioProvider));
+  return DioAuthRemoteDataSource(ref.watch(publicDioProvider));
 });
 
 final class DioAuthRemoteDataSource implements AuthRemoteDataSource {

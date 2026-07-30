@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/features/auth/application/auth_network_providers.dart';
 import 'package:memory_map/features/auth/application/default_auth_repository.dart';
 import 'package:memory_map/features/auth/data/google/google_sign_in_identity_provider.dart';
 import 'package:memory_map/features/auth/data/remote/dio_auth_remote_data_source.dart';
@@ -10,5 +11,6 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
     googleIdentityProvider: ref.watch(googleIdentityProvider),
     authRemoteDataSource: ref.watch(authRemoteDataSourceProvider),
     authSessionStorage: ref.watch(authSessionStorageProvider),
+    authSessionStore: ref.watch(authSessionStoreProvider),
   );
 });

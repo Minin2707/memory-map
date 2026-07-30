@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memory_map/features/auth/application/auth_application_exception.dart';
 import 'package:memory_map/features/auth/application/auth_application_providers.dart';
+import 'package:memory_map/features/auth/application/auth_network_providers.dart';
 import 'package:memory_map/features/auth/application/auth_state.dart';
 import 'package:memory_map/features/auth/domain/auth_failure.dart';
 import 'package:memory_map/features/auth/domain/auth_repository.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
+import 'package:memory_map/features/auth/domain/auth_session_store.dart';
 
 final authNotifierProvider =
     AsyncNotifierProvider<AuthNotifier, AuthState>(
@@ -13,8 +17,12 @@ final authNotifierProvider =
 );
 
 final class AuthNotifier extends AsyncNotifier<AuthState> {
+  StreamSubscription<AuthSession?>? _sessionSubscription;
+
   @override
   Future<AuthState> build() async {
+    _subscribeToSessionStore(ref.watch(authSessionStoreProvider));
+
     return _restoreSession(ref.watch(authRepositoryProvider));
   }
 
@@ -112,5 +120,52 @@ final class AuthNotifier extends AsyncNotifier<AuthState> {
       AuthLogoutFailure(:final session) => session,
       _ => null,
     };
+  }
+
+  void _subscribeToSessionStore(AuthSessionStore store) {
+    if (_sessionSubscription != null) {
+      return;
+    }
+
+    _sessionSubscription = store.changes.listen(_handleSessionStoreChange);
+    ref.onDispose(() {
+      _sessionSubscription?.cancel();
+      _sessionSubscription = null;
+    });
+  }
+
+  void _handleSessionStoreChange(AuthSession? session) {
+    final currentState = _currentState;
+
+    if (currentState is AuthAuthenticating ||
+        currentState is AuthLoggingOut) {
+      return;
+    }
+
+    if (session == null) {
+      if (currentState is AuthAuthenticated ||
+          currentState is AuthLogoutFailure) {
+        state = const AsyncData<AuthState>(AuthUnauthenticated());
+      }
+
+      return;
+    }
+
+    if (currentState is AuthAuthenticated) {
+      if (currentState.session != session) {
+        state = AsyncData<AuthState>(AuthAuthenticated(session));
+      }
+
+      return;
+    }
+
+    if (currentState is AuthLogoutFailure) {
+      state = AsyncData<AuthState>(
+        AuthLogoutFailure(
+          session: session,
+          failure: currentState.failure,
+        ),
+      );
+    }
   }
 }
