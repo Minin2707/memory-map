@@ -2,6 +2,7 @@ package memory_map.backend.auth.security;
 
 import memory_map.backend.auth.api.AuthApiExceptionHandler;
 import memory_map.backend.auth.api.AuthController;
+import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.jwt.AccessTokenService;
 import memory_map.backend.auth.jwt.JwtAccessTokenConfiguration;
 import memory_map.backend.auth.jwt.JwtAuthProperties;
@@ -24,14 +25,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -74,6 +72,9 @@ class SecurityConfigurationTest {
 
     @Autowired
     private Clock clock;
+
+    @Autowired
+    private CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider;
 
     @Test
     void shouldAllowGoogleLoginWithoutAuthentication() throws Exception {
@@ -175,16 +176,26 @@ class SecurityConfigurationTest {
     void shouldAllowProtectedEndpointWithValidAccessToken()
             throws Exception {
 
-        mockMvc.perform(get(PROTECTED_ENDPOINT)
+        String token = validAccessToken();
+
+        String response = mockMvc.perform(get(PROTECTED_ENDPOINT)
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + validAccessToken()
+                                "Bearer " + token
                         ))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.subject").value(USER_ID.toString()))
-                .andExpect(jsonPath("$.authenticated").value(true))
-                .andExpect(jsonPath("$.authenticationType")
-                        .value("JwtAuthenticationToken"));
+                .andExpect(jsonPath("$.userId").value(USER_ID.toString()))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response)
+                .doesNotContain(token)
+                .doesNotContain("google-subject-123")
+                .doesNotContain("subject")
+                .doesNotContain("iss")
+                .doesNotContain("exp")
+                .doesNotContain("iat");
     }
 
     @Test
@@ -196,7 +207,16 @@ class SecurityConfigurationTest {
                                 "Bearer " + validAccessToken()
                         ))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.subject").value(USER_ID.toString()));
+                .andExpect(jsonPath("$.userId").value(USER_ID.toString()));
+    }
+
+    @Test
+    void shouldCreateCurrentAuthenticatedUserProviderBean() {
+
+        assertThat(currentAuthenticatedUserProvider)
+                .isInstanceOf(
+                        SpringSecurityCurrentAuthenticatedUserProvider.class
+                );
     }
 
     @Test
@@ -297,26 +317,39 @@ class SecurityConfigurationTest {
         }
 
         @Bean
-        ProtectedEndpointController protectedEndpointController() {
-            return new ProtectedEndpointController();
+        ProtectedEndpointController protectedEndpointController(
+                CurrentAuthenticatedUserProvider
+                        currentAuthenticatedUserProvider
+        ) {
+            return new ProtectedEndpointController(
+                    currentAuthenticatedUserProvider
+            );
         }
     }
 
     @RestController
     static class ProtectedEndpointController {
 
-        @GetMapping(PROTECTED_ENDPOINT)
-        Map<String, Object> protectedEndpoint(
-                JwtAuthenticationToken authentication,
-                @AuthenticationPrincipal Jwt jwt
+        private final CurrentAuthenticatedUserProvider
+                currentAuthenticatedUserProvider;
+
+        ProtectedEndpointController(
+                CurrentAuthenticatedUserProvider
+                        currentAuthenticatedUserProvider
         ) {
+            this.currentAuthenticatedUserProvider =
+                    currentAuthenticatedUserProvider;
+        }
+
+        @GetMapping(PROTECTED_ENDPOINT)
+        Map<String, String> protectedEndpoint() {
+            AuthenticatedUser authenticatedUser =
+                    currentAuthenticatedUserProvider
+                            .getCurrentUser();
+
             return Map.of(
-                    "subject",
-                    jwt.getSubject(),
-                    "authenticated",
-                    authentication.isAuthenticated(),
-                    "authenticationType",
-                    authentication.getClass().getSimpleName()
+                    "userId",
+                    authenticatedUser.userId().toString()
             );
         }
     }

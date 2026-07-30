@@ -30,4 +30,10 @@ public class SecurityConfiguration {
 
         return http.build();
     }
+
+    @Bean
+    public CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider() {
+
+        return new SpringSecurityCurrentAuthenticatedUserProvider();
+    }
 }
