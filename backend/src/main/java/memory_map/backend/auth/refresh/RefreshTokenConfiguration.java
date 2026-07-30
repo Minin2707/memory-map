@@ -43,4 +43,9 @@ public class RefreshTokenConfiguration {
                 properties
         );
     }
+
+    @Bean
+    public RefreshTokenValidator refreshTokenValidator() {
+        return new DefaultRefreshTokenValidator();
+    }
 }
