@@ -31,7 +31,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -63,6 +65,12 @@ class StoryControllerIntegrationTest extends IntegrationTest {
             UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID OTHER_USER_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000002");
+    private static final UUID OWNER_STORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000011");
+    private static final UUID SHARED_STORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000012");
+    private static final UUID FOREIGN_STORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000013");
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
     private static final Instant CURRENT_TIME =
@@ -227,6 +235,129 @@ class StoryControllerIntegrationTest extends IntegrationTest {
         assertThat(participantCount()).isZero();
     }
 
+    @Test
+    void shouldRejectGetStoriesWithoutBearerToken() throws Exception {
+
+        mockMvc.perform(get("/api/v1/stories"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectGetStoriesWithInvalidBearerToken() throws Exception {
+
+        String invalidToken = "not-a-jwt";
+
+        String response = mockMvc.perform(get("/api/v1/stories")
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + invalidToken
+                        ))
+                .andExpect(status().isUnauthorized())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response)
+                .doesNotContain(invalidToken)
+                .doesNotContain("stackTrace")
+                .doesNotContain("cause");
+    }
+
+    @Test
+    void shouldReturnEmptyArrayWhenAuthenticatedUserHasNoStories()
+            throws Exception {
+
+        User user = saveUser(USER_ID);
+
+        mockMvc.perform(get("/api/v1/stories")
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + validAccessToken(user.id())
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(content().string("[]"));
+    }
+
+    @Test
+    void shouldReturnParticipantBasedStoriesThroughHttp()
+            throws Exception {
+
+        User user = saveUser(USER_ID);
+        User otherUser = saveUser(OTHER_USER_ID);
+        Story ownerStory = saveStory(
+                OWNER_STORY_ID,
+                user.id(),
+                "Owner Story",
+                BASE_TIME.plusSeconds(10)
+        );
+        Story sharedStory = saveStory(
+                SHARED_STORY_ID,
+                otherUser.id(),
+                "Shared Story",
+                BASE_TIME.plusSeconds(20)
+        );
+        Story foreignStory = saveStory(
+                FOREIGN_STORY_ID,
+                otherUser.id(),
+                "Foreign Story",
+                BASE_TIME.plusSeconds(30)
+        );
+
+        saveParticipant(
+                ownerStory.id(),
+                user.id(),
+                StoryRole.OWNER,
+                BASE_TIME.plusSeconds(1)
+        );
+        saveParticipant(
+                sharedStory.id(),
+                otherUser.id(),
+                StoryRole.OWNER,
+                BASE_TIME.plusSeconds(2)
+        );
+        saveParticipant(
+                sharedStory.id(),
+                user.id(),
+                StoryRole.EDITOR,
+                BASE_TIME.plusSeconds(3)
+        );
+        saveParticipant(
+                foreignStory.id(),
+                otherUser.id(),
+                StoryRole.OWNER,
+                BASE_TIME.plusSeconds(4)
+        );
+
+        JsonNode response = getStories(
+                validAccessToken(user.id())
+        );
+
+        assertThat(response.size()).isEqualTo(2);
+        assertThat(response.get(0).at("/id").asText())
+                .isEqualTo(ownerStory.id().toString());
+        assertThat(response.get(0).at("/title").asText())
+                .isEqualTo("Owner Story");
+        assertThat(response.get(0).at("/description").asText())
+                .isEqualTo("The beginning");
+        assertThat(response.get(0).at("/role").asText())
+                .isEqualTo("OWNER");
+        assertThat(response.get(1).at("/id").asText())
+                .isEqualTo(sharedStory.id().toString());
+        assertThat(response.get(1).at("/title").asText())
+                .isEqualTo("Shared Story");
+        assertThat(response.get(1).at("/role").asText())
+                .isEqualTo("EDITOR");
+        assertThat(response.toString())
+                .doesNotContain(foreignStory.id().toString())
+                .doesNotContain("Foreign Story")
+                .doesNotContain("ownerId")
+                .doesNotContain("userId")
+                .doesNotContain("googleSubject")
+                .doesNotContain("accessToken")
+                .doesNotContain("refreshToken")
+                .doesNotContain("joinedAt");
+    }
+
     private JsonNode postStory(
             String accessToken,
             String request,
@@ -251,6 +382,20 @@ class StoryControllerIntegrationTest extends IntegrationTest {
         return jsonMapper.readTree(response);
     }
 
+    private JsonNode getStories(String accessToken) throws Exception {
+        String response = mockMvc.perform(get("/api/v1/stories")
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + accessToken
+                        ))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        return jsonMapper.readTree(response);
+    }
+
     private User saveUser(UUID userId) {
         return userRepository.save(
                 new User(
@@ -260,6 +405,40 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                         null,
                         BASE_TIME,
                         BASE_TIME
+                )
+        );
+    }
+
+    private Story saveStory(
+            UUID storyId,
+            UUID ownerId,
+            String title,
+            Instant currentTime
+    ) {
+        return storyRepository.save(
+                new Story(
+                        storyId,
+                        ownerId,
+                        title,
+                        "The beginning",
+                        currentTime,
+                        currentTime
+                )
+        );
+    }
+
+    private void saveParticipant(
+            UUID storyId,
+            UUID userId,
+            StoryRole role,
+            Instant joinedAt
+    ) {
+        storyParticipantRepository.save(
+                new StoryParticipant(
+                        storyId,
+                        userId,
+                        role,
+                        joinedAt
                 )
         );
     }

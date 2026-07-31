@@ -4,7 +4,10 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
 import memory_map.backend.story.application.CreateStoryCommand;
 import memory_map.backend.story.application.CreateStoryUseCase;
+import memory_map.backend.story.application.GetStoriesUseCase;
+import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
+import memory_map.backend.storyparticipant.domain.StoryRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +22,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -39,6 +45,9 @@ class StoryControllerTest {
     private FakeCreateStoryUseCase createStoryUseCase;
 
     @Autowired
+    private FakeGetStoriesUseCase getStoriesUseCase;
+
+    @Autowired
     private FakeCurrentAuthenticatedUserProvider
             currentAuthenticatedUserProvider;
 
@@ -47,6 +56,10 @@ class StoryControllerTest {
 
     private static final UUID USER_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID FIRST_STORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000011");
+    private static final UUID SECOND_STORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000012");
     private static final Instant CURRENT_TIME =
             Instant.parse("2026-01-10T10:00:00Z");
     private static final Instant RETURNED_CREATED_AT =
@@ -57,7 +70,86 @@ class StoryControllerTest {
     @BeforeEach
     void resetFakes() {
         createStoryUseCase.reset();
+        getStoriesUseCase.reset();
         currentAuthenticatedUserProvider.reset();
+    }
+
+    @Test
+    void shouldReturnStories() throws Exception {
+
+        UserStory first = userStory(
+                FIRST_STORY_ID,
+                "First Story",
+                "First description",
+                StoryRole.OWNER,
+                RETURNED_CREATED_AT,
+                RETURNED_UPDATED_AT
+        );
+        UserStory second = userStory(
+                SECOND_STORY_ID,
+                "Second Story",
+                null,
+                StoryRole.EDITOR,
+                CURRENT_TIME,
+                RETURNED_UPDATED_AT
+        );
+        getStoriesUseCase.userStories(List.of(first, second));
+
+        String response = mockMvc.perform(get("/api/v1/stories"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id")
+                        .value(FIRST_STORY_ID.toString()))
+                .andExpect(jsonPath("$[0].title")
+                        .value("First Story"))
+                .andExpect(jsonPath("$[0].description")
+                        .value("First description"))
+                .andExpect(jsonPath("$[0].role")
+                        .value("OWNER"))
+                .andExpect(jsonPath("$[0].createdAt")
+                        .value("2026-01-10T10:01:00Z"))
+                .andExpect(jsonPath("$[0].updatedAt")
+                        .value("2026-01-10T10:02:00Z"))
+                .andExpect(jsonPath("$[1].id")
+                        .value(SECOND_STORY_ID.toString()))
+                .andExpect(jsonPath("$[1].title")
+                        .value("Second Story"))
+                .andExpect(jsonPath("$[1].description")
+                        .value((Object) null))
+                .andExpect(jsonPath("$[1].role")
+                        .value("EDITOR"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(getStoriesUseCase.callCount()).isEqualTo(1);
+        assertThat(getStoriesUseCase.receivedAuthenticatedUser())
+                .isEqualTo(new AuthenticatedUser(USER_ID));
+        assertThat(createStoryUseCase.callCount()).isZero();
+        assertThat(response)
+                .doesNotContain("ownerId")
+                .doesNotContain("userId")
+                .doesNotContain("googleSubject")
+                .doesNotContain("accessToken")
+                .doesNotContain("refreshToken")
+                .doesNotContain("joinedAt");
+    }
+
+    @Test
+    void shouldReturnEmptyArrayWhenUserHasNoStories() throws Exception {
+
+        getStoriesUseCase.userStories(List.of());
+
+        mockMvc.perform(get("/api/v1/stories"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("[]"));
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(getStoriesUseCase.callCount()).isEqualTo(1);
     }
 
     @Test
@@ -204,6 +296,7 @@ class StoryControllerTest {
 
         assertThatThrownBy(() -> new StoryController(
                 null,
+                getStoriesUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
@@ -212,10 +305,24 @@ class StoryControllerTest {
     }
 
     @Test
+    void shouldRejectNullGetStoriesUseCaseDependency() {
+
+        assertThatThrownBy(() -> new StoryController(
+                createStoryUseCase,
+                null,
+                currentAuthenticatedUserProvider,
+                clock
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("getStoriesUseCase must not be null");
+    }
+
+    @Test
     void shouldRejectNullCurrentAuthenticatedUserProviderDependency() {
 
         assertThatThrownBy(() -> new StoryController(
                 createStoryUseCase,
+                getStoriesUseCase,
                 null,
                 clock
         ))
@@ -230,6 +337,7 @@ class StoryControllerTest {
 
         assertThatThrownBy(() -> new StoryController(
                 createStoryUseCase,
+                getStoriesUseCase,
                 currentAuthenticatedUserProvider,
                 null
         ))
@@ -251,6 +359,11 @@ class StoryControllerTest {
         @Bean
         FakeCreateStoryUseCase createStoryUseCase() {
             return new FakeCreateStoryUseCase();
+        }
+
+        @Bean
+        FakeGetStoriesUseCase getStoriesUseCase() {
+            return new FakeGetStoriesUseCase();
         }
 
         @Bean
@@ -295,6 +408,42 @@ class StoryControllerTest {
         }
     }
 
+    static final class FakeGetStoriesUseCase
+            implements GetStoriesUseCase {
+
+        private AuthenticatedUser receivedAuthenticatedUser;
+        private List<UserStory> userStories = List.of();
+        private int callCount;
+
+        @Override
+        public List<UserStory> getStories(
+                AuthenticatedUser authenticatedUser
+        ) {
+            receivedAuthenticatedUser = authenticatedUser;
+            callCount++;
+
+            return userStories;
+        }
+
+        private AuthenticatedUser receivedAuthenticatedUser() {
+            return receivedAuthenticatedUser;
+        }
+
+        private int callCount() {
+            return callCount;
+        }
+
+        private void userStories(List<UserStory> userStories) {
+            this.userStories = userStories;
+        }
+
+        private void reset() {
+            receivedAuthenticatedUser = null;
+            userStories = List.of();
+            callCount = 0;
+        }
+    }
+
     static final class FakeCurrentAuthenticatedUserProvider
             implements CurrentAuthenticatedUserProvider {
 
@@ -314,5 +463,26 @@ class StoryControllerTest {
         private void reset() {
             callCount = 0;
         }
+    }
+
+    private static UserStory userStory(
+            UUID storyId,
+            String title,
+            String description,
+            StoryRole role,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+        return new UserStory(
+                new Story(
+                        storyId,
+                        USER_ID,
+                        title,
+                        description,
+                        createdAt,
+                        updatedAt
+                ),
+                role
+        );
     }
 }
