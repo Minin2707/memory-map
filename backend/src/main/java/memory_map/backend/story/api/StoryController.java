@@ -6,10 +6,12 @@ import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
 import memory_map.backend.story.application.CreateStoryCommand;
 import memory_map.backend.story.application.CreateStoryUseCase;
 import memory_map.backend.story.application.GetStoriesUseCase;
+import memory_map.backend.story.application.GetStoryUseCase;
 import memory_map.backend.story.domain.Story;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +29,7 @@ public class StoryController {
 
     private final CreateStoryUseCase createStoryUseCase;
     private final GetStoriesUseCase getStoriesUseCase;
+    private final GetStoryUseCase getStoryUseCase;
     private final CurrentAuthenticatedUserProvider
             currentAuthenticatedUserProvider;
     private final Clock clock;
@@ -34,6 +37,7 @@ public class StoryController {
     public StoryController(
             CreateStoryUseCase createStoryUseCase,
             GetStoriesUseCase getStoriesUseCase,
+            GetStoryUseCase getStoryUseCase,
             CurrentAuthenticatedUserProvider
                     currentAuthenticatedUserProvider,
             Clock clock
@@ -45,6 +49,10 @@ public class StoryController {
         this.getStoriesUseCase = Objects.requireNonNull(
                 getStoriesUseCase,
                 "getStoriesUseCase must not be null"
+        );
+        this.getStoryUseCase = Objects.requireNonNull(
+                getStoryUseCase,
+                "getStoryUseCase must not be null"
         );
         this.currentAuthenticatedUserProvider = Objects.requireNonNull(
                 currentAuthenticatedUserProvider,
@@ -89,5 +97,17 @@ public class StoryController {
                 .stream()
                 .map(UserStoryResponse::from)
                 .toList();
+    }
+
+    @GetMapping("/{storyId}")
+    public UserStoryResponse getStory(
+            @PathVariable UUID storyId
+    ) {
+        AuthenticatedUser authenticatedUser =
+                currentAuthenticatedUserProvider.getCurrentUser();
+
+        return UserStoryResponse.from(
+                getStoryUseCase.getStory(authenticatedUser, storyId)
+        );
     }
 }

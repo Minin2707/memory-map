@@ -5,6 +5,8 @@ import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
 import memory_map.backend.story.application.CreateStoryCommand;
 import memory_map.backend.story.application.CreateStoryUseCase;
 import memory_map.backend.story.application.GetStoriesUseCase;
+import memory_map.backend.story.application.GetStoryUseCase;
+import memory_map.backend.story.application.StoryNotFoundException;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.storyparticipant.domain.StoryRole;
@@ -35,7 +37,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(StoryController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(StoryControllerTest.StoryControllerTestConfiguration.class)
+@Import({
+        StoryApiExceptionHandler.class,
+        StoryControllerTest.StoryControllerTestConfiguration.class
+})
 class StoryControllerTest {
 
     @Autowired
@@ -46,6 +51,9 @@ class StoryControllerTest {
 
     @Autowired
     private FakeGetStoriesUseCase getStoriesUseCase;
+
+    @Autowired
+    private FakeGetStoryUseCase getStoryUseCase;
 
     @Autowired
     private FakeCurrentAuthenticatedUserProvider
@@ -71,6 +79,7 @@ class StoryControllerTest {
     void resetFakes() {
         createStoryUseCase.reset();
         getStoriesUseCase.reset();
+        getStoryUseCase.reset();
         currentAuthenticatedUserProvider.reset();
     }
 
@@ -150,6 +159,114 @@ class StoryControllerTest {
         assertThat(currentAuthenticatedUserProvider.callCount())
                 .isEqualTo(1);
         assertThat(getStoriesUseCase.callCount()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReturnStoryById() throws Exception {
+
+        UserStory userStory = userStory(
+                FIRST_STORY_ID,
+                "First Story",
+                null,
+                StoryRole.EDITOR,
+                RETURNED_CREATED_AT,
+                RETURNED_UPDATED_AT
+        );
+        getStoryUseCase.userStory(userStory);
+
+        String response = mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                ))
+                .andExpect(status().isOk())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        ))
+                .andExpect(jsonPath("$.id")
+                        .value(FIRST_STORY_ID.toString()))
+                .andExpect(jsonPath("$.title").value("First Story"))
+                .andExpect(jsonPath("$.description")
+                        .value((Object) null))
+                .andExpect(jsonPath("$.role").value("EDITOR"))
+                .andExpect(jsonPath("$.createdAt")
+                        .value("2026-01-10T10:01:00Z"))
+                .andExpect(jsonPath("$.updatedAt")
+                        .value("2026-01-10T10:02:00Z"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(getStoryUseCase.callCount()).isEqualTo(1);
+        assertThat(getStoryUseCase.receivedAuthenticatedUser())
+                .isEqualTo(new AuthenticatedUser(USER_ID));
+        assertThat(getStoryUseCase.receivedStoryId())
+                .isEqualTo(FIRST_STORY_ID);
+        assertThat(createStoryUseCase.callCount()).isZero();
+        assertThat(getStoriesUseCase.callCount()).isZero();
+        assertThat(response)
+                .doesNotContain("ownerId")
+                .doesNotContain("userId")
+                .doesNotContain("googleSubject")
+                .doesNotContain("accessToken")
+                .doesNotContain("refreshToken")
+                .doesNotContain("joinedAt")
+                .doesNotContain("archived");
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenStoryIsUnavailable()
+            throws Exception {
+
+        getStoryUseCase.failWith(new StoryNotFoundException());
+
+        String response = mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                ))
+                .andExpect(status().isNotFound())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        ))
+                .andExpect(jsonPath("$.title").value("Not Found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail")
+                        .value("Story was not found"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/v1/stories"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(getStoryUseCase.callCount()).isEqualTo(1);
+        assertThat(response)
+                .doesNotContain(FIRST_STORY_ID.toString())
+                .doesNotContain(USER_ID.toString())
+                .doesNotContain("ownerId")
+                .doesNotContain("access denied")
+                .doesNotContain("forbidden")
+                .doesNotContain("StoryNotFoundException")
+                .doesNotContain("stackTrace")
+                .doesNotContain("SQL")
+                .doesNotContain("Jdbc")
+                .doesNotContain("repository");
+    }
+
+    @Test
+    void shouldRejectMalformedStoryId() throws Exception {
+
+        mockMvc.perform(get("/api/v1/stories/not-a-uuid"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+        assertThat(getStoryUseCase.callCount()).isZero();
+        assertThat(createStoryUseCase.callCount()).isZero();
+        assertThat(getStoriesUseCase.callCount()).isZero();
     }
 
     @Test
@@ -297,6 +414,7 @@ class StoryControllerTest {
         assertThatThrownBy(() -> new StoryController(
                 null,
                 getStoriesUseCase,
+                getStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
@@ -310,6 +428,7 @@ class StoryControllerTest {
         assertThatThrownBy(() -> new StoryController(
                 createStoryUseCase,
                 null,
+                getStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
@@ -318,11 +437,26 @@ class StoryControllerTest {
     }
 
     @Test
+    void shouldRejectNullGetStoryUseCaseDependency() {
+
+        assertThatThrownBy(() -> new StoryController(
+                createStoryUseCase,
+                getStoriesUseCase,
+                null,
+                currentAuthenticatedUserProvider,
+                clock
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("getStoryUseCase must not be null");
+    }
+
+    @Test
     void shouldRejectNullCurrentAuthenticatedUserProviderDependency() {
 
         assertThatThrownBy(() -> new StoryController(
                 createStoryUseCase,
                 getStoriesUseCase,
+                getStoryUseCase,
                 null,
                 clock
         ))
@@ -338,6 +472,7 @@ class StoryControllerTest {
         assertThatThrownBy(() -> new StoryController(
                 createStoryUseCase,
                 getStoriesUseCase,
+                getStoryUseCase,
                 currentAuthenticatedUserProvider,
                 null
         ))
@@ -364,6 +499,11 @@ class StoryControllerTest {
         @Bean
         FakeGetStoriesUseCase getStoriesUseCase() {
             return new FakeGetStoriesUseCase();
+        }
+
+        @Bean
+        FakeGetStoryUseCase getStoryUseCase() {
+            return new FakeGetStoryUseCase();
         }
 
         @Bean
@@ -440,6 +580,74 @@ class StoryControllerTest {
         private void reset() {
             receivedAuthenticatedUser = null;
             userStories = List.of();
+            callCount = 0;
+        }
+    }
+
+    static final class FakeGetStoryUseCase
+            implements GetStoryUseCase {
+
+        private AuthenticatedUser receivedAuthenticatedUser;
+        private UUID receivedStoryId;
+        private UserStory userStory = StoryControllerTest.userStory(
+                FIRST_STORY_ID,
+                "Returned Story",
+                "Returned description",
+                StoryRole.OWNER,
+                RETURNED_CREATED_AT,
+                RETURNED_UPDATED_AT
+        );
+        private RuntimeException exception;
+        private int callCount;
+
+        @Override
+        public UserStory getStory(
+                AuthenticatedUser authenticatedUser,
+                UUID storyId
+        ) {
+            receivedAuthenticatedUser = authenticatedUser;
+            receivedStoryId = storyId;
+            callCount++;
+
+            if (exception != null) {
+                throw exception;
+            }
+
+            return userStory;
+        }
+
+        private AuthenticatedUser receivedAuthenticatedUser() {
+            return receivedAuthenticatedUser;
+        }
+
+        private UUID receivedStoryId() {
+            return receivedStoryId;
+        }
+
+        private int callCount() {
+            return callCount;
+        }
+
+        private void userStory(UserStory userStory) {
+            this.userStory = userStory;
+        }
+
+        private void failWith(RuntimeException exception) {
+            this.exception = exception;
+        }
+
+        private void reset() {
+            receivedAuthenticatedUser = null;
+            receivedStoryId = null;
+            userStory = StoryControllerTest.userStory(
+                    FIRST_STORY_ID,
+                    "Returned Story",
+                    "Returned description",
+                    StoryRole.OWNER,
+                    RETURNED_CREATED_AT,
+                    RETURNED_UPDATED_AT
+            );
+            exception = null;
             callCount = 0;
         }
     }

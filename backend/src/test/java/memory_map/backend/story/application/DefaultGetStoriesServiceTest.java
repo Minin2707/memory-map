@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -181,6 +182,14 @@ class DefaultGetStoriesServiceTest {
             }
 
             return userStories;
+        }
+
+        @Override
+        public Optional<UserStory> findByStoryIdAndUserId(
+                UUID storyId,
+                UUID userId
+        ) {
+            throw new UnsupportedOperationException();
         }
 
         private UUID receivedUserId() {

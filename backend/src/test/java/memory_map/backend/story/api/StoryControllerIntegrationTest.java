@@ -13,6 +13,8 @@ import memory_map.backend.user.domain.User;
 import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -23,6 +25,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -264,6 +267,40 @@ class StoryControllerIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void shouldRejectGetStoryWithoutBearerToken() throws Exception {
+
+        mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}",
+                        OWNER_STORY_ID
+                ))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectGetStoryWithInvalidBearerToken() throws Exception {
+
+        String invalidToken = "not-a-jwt";
+
+        String response = mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}",
+                        OWNER_STORY_ID
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + invalidToken
+                        ))
+                .andExpect(status().isUnauthorized())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response)
+                .doesNotContain(invalidToken)
+                .doesNotContain("stackTrace")
+                .doesNotContain("cause");
+    }
+
+    @Test
     void shouldReturnEmptyArrayWhenAuthenticatedUserHasNoStories()
             throws Exception {
 
@@ -358,6 +395,209 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 .doesNotContain("joinedAt");
     }
 
+    @ParameterizedTest
+    @EnumSource(StoryRole.class)
+    void shouldReturnStoryByIdForEveryParticipantRole(StoryRole role)
+            throws Exception {
+
+        User owner = saveUser(OTHER_USER_ID);
+        User user = role == StoryRole.OWNER
+                ? owner
+                : saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Accessible Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                user.id(),
+                role,
+                BASE_TIME.plusSeconds(1)
+        );
+
+        JsonNode response = getStory(
+                validAccessToken(user.id()),
+                story.id(),
+                200
+        );
+
+        assertThat(response.at("/id").asText())
+                .isEqualTo(story.id().toString());
+        assertThat(response.at("/title").asText())
+                .isEqualTo("Accessible Story");
+        assertThat(response.at("/description").asText())
+                .isEqualTo("The beginning");
+        assertThat(response.at("/role").asText())
+                .isEqualTo(role.name());
+        assertThat(response.at("/createdAt").asText())
+                .isEqualTo("2026-01-01T10:00:00.123456Z");
+        assertThat(response.at("/updatedAt").asText())
+                .isEqualTo("2026-01-01T10:00:00.123456Z");
+        assertPublicStoryResponseIsConfidential(response);
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenStoryDoesNotExist() throws Exception {
+
+        User user = saveUser(USER_ID);
+
+        JsonNode response = getStory(
+                validAccessToken(user.id()),
+                OWNER_STORY_ID,
+                404
+        );
+
+        assertStoryNotFoundBodyIsSafe(response);
+    }
+
+    @Test
+    void shouldReturnSameNotFoundWhenStoryIsInaccessible()
+            throws Exception {
+
+        User user = saveUser(USER_ID);
+        User otherUser = saveUser(OTHER_USER_ID);
+        Story inaccessibleStory = saveStory(
+                OWNER_STORY_ID,
+                otherUser.id(),
+                "Private Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                inaccessibleStory.id(),
+                otherUser.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        MvcResult missing = performGetStory(
+                validAccessToken(user.id()),
+                FOREIGN_STORY_ID,
+                404
+        );
+        MvcResult inaccessible = performGetStory(
+                validAccessToken(user.id()),
+                inaccessibleStory.id(),
+                404
+        );
+
+        assertThat(inaccessible.getResponse().getContentType())
+                .isEqualTo(missing.getResponse().getContentType());
+        assertThat(inaccessible.getResponse().getContentAsString())
+                .isEqualTo(missing.getResponse().getContentAsString());
+
+        assertStoryNotFoundBodyIsSafe(
+                jsonMapper.readTree(
+                        inaccessible.getResponse().getContentAsString()
+                )
+        );
+    }
+
+    @Test
+    void shouldReturnNotFoundForOwnerWithoutMembership()
+            throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Without Membership Story",
+                "The beginning",
+                BASE_TIME
+        );
+
+        JsonNode response = getStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                404
+        );
+
+        assertStoryNotFoundBodyIsSafe(response);
+    }
+
+    @Test
+    void shouldReturnNotFoundForWrongMembershipUser()
+            throws Exception {
+
+        User user = saveUser(USER_ID);
+        User otherUser = saveUser(OTHER_USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                otherUser.id(),
+                "Wrong Membership Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                otherUser.id(),
+                StoryRole.VIEWER,
+                BASE_TIME
+        );
+
+        JsonNode response = getStory(
+                validAccessToken(user.id()),
+                story.id(),
+                404
+        );
+
+        assertStoryNotFoundBodyIsSafe(response);
+    }
+
+    @Test
+    void shouldReturnStoryWithNullableDescription() throws Exception {
+
+        User user = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                user.id(),
+                "Nullable Description Story",
+                null,
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                user.id(),
+                StoryRole.VIEWER,
+                BASE_TIME
+        );
+
+        JsonNode response = getStory(
+                validAccessToken(user.id()),
+                story.id(),
+                200
+        );
+
+        assertThat(response.at("/description").isNull()).isTrue();
+        assertThat(response.at("/role").asText()).isEqualTo("VIEWER");
+        assertPublicStoryResponseIsConfidential(response);
+    }
+
+    @Test
+    void shouldRejectMalformedStoryId() throws Exception {
+
+        User user = saveUser(USER_ID);
+
+        String response = mockMvc.perform(get("/api/v1/stories/not-a-uuid")
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + validAccessToken(user.id())
+                        ))
+                .andExpect(status().isBadRequest())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response)
+                .doesNotContain(USER_ID.toString())
+                .doesNotContain("google-subject")
+                .doesNotContain("accessToken")
+                .doesNotContain("refreshToken");
+    }
+
     private JsonNode postStory(
             String accessToken,
             String request,
@@ -396,6 +636,53 @@ class StoryControllerIntegrationTest extends IntegrationTest {
         return jsonMapper.readTree(response);
     }
 
+    private JsonNode getStory(
+            String accessToken,
+            UUID storyId,
+            int expectedStatus
+    ) throws Exception {
+        String response = performGetStory(
+                accessToken,
+                storyId,
+                expectedStatus
+        ).getResponse().getContentAsString();
+
+        if (response.isBlank()) {
+            return jsonMapper.readTree("{}");
+        }
+
+        return jsonMapper.readTree(response);
+    }
+
+    private MvcResult performGetStory(
+            String accessToken,
+            UUID storyId,
+            int expectedStatus
+    ) throws Exception {
+        MvcResult result = mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}",
+                        storyId
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + accessToken
+                        ))
+                .andExpect(status().is(expectedStatus))
+                .andReturn();
+
+        if (expectedStatus == 200) {
+            assertThat(result.getResponse().getContentType())
+                    .contains(MediaType.APPLICATION_JSON_VALUE);
+        }
+
+        if (expectedStatus == 404) {
+            assertThat(result.getResponse().getContentType())
+                    .contains(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+        }
+
+        return result;
+    }
+
     private User saveUser(UUID userId) {
         return userRepository.save(
                 new User(
@@ -415,12 +702,28 @@ class StoryControllerIntegrationTest extends IntegrationTest {
             String title,
             Instant currentTime
     ) {
+        return saveStory(
+                storyId,
+                ownerId,
+                title,
+                "The beginning",
+                currentTime
+        );
+    }
+
+    private Story saveStory(
+            UUID storyId,
+            UUID ownerId,
+            String title,
+            String description,
+            Instant currentTime
+    ) {
         return storyRepository.save(
                 new Story(
                         storyId,
                         ownerId,
                         title,
-                        "The beginning",
+                        description,
                         currentTime,
                         currentTime
                 )
@@ -466,6 +769,47 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 """)
                 .query(Integer.class)
                 .single();
+    }
+
+    private static void assertPublicStoryResponseIsConfidential(
+            JsonNode response
+    ) {
+        assertThat(response.toString())
+                .doesNotContain("ownerId")
+                .doesNotContain("userId")
+                .doesNotContain("googleSubject")
+                .doesNotContain("joinedAt")
+                .doesNotContain("accessToken")
+                .doesNotContain("refreshToken")
+                .doesNotContain("archived");
+    }
+
+    private static void assertStoryNotFoundBodyIsSafe(JsonNode response) {
+        assertThat(response.at("/title").asText())
+                .isEqualTo("Not Found");
+        assertThat(response.at("/status").asInt()).isEqualTo(404);
+        assertThat(response.at("/detail").asText())
+                .isEqualTo("Story was not found");
+        assertThat(response.at("/instance").asText())
+                .isEqualTo("/api/v1/stories");
+        assertThat(response.toString())
+                .doesNotContain(OWNER_STORY_ID.toString())
+                .doesNotContain(FOREIGN_STORY_ID.toString())
+                .doesNotContain(USER_ID.toString())
+                .doesNotContain(OTHER_USER_ID.toString())
+                .doesNotContain("ownerId")
+                .doesNotContain("userId")
+                .doesNotContain("googleSubject")
+                .doesNotContain("joinedAt")
+                .doesNotContain("accessToken")
+                .doesNotContain("refreshToken")
+                .doesNotContain("access denied")
+                .doesNotContain("forbidden")
+                .doesNotContain("StoryNotFoundException")
+                .doesNotContain("stackTrace")
+                .doesNotContain("SQL")
+                .doesNotContain("Jdbc")
+                .doesNotContain("repository");
     }
 
     @TestConfiguration(proxyBeanMethods = false)

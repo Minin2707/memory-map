@@ -26,4 +26,11 @@ public class StoryApplicationConfiguration {
     ) {
         return new DefaultGetStoriesService(userStoryRepository);
     }
+
+    @Bean
+    public GetStoryUseCase getStoryUseCase(
+            UserStoryRepository userStoryRepository
+    ) {
+        return new DefaultGetStoryService(userStoryRepository);
+    }
 }
