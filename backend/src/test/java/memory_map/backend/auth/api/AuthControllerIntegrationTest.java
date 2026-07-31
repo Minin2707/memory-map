@@ -1,7 +1,7 @@
 package memory_map.backend.auth.api;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import memory_map.backend.IntegrationTest;
 import memory_map.backend.auth.domain.GoogleIdentity;
 import memory_map.backend.auth.domain.RefreshToken;
@@ -43,7 +43,7 @@ class AuthControllerIntegrationTest extends IntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper jsonMapper;
 
     @Autowired
     private FakeGoogleIdentityVerifier googleIdentityVerifier;
@@ -258,7 +258,7 @@ class AuthControllerIntegrationTest extends IntegrationTest {
                 .getResponse()
                 .getContentAsString();
 
-        return objectMapper.readTree(response);
+        return jsonMapper.readTree(response);
     }
 
     private static void assertPublicJson(String response) {

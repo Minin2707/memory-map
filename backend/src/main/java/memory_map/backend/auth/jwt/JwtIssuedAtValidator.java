@@ -9,6 +9,8 @@ import java.util.Objects;
 
 final class JwtIssuedAtValidator implements OAuth2TokenValidator<Jwt> {
 
+    private static final String ISSUED_AT_CLAIM = "iat";
+
     private static final OAuth2Error MISSING_ISSUED_AT_ERROR =
             new OAuth2Error(
                     "invalid_token",
@@ -20,7 +22,7 @@ final class JwtIssuedAtValidator implements OAuth2TokenValidator<Jwt> {
     public OAuth2TokenValidatorResult validate(Jwt jwt) {
         Objects.requireNonNull(jwt, "jwt must not be null");
 
-        if (jwt.getIssuedAt() != null) {
+        if (jwt.getClaims().containsKey(ISSUED_AT_CLAIM)) {
             return OAuth2TokenValidatorResult.success();
         }
 

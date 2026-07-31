@@ -1,5 +1,12 @@
 package memory_map.backend.auth.jwt;
 
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -23,6 +30,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.Date;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -166,14 +174,9 @@ class NimbusAccessTokenVerifierTest {
     }
 
     @Test
-    void shouldRejectTokenWithoutIssuedAt() {
+    void shouldRejectTokenWithoutIssuedAt() throws JOSEException {
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer(ISSUER)
-                .subject(USER_ID.toString())
-                .expiresAt(ISSUED_AT.plus(ACCESS_TOKEN_TTL))
-                .build();
-        String token = issueToken(SECRET_BASE64, MacAlgorithm.HS256, claims);
+        String token = issueTokenWithoutIssuedAt();
 
         assertVerificationFailureWithCause(
                 () -> verifier().verify(token),
@@ -260,6 +263,25 @@ class NimbusAccessTokenVerifierTest {
         return jwtEncoder(secretBase64, algorithm)
                 .encode(JwtEncoderParameters.from(header, claims))
                 .getTokenValue();
+    }
+
+    private static String issueTokenWithoutIssuedAt()
+            throws JOSEException {
+        JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.HS256)
+                .type(JOSEObjectType.JWT)
+                .build();
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(ISSUER)
+                .subject(USER_ID.toString())
+                .expirationTime(Date.from(ISSUED_AT.plus(ACCESS_TOKEN_TTL)))
+                .build();
+        SignedJWT jwt = new SignedJWT(header, claims);
+
+        jwt.sign(new MACSigner(JwtSecretKeyFactory
+                .create(SECRET_BASE64)
+                .getEncoded()));
+
+        return jwt.serialize();
     }
 
     private static NimbusAccessTokenVerifier verifier() {
