@@ -50,6 +50,21 @@ public class JdbcStoryRepository implements StoryRepository {
             WHERE id = :id
             """;
 
+    private static final String UPDATE_SQL = """
+            UPDATE stories
+            SET title = :title,
+                description = :description,
+                updated_at = :updatedAt
+            WHERE id = :id
+            RETURNING
+                id,
+                owner_id,
+                title,
+                description,
+                created_at,
+                updated_at
+            """;
+
     private static final String FIND_BY_OWNER_ID_SQL = """
             SELECT
                 id,
@@ -82,8 +97,29 @@ public class JdbcStoryRepository implements StoryRepository {
                 .param("ownerId", story.ownerId())
                 .param("title", story.title())
                 .param("description", story.description())
-                .param("createdAt", DatabaseTimestamps.toOffsetDateTime(story.createdAt()))
-                .param("updatedAt", DatabaseTimestamps.toOffsetDateTime(story.updatedAt()))
+                .param(
+                        "createdAt",
+                        DatabaseTimestamps.toOffsetDateTime(story.createdAt())
+                )
+                .param(
+                        "updatedAt",
+                        DatabaseTimestamps.toOffsetDateTime(story.updatedAt())
+                )
+                .query(rowMapper)
+                .single();
+    }
+
+    @Override
+    public Story update(Story story) {
+
+        return jdbcClient.sql(UPDATE_SQL)
+                .param("id", story.id())
+                .param("title", story.title())
+                .param("description", story.description())
+                .param(
+                        "updatedAt",
+                        DatabaseTimestamps.toOffsetDateTime(story.updatedAt())
+                )
                 .query(rowMapper)
                 .single();
     }

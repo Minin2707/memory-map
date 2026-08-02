@@ -35,6 +35,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -598,6 +599,602 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 .doesNotContain("refreshToken");
     }
 
+    @Test
+    void shouldRejectUpdateStoryWithoutBearerToken() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        OWNER_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectUpdateStoryWithInvalidBearerToken() throws Exception {
+
+        String invalidToken = "not-a-jwt";
+
+        String response = mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        OWNER_STORY_ID
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + invalidToken
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response)
+                .doesNotContain(invalidToken)
+                .doesNotContain("stackTrace")
+                .doesNotContain("cause");
+    }
+
+    @Test
+    void shouldUpdateStoryTitleThroughHttpForOwner()
+            throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        JsonNode response = patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                """
+                {
+                  "title": "Updated Story"
+                }
+                """,
+                200
+        );
+        Story persisted = storyRepository.findById(story.id())
+                .orElseThrow();
+
+        assertThat(response.at("/id").asText())
+                .isEqualTo(story.id().toString());
+        assertThat(response.at("/title").asText())
+                .isEqualTo("Updated Story");
+        assertThat(response.at("/description").asText())
+                .isEqualTo("The beginning");
+        assertThat(response.at("/role").asText()).isEqualTo("OWNER");
+        assertThat(response.at("/updatedAt").asText())
+                .isEqualTo("2026-01-10T10:00:00.123456Z");
+        assertPublicStoryResponseIsConfidential(response);
+
+        assertThat(persisted.id()).isEqualTo(story.id());
+        assertThat(persisted.ownerId()).isEqualTo(owner.id());
+        assertThat(persisted.title()).isEqualTo("Updated Story");
+        assertThat(persisted.description()).isEqualTo("The beginning");
+        assertThat(persisted.createdAt()).isEqualTo(story.createdAt());
+        assertThat(persisted.updatedAt()).isEqualTo(CURRENT_TIME);
+    }
+
+    @Test
+    void shouldUpdateStoryDescriptionThroughHttpForCoOwner()
+            throws Exception {
+
+        User owner = saveUser(OTHER_USER_ID);
+        User coOwner = saveUser(USER_ID);
+        Story story = saveStory(
+                SHARED_STORY_ID,
+                owner.id(),
+                "Shared Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                coOwner.id(),
+                StoryRole.CO_OWNER,
+                BASE_TIME.plusSeconds(1)
+        );
+
+        JsonNode response = patchStory(
+                validAccessToken(coOwner.id()),
+                story.id(),
+                """
+                {
+                  "description": "Updated description"
+                }
+                """,
+                200
+        );
+        Story persisted = storyRepository.findById(story.id())
+                .orElseThrow();
+
+        assertThat(response.at("/role").asText()).isEqualTo("CO_OWNER");
+        assertThat(persisted.ownerId()).isEqualTo(owner.id());
+        assertThat(persisted.title()).isEqualTo("Shared Story");
+        assertThat(persisted.description())
+                .isEqualTo("Updated description");
+    }
+
+    @Test
+    void shouldClearStoryDescriptionThroughHttp() throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        JsonNode response = patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                """
+                {
+                  "description": null
+                }
+                """,
+                200
+        );
+
+        assertThat(response.at("/description").isNull()).isTrue();
+        assertThat(storyRepository.findById(story.id())
+                .orElseThrow()
+                .description())
+                .isNull();
+    }
+
+    @Test
+    void shouldUpdateBothStoryFieldsThroughHttp() throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                """
+                {
+                  "title": "Updated Story",
+                  "description": "Updated description"
+                }
+                """,
+                200
+        );
+        Story persisted = storyRepository.findById(story.id())
+                .orElseThrow();
+
+        assertThat(persisted.title()).isEqualTo("Updated Story");
+        assertThat(persisted.description())
+                .isEqualTo("Updated description");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {"EDITOR", "VIEWER"})
+    void shouldReturnNotFoundForRolesThatCannotUpdateStoryMetadata(
+            StoryRole role
+    ) throws Exception {
+
+        User owner = saveUser(OTHER_USER_ID);
+        User user = saveUser(USER_ID);
+        Story story = saveStory(
+                SHARED_STORY_ID,
+                owner.id(),
+                "Shared Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                user.id(),
+                role,
+                BASE_TIME.plusSeconds(1)
+        );
+
+        JsonNode response = patchStory(
+                validAccessToken(user.id()),
+                story.id(),
+                """
+                {
+                  "title": "Updated Story"
+                }
+                """,
+                404
+        );
+
+        assertStoryNotFoundBodyIsSafe(response);
+        assertThat(storyRepository.findById(story.id()))
+                .contains(story);
+    }
+
+    @Test
+    void shouldReturnSameNotFoundForMissingInaccessibleAndDeniedUpdate()
+            throws Exception {
+
+        User user = saveUser(USER_ID);
+        User otherUser = saveUser(OTHER_USER_ID);
+        Story inaccessibleStory = saveStory(
+                SHARED_STORY_ID,
+                otherUser.id(),
+                "Private Story",
+                "The beginning",
+                BASE_TIME
+        );
+        Story editorStory = saveStory(
+                OWNER_STORY_ID,
+                otherUser.id(),
+                "Editor Story",
+                "The beginning",
+                BASE_TIME.plusSeconds(1)
+        );
+        Story viewerStory = saveStory(
+                FOREIGN_STORY_ID,
+                otherUser.id(),
+                "Viewer Story",
+                "The beginning",
+                BASE_TIME.plusSeconds(2)
+        );
+        saveParticipant(
+                inaccessibleStory.id(),
+                otherUser.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                editorStory.id(),
+                otherUser.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                editorStory.id(),
+                user.id(),
+                StoryRole.EDITOR,
+                BASE_TIME.plusSeconds(1)
+        );
+        saveParticipant(
+                viewerStory.id(),
+                otherUser.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                viewerStory.id(),
+                user.id(),
+                StoryRole.VIEWER,
+                BASE_TIME.plusSeconds(1)
+        );
+
+        MvcResult missing = performPatchStory(
+                validAccessToken(user.id()),
+                UUID.fromString("00000000-0000-0000-0000-000000000099"),
+                """
+                {
+                  "title": "Updated Story"
+                }
+                """,
+                404
+        );
+        MvcResult inaccessible = performPatchStory(
+                validAccessToken(user.id()),
+                inaccessibleStory.id(),
+                """
+                {
+                  "title": "Updated Story"
+                }
+                """,
+                404
+        );
+        MvcResult editor = performPatchStory(
+                validAccessToken(user.id()),
+                editorStory.id(),
+                """
+                {
+                  "title": "Updated Story"
+                }
+                """,
+                404
+        );
+        MvcResult viewer = performPatchStory(
+                validAccessToken(user.id()),
+                viewerStory.id(),
+                """
+                {
+                  "title": "Updated Story"
+                }
+                """,
+                404
+        );
+
+        assertThat(inaccessible.getResponse().getContentType())
+                .isEqualTo(missing.getResponse().getContentType());
+        assertThat(editor.getResponse().getContentType())
+                .isEqualTo(missing.getResponse().getContentType());
+        assertThat(viewer.getResponse().getContentType())
+                .isEqualTo(missing.getResponse().getContentType());
+        assertThat(inaccessible.getResponse().getContentAsString())
+                .isEqualTo(missing.getResponse().getContentAsString());
+        assertThat(editor.getResponse().getContentAsString())
+                .isEqualTo(missing.getResponse().getContentAsString());
+        assertThat(viewer.getResponse().getContentAsString())
+                .isEqualTo(missing.getResponse().getContentAsString());
+    }
+
+    @Test
+    void shouldReturnNotFoundForOwnerWithoutUpdateMembership()
+            throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Without Membership Story",
+                "The beginning",
+                BASE_TIME
+        );
+
+        JsonNode response = patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                """
+                {
+                  "title": "Updated Story"
+                }
+                """,
+                404
+        );
+
+        assertStoryNotFoundBodyIsSafe(response);
+        assertThat(storyRepository.findById(story.id()))
+                .contains(story);
+    }
+
+    @Test
+    void shouldReturnBadRequestForEmptyUpdatePatchAndKeepDbUnchanged()
+            throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                "{}",
+                400
+        );
+
+        assertThat(storyRepository.findById(story.id()))
+                .contains(story);
+    }
+
+    @Test
+    void shouldReturnBadRequestForNullUpdateTitleAndKeepDbUnchanged()
+            throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                """
+                {
+                  "title": null
+                }
+                """,
+                400
+        );
+
+        assertThat(storyRepository.findById(story.id()))
+                .contains(story);
+    }
+
+    @Test
+    void shouldReturnBadRequestForEmptyUpdateTitleAndKeepDbUnchanged()
+            throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                """
+                {
+                  "title": ""
+                }
+                """,
+                400
+        );
+
+        assertThat(storyRepository.findById(story.id()))
+                .contains(story);
+    }
+
+    @Test
+    void shouldReturnBadRequestForBlankUpdateTitleAndKeepDbUnchanged()
+            throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                """
+                {
+                  "title": "   "
+                }
+                """,
+                400
+        );
+
+        assertThat(storyRepository.findById(story.id()))
+                .contains(story);
+    }
+
+    @Test
+    void shouldReturnBadRequestForMalformedUpdateJsonAndKeepDbUnchanged()
+            throws Exception {
+
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Owner Story",
+                "The beginning",
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+
+        patchStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                """
+                {
+                  "title": "Updated Story",
+                }
+                """,
+                400
+        );
+
+        assertThat(storyRepository.findById(story.id()))
+                .contains(story);
+    }
+
+    @Test
+    void shouldRejectMalformedUpdateStoryId() throws Exception {
+
+        User user = saveUser(USER_ID);
+
+        String response = mockMvc.perform(patch("/api/v1/stories/not-a-uuid")
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + validAccessToken(user.id())
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response)
+                .doesNotContain(USER_ID.toString())
+                .doesNotContain("google-subject")
+                .doesNotContain("accessToken")
+                .doesNotContain("refreshToken");
+    }
+
     private JsonNode postStory(
             String accessToken,
             String request,
@@ -654,6 +1251,26 @@ class StoryControllerIntegrationTest extends IntegrationTest {
         return jsonMapper.readTree(response);
     }
 
+    private JsonNode patchStory(
+            String accessToken,
+            UUID storyId,
+            String request,
+            int expectedStatus
+    ) throws Exception {
+        String response = performPatchStory(
+                accessToken,
+                storyId,
+                request,
+                expectedStatus
+        ).getResponse().getContentAsString();
+
+        if (response.isBlank()) {
+            return jsonMapper.readTree("{}");
+        }
+
+        return jsonMapper.readTree(response);
+    }
+
     private MvcResult performGetStory(
             String accessToken,
             UUID storyId,
@@ -667,6 +1284,38 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                                 HttpHeaders.AUTHORIZATION,
                                 "Bearer " + accessToken
                         ))
+                .andExpect(status().is(expectedStatus))
+                .andReturn();
+
+        if (expectedStatus == 200) {
+            assertThat(result.getResponse().getContentType())
+                    .contains(MediaType.APPLICATION_JSON_VALUE);
+        }
+
+        if (expectedStatus == 404) {
+            assertThat(result.getResponse().getContentType())
+                    .contains(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+        }
+
+        return result;
+    }
+
+    private MvcResult performPatchStory(
+            String accessToken,
+            UUID storyId,
+            String request,
+            int expectedStatus
+    ) throws Exception {
+        MvcResult result = mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        storyId
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + accessToken
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
                 .andExpect(status().is(expectedStatus))
                 .andReturn();
 

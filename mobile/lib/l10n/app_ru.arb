@@ -42,5 +42,105 @@
   "authenticatedSessionReady": "Сеанс авторизации готов",
   "logOut": "Выйти",
   "loggingOut": "Выполняется выход…",
-  "tryLogoutAgain": "Попробовать выйти снова"
+  "tryLogoutAgain": "Попробовать выйти снова",
+  "storiesGreeting": "Привет, {displayName}! 👋",
+  "@storiesGreeting": {
+    "description": "Greeting shown on the Stories screen",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "storiesSubtitle": "Здесь живут ваши совместные воспоминания",
+  "storiesSectionTitle": "Ваши истории",
+  "storiesCreateAction": "Создать историю",
+  "storiesEmptyTitle": "У вас пока нет историй",
+  "storiesEmptyDescription": "Создайте свою первую историю и сохраните важные моменты вместе",
+  "storiesLoadFailureTitle": "Не удалось загрузить истории",
+  "storiesRefreshFailureTitle": "Не удалось обновить истории",
+  "storyFailureValidation": "Запрос содержит ошибку. Попробуйте ещё раз.",
+  "storyFailureUnauthorized": "Сеанс требует внимания. Попробуйте ещё раз.",
+  "storyFailureNotFound": "История недоступна.",
+  "storyFailureNetworkUnavailable": "Нет подключения к интернету. Проверьте соединение и повторите попытку.",
+  "storyFailureRequestTimedOut": "Время ожидания истекло. Попробуйте ещё раз.",
+  "storyFailureServerFailure": "Сервер временно недоступен. Попробуйте ещё раз.",
+  "storyFailureUnknown": "Что-то пошло не так. Попробуйте ещё раз.",
+  "storyRoleOwner": "Владелец",
+  "storyRoleCoOwner": "Совладелец",
+  "storyRoleEditor": "Редактор",
+  "storyRoleViewer": "Читатель",
+  "storiesNotificationUnavailableLabel": "Уведомления пока недоступны",
+  "storiesAvatarLabel": "Аватар пользователя {displayName}",
+  "@storiesAvatarLabel": {
+    "description": "Accessibility label for the Stories screen avatar",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "storiesOpenStoryLabel": "Открыть историю {title}",
+  "@storiesOpenStoryLabel": {
+    "description": "Accessibility label for a tappable story card",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "cancel": "Отмена",
+  "createStoryPageTitle": "Создание истории",
+  "createStoryBackLabel": "Вернуться к историям",
+  "createStoryHeroTitle": "Новая история",
+  "createStoryHeroSubtitle": "Создайте пространство для ваших совместных воспоминаний",
+  "createStoryTitleLabel": "Название истории",
+  "createStoryTitleHint": "Например: Наша история",
+  "createStoryTitleHelp": "Название будет видно всем участникам истории",
+  "createStoryTitleRequired": "Введите название истории.",
+  "createStoryTitleBlank": "Название истории не может быть пустым.",
+  "createStoryDescriptionLabel": "Описание",
+  "createStoryDescriptionOptional": "необязательно",
+  "createStoryDescriptionHint": "Добавьте короткую заметку об этой истории",
+  "createStoryWhyTitle": "Зачем нужно название?",
+  "createStoryWhyDescription": "Хорошее название помогает вспомнить, о чём ваша история, и делает её особенной.",
+  "createStoryIdeasTitle": "Идеи для названия",
+  "createStoryIdeaOne": "Наша история",
+  "createStoryIdeaTwo": "Лучшие моменты вместе",
+  "createStoryIdeaThree": "Путешествия и приключения",
+  "createStorySubmitButton": "Создать историю",
+  "createStoryCreatingButton": "Создаём историю...",
+  "storyDetailsPageTitle": "История",
+  "storyDetailsBackLabel": "Вернуться к историям",
+  "storyDetailsEditAction": "Редактировать историю",
+  "storyDetailsLoadFailureTitle": "Не удалось загрузить историю",
+  "storyDetailsDescriptionTitle": "Об этой истории",
+  "storyDetailsNoDescription": "Описания пока нет.",
+  "storyDetailsInfoTitle": "Информация об истории",
+  "storyDetailsCreatedLabel": "Создана",
+  "storyDetailsUpdatedLabel": "Обновлена",
+  "storyDetailsRefreshFailureTitle": "Не удалось обновить историю",
+  "storyDetailsSectionsTitle": "Разделы",
+  "storyDetailsMemoriesAction": "Воспоминания",
+  "storyDetailsParticipantsAction": "Участники",
+  "storyDetailsMapAction": "Карта",
+  "editStoryPageTitle": "Редактирование истории",
+  "editStoryBackLabel": "Вернуться к истории",
+  "editStoryHeroTitle": "Детали истории",
+  "editStoryHeroSubtitle": "Обновите название и заметку, которые видят участники истории",
+  "editStoryTitleLabel": "Название истории",
+  "editStoryTitleHint": "Например: Наша история",
+  "editStoryTitleHelp": "Название остаётся видимым всем участникам истории",
+  "editStoryTitleRequired": "Введите название истории.",
+  "editStoryTitleBlank": "Название истории не может быть пустым.",
+  "editStoryDescriptionLabel": "Описание",
+  "editStoryDescriptionOptional": "необязательно",
+  "editStoryDescriptionHint": "Добавьте короткую заметку об этой истории",
+  "editStoryDescriptionHelp": "Очистите поле, чтобы удалить текущее описание",
+  "editStorySaveButton": "Сохранить изменения",
+  "editStorySavingButton": "Сохраняем изменения...",
+  "editStoryNoChangesHint": "Измените поле, чтобы сохранить.",
+  "editStoryUnavailableTitle": "Редактирование недоступно",
+  "editStoryUnavailableDescription": "Эту историю нельзя редактировать отсюда.",
+  "editStoryUnavailableBackAction": "Вернуться к истории"
 }

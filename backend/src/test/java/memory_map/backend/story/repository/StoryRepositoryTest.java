@@ -145,4 +145,83 @@ class StoryRepositoryTest extends IntegrationTest {
                 .hasSize(3)
                 .containsExactly(third, second, first);
     }
+
+    @Test
+    void shouldUpdateStory() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+        Instant updatedAt = saved.updatedAt().plusSeconds(60);
+
+        Story updated = repository.update(new Story(
+                saved.id(),
+                saved.ownerId(),
+                "Updated Story",
+                "Updated description",
+                saved.createdAt(),
+                updatedAt
+        ));
+
+        assertThat(updated.id()).isEqualTo(saved.id());
+        assertThat(updated.ownerId()).isEqualTo(saved.ownerId());
+        assertThat(updated.title()).isEqualTo("Updated Story");
+        assertThat(updated.description())
+                .isEqualTo("Updated description");
+        assertThat(updated.createdAt()).isEqualTo(saved.createdAt());
+        assertThat(updated.updatedAt()).isEqualTo(updatedAt);
+        assertThat(repository.findById(saved.id()))
+                .contains(updated);
+    }
+
+    @Test
+    void shouldUpdateStoryDescriptionToNull() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+
+        Story updated = repository.update(new Story(
+                saved.id(),
+                saved.ownerId(),
+                saved.title(),
+                null,
+                saved.createdAt(),
+                saved.updatedAt().plusSeconds(60)
+        ));
+
+        assertThat(updated.description()).isNull();
+        assertThat(repository.findById(saved.id())
+                .orElseThrow()
+                .description())
+                .isNull();
+    }
+
+    @Test
+    void shouldPreserveStoredOwnerIdAndCreatedAtWhenUpdatingStory() {
+
+        User originalOwner = userRepository.save(
+                createUser("google-subject-123")
+        );
+        User otherUser = userRepository.save(
+                createUser("google-subject-456")
+        );
+        Story saved = repository.save(createStory(originalOwner.id()));
+
+        Story updated = repository.update(new Story(
+                saved.id(),
+                otherUser.id(),
+                "Updated Story",
+                "Updated description",
+                saved.createdAt().plusSeconds(120),
+                saved.updatedAt().plusSeconds(60)
+        ));
+
+        assertThat(updated.ownerId()).isEqualTo(originalOwner.id());
+        assertThat(updated.createdAt()).isEqualTo(saved.createdAt());
+        assertThat(repository.findById(saved.id()))
+                .contains(updated);
+    }
 }

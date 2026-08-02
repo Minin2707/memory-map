@@ -10,6 +10,8 @@ public interface StoryRepository {
 
     Story save(Story story);
 
+    Story update(Story story);
+
     Optional<Story> findById(UUID id);
 
     List<Story> findByOwnerId(UUID ownerId);

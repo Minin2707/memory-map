@@ -33,4 +33,15 @@ public class StoryApplicationConfiguration {
     ) {
         return new DefaultGetStoryService(userStoryRepository);
     }
+
+    @Bean
+    public UpdateStoryUseCase updateStoryUseCase(
+            UserStoryRepository userStoryRepository,
+            StoryRepository storyRepository
+    ) {
+        return new TransactionalUpdateStoryService(
+                userStoryRepository,
+                storyRepository
+        );
+    }
 }

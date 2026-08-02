@@ -309,6 +309,11 @@ class TransactionalCreateStoryServiceTest {
         }
 
         @Override
+        public Story update(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Optional<Story> findById(UUID id) {
             return Optional.empty();
         }

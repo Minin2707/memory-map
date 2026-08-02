@@ -289,6 +289,462 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Try to log out again'**
   String get tryLogoutAgain;
+
+  /// Greeting shown on the Stories screen
+  ///
+  /// In en, this message translates to:
+  /// **'Hi, {displayName}! 👋'**
+  String storiesGreeting(String displayName);
+
+  /// No description provided for @storiesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your shared memories live here'**
+  String get storiesSubtitle;
+
+  /// No description provided for @storiesSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your stories'**
+  String get storiesSectionTitle;
+
+  /// No description provided for @storiesCreateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create story'**
+  String get storiesCreateAction;
+
+  /// No description provided for @storiesEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No stories yet'**
+  String get storiesEmptyTitle;
+
+  /// No description provided for @storiesEmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your first story and save important moments together'**
+  String get storiesEmptyDescription;
+
+  /// No description provided for @storiesLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load stories'**
+  String get storiesLoadFailureTitle;
+
+  /// No description provided for @storiesRefreshFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not refresh stories'**
+  String get storiesRefreshFailureTitle;
+
+  /// No description provided for @storyFailureValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'The request was invalid. Please try again.'**
+  String get storyFailureValidation;
+
+  /// No description provided for @storyFailureUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session needs attention. Please try again.'**
+  String get storyFailureUnauthorized;
+
+  /// No description provided for @storyFailureNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Story is unavailable.'**
+  String get storyFailureNotFound;
+
+  /// No description provided for @storyFailureNetworkUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection. Check your connection and try again.'**
+  String get storyFailureNetworkUnavailable;
+
+  /// No description provided for @storyFailureRequestTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Please try again.'**
+  String get storyFailureRequestTimedOut;
+
+  /// No description provided for @storyFailureServerFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is temporarily unavailable. Please try again.'**
+  String get storyFailureServerFailure;
+
+  /// No description provided for @storyFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get storyFailureUnknown;
+
+  /// No description provided for @storyRoleOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get storyRoleOwner;
+
+  /// No description provided for @storyRoleCoOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Co-owner'**
+  String get storyRoleCoOwner;
+
+  /// No description provided for @storyRoleEditor.
+  ///
+  /// In en, this message translates to:
+  /// **'Editor'**
+  String get storyRoleEditor;
+
+  /// No description provided for @storyRoleViewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get storyRoleViewer;
+
+  /// No description provided for @storiesNotificationUnavailableLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are not available yet'**
+  String get storiesNotificationUnavailableLabel;
+
+  /// Accessibility label for the Stories screen avatar
+  ///
+  /// In en, this message translates to:
+  /// **'{displayName}\'s avatar'**
+  String storiesAvatarLabel(String displayName);
+
+  /// Accessibility label for a tappable story card
+  ///
+  /// In en, this message translates to:
+  /// **'Open story {title}'**
+  String storiesOpenStoryLabel(String title);
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @createStoryPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create story'**
+  String get createStoryPageTitle;
+
+  /// No description provided for @createStoryBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to stories'**
+  String get createStoryBackLabel;
+
+  /// No description provided for @createStoryHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New story'**
+  String get createStoryHeroTitle;
+
+  /// No description provided for @createStoryHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a space for your shared memories'**
+  String get createStoryHeroSubtitle;
+
+  /// No description provided for @createStoryTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Story title'**
+  String get createStoryTitleLabel;
+
+  /// No description provided for @createStoryTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Example: Our story'**
+  String get createStoryTitleHint;
+
+  /// No description provided for @createStoryTitleHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The title will be visible to every story participant'**
+  String get createStoryTitleHelp;
+
+  /// No description provided for @createStoryTitleRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a story title.'**
+  String get createStoryTitleRequired;
+
+  /// No description provided for @createStoryTitleBlank.
+  ///
+  /// In en, this message translates to:
+  /// **'Story title cannot be blank.'**
+  String get createStoryTitleBlank;
+
+  /// No description provided for @createStoryDescriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get createStoryDescriptionLabel;
+
+  /// No description provided for @createStoryDescriptionOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'optional'**
+  String get createStoryDescriptionOptional;
+
+  /// No description provided for @createStoryDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a short note about this story'**
+  String get createStoryDescriptionHint;
+
+  /// No description provided for @createStoryWhyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Why does a title matter?'**
+  String get createStoryWhyTitle;
+
+  /// No description provided for @createStoryWhyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'A good title helps everyone remember what makes this story special.'**
+  String get createStoryWhyDescription;
+
+  /// No description provided for @createStoryIdeasTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title ideas'**
+  String get createStoryIdeasTitle;
+
+  /// No description provided for @createStoryIdeaOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Our story'**
+  String get createStoryIdeaOne;
+
+  /// No description provided for @createStoryIdeaTwo.
+  ///
+  /// In en, this message translates to:
+  /// **'Best moments together'**
+  String get createStoryIdeaTwo;
+
+  /// No description provided for @createStoryIdeaThree.
+  ///
+  /// In en, this message translates to:
+  /// **'Travels and adventures'**
+  String get createStoryIdeaThree;
+
+  /// No description provided for @createStorySubmitButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create story'**
+  String get createStorySubmitButton;
+
+  /// No description provided for @createStoryCreatingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating story...'**
+  String get createStoryCreatingButton;
+
+  /// No description provided for @storyDetailsPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Story'**
+  String get storyDetailsPageTitle;
+
+  /// No description provided for @storyDetailsBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to stories'**
+  String get storyDetailsBackLabel;
+
+  /// No description provided for @storyDetailsEditAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit story'**
+  String get storyDetailsEditAction;
+
+  /// No description provided for @storyDetailsLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load story'**
+  String get storyDetailsLoadFailureTitle;
+
+  /// No description provided for @storyDetailsDescriptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About this story'**
+  String get storyDetailsDescriptionTitle;
+
+  /// No description provided for @storyDetailsNoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'No description yet.'**
+  String get storyDetailsNoDescription;
+
+  /// No description provided for @storyDetailsInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Story info'**
+  String get storyDetailsInfoTitle;
+
+  /// No description provided for @storyDetailsCreatedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get storyDetailsCreatedLabel;
+
+  /// No description provided for @storyDetailsUpdatedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get storyDetailsUpdatedLabel;
+
+  /// No description provided for @storyDetailsRefreshFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not refresh story'**
+  String get storyDetailsRefreshFailureTitle;
+
+  /// No description provided for @storyDetailsSectionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore'**
+  String get storyDetailsSectionsTitle;
+
+  /// No description provided for @storyDetailsMemoriesAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Memories'**
+  String get storyDetailsMemoriesAction;
+
+  /// No description provided for @storyDetailsParticipantsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Participants'**
+  String get storyDetailsParticipantsAction;
+
+  /// No description provided for @storyDetailsMapAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get storyDetailsMapAction;
+
+  /// No description provided for @editStoryPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit story'**
+  String get editStoryPageTitle;
+
+  /// No description provided for @editStoryBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to story'**
+  String get editStoryBackLabel;
+
+  /// No description provided for @editStoryHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Story details'**
+  String get editStoryHeroTitle;
+
+  /// No description provided for @editStoryHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update the name and note shown to story participants'**
+  String get editStoryHeroSubtitle;
+
+  /// No description provided for @editStoryTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Story title'**
+  String get editStoryTitleLabel;
+
+  /// No description provided for @editStoryTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Example: Our story'**
+  String get editStoryTitleHint;
+
+  /// No description provided for @editStoryTitleHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The title remains visible to every story participant'**
+  String get editStoryTitleHelp;
+
+  /// No description provided for @editStoryTitleRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a story title.'**
+  String get editStoryTitleRequired;
+
+  /// No description provided for @editStoryTitleBlank.
+  ///
+  /// In en, this message translates to:
+  /// **'Story title cannot be blank.'**
+  String get editStoryTitleBlank;
+
+  /// No description provided for @editStoryDescriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get editStoryDescriptionLabel;
+
+  /// No description provided for @editStoryDescriptionOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'optional'**
+  String get editStoryDescriptionOptional;
+
+  /// No description provided for @editStoryDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a short note about this story'**
+  String get editStoryDescriptionHint;
+
+  /// No description provided for @editStoryDescriptionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the field to remove the existing description'**
+  String get editStoryDescriptionHelp;
+
+  /// No description provided for @editStorySaveButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get editStorySaveButton;
+
+  /// No description provided for @editStorySavingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving changes...'**
+  String get editStorySavingButton;
+
+  /// No description provided for @editStoryNoChangesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Make a change to save.'**
+  String get editStoryNoChangesHint;
+
+  /// No description provided for @editStoryUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing is unavailable'**
+  String get editStoryUnavailableTitle;
+
+  /// No description provided for @editStoryUnavailableDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This story cannot be edited from here.'**
+  String get editStoryUnavailableDescription;
+
+  /// No description provided for @editStoryUnavailableBackAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to story'**
+  String get editStoryUnavailableBackAction;
 }
 
 class _AppLocalizationsDelegate

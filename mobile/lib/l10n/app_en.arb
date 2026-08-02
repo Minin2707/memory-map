@@ -42,5 +42,105 @@
   "authenticatedSessionReady": "Authenticated session is ready",
   "logOut": "Log out",
   "loggingOut": "Logging out…",
-  "tryLogoutAgain": "Try to log out again"
+  "tryLogoutAgain": "Try to log out again",
+  "storiesGreeting": "Hi, {displayName}! 👋",
+  "@storiesGreeting": {
+    "description": "Greeting shown on the Stories screen",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "storiesSubtitle": "Your shared memories live here",
+  "storiesSectionTitle": "Your stories",
+  "storiesCreateAction": "Create story",
+  "storiesEmptyTitle": "No stories yet",
+  "storiesEmptyDescription": "Create your first story and save important moments together",
+  "storiesLoadFailureTitle": "Could not load stories",
+  "storiesRefreshFailureTitle": "Could not refresh stories",
+  "storyFailureValidation": "The request was invalid. Please try again.",
+  "storyFailureUnauthorized": "Your session needs attention. Please try again.",
+  "storyFailureNotFound": "Story is unavailable.",
+  "storyFailureNetworkUnavailable": "No network connection. Check your connection and try again.",
+  "storyFailureRequestTimedOut": "The request timed out. Please try again.",
+  "storyFailureServerFailure": "The server is temporarily unavailable. Please try again.",
+  "storyFailureUnknown": "Something went wrong. Please try again.",
+  "storyRoleOwner": "Owner",
+  "storyRoleCoOwner": "Co-owner",
+  "storyRoleEditor": "Editor",
+  "storyRoleViewer": "Viewer",
+  "storiesNotificationUnavailableLabel": "Notifications are not available yet",
+  "storiesAvatarLabel": "{displayName}'s avatar",
+  "@storiesAvatarLabel": {
+    "description": "Accessibility label for the Stories screen avatar",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "storiesOpenStoryLabel": "Open story {title}",
+  "@storiesOpenStoryLabel": {
+    "description": "Accessibility label for a tappable story card",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "cancel": "Cancel",
+  "createStoryPageTitle": "Create story",
+  "createStoryBackLabel": "Back to stories",
+  "createStoryHeroTitle": "New story",
+  "createStoryHeroSubtitle": "Create a space for your shared memories",
+  "createStoryTitleLabel": "Story title",
+  "createStoryTitleHint": "Example: Our story",
+  "createStoryTitleHelp": "The title will be visible to every story participant",
+  "createStoryTitleRequired": "Enter a story title.",
+  "createStoryTitleBlank": "Story title cannot be blank.",
+  "createStoryDescriptionLabel": "Description",
+  "createStoryDescriptionOptional": "optional",
+  "createStoryDescriptionHint": "Add a short note about this story",
+  "createStoryWhyTitle": "Why does a title matter?",
+  "createStoryWhyDescription": "A good title helps everyone remember what makes this story special.",
+  "createStoryIdeasTitle": "Title ideas",
+  "createStoryIdeaOne": "Our story",
+  "createStoryIdeaTwo": "Best moments together",
+  "createStoryIdeaThree": "Travels and adventures",
+  "createStorySubmitButton": "Create story",
+  "createStoryCreatingButton": "Creating story...",
+  "storyDetailsPageTitle": "Story",
+  "storyDetailsBackLabel": "Back to stories",
+  "storyDetailsEditAction": "Edit story",
+  "storyDetailsLoadFailureTitle": "Could not load story",
+  "storyDetailsDescriptionTitle": "About this story",
+  "storyDetailsNoDescription": "No description yet.",
+  "storyDetailsInfoTitle": "Story info",
+  "storyDetailsCreatedLabel": "Created",
+  "storyDetailsUpdatedLabel": "Updated",
+  "storyDetailsRefreshFailureTitle": "Could not refresh story",
+  "storyDetailsSectionsTitle": "Explore",
+  "storyDetailsMemoriesAction": "Memories",
+  "storyDetailsParticipantsAction": "Participants",
+  "storyDetailsMapAction": "Map",
+  "editStoryPageTitle": "Edit story",
+  "editStoryBackLabel": "Back to story",
+  "editStoryHeroTitle": "Story details",
+  "editStoryHeroSubtitle": "Update the name and note shown to story participants",
+  "editStoryTitleLabel": "Story title",
+  "editStoryTitleHint": "Example: Our story",
+  "editStoryTitleHelp": "The title remains visible to every story participant",
+  "editStoryTitleRequired": "Enter a story title.",
+  "editStoryTitleBlank": "Story title cannot be blank.",
+  "editStoryDescriptionLabel": "Description",
+  "editStoryDescriptionOptional": "optional",
+  "editStoryDescriptionHint": "Add a short note about this story",
+  "editStoryDescriptionHelp": "Clear the field to remove the existing description",
+  "editStorySaveButton": "Save changes",
+  "editStorySavingButton": "Saving changes...",
+  "editStoryNoChangesHint": "Make a change to save.",
+  "editStoryUnavailableTitle": "Editing is unavailable",
+  "editStoryUnavailableDescription": "This story cannot be edited from here.",
+  "editStoryUnavailableBackAction": "Back to story"
 }

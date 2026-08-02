@@ -7,6 +7,8 @@ import memory_map.backend.story.application.CreateStoryUseCase;
 import memory_map.backend.story.application.GetStoriesUseCase;
 import memory_map.backend.story.application.GetStoryUseCase;
 import memory_map.backend.story.application.StoryNotFoundException;
+import memory_map.backend.story.application.UpdateStoryCommand;
+import memory_map.backend.story.application.UpdateStoryUseCase;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.storyparticipant.domain.StoryRole;
@@ -30,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -56,6 +59,9 @@ class StoryControllerTest {
     private FakeGetStoryUseCase getStoryUseCase;
 
     @Autowired
+    private FakeUpdateStoryUseCase updateStoryUseCase;
+
+    @Autowired
     private FakeCurrentAuthenticatedUserProvider
             currentAuthenticatedUserProvider;
 
@@ -80,6 +86,7 @@ class StoryControllerTest {
         createStoryUseCase.reset();
         getStoriesUseCase.reset();
         getStoryUseCase.reset();
+        updateStoryUseCase.reset();
         currentAuthenticatedUserProvider.reset();
     }
 
@@ -270,6 +277,301 @@ class StoryControllerTest {
     }
 
     @Test
+    void shouldUpdateStoryTitleOnly() throws Exception {
+
+        String response = mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Returned Story"))
+                .andExpect(jsonPath("$.description")
+                        .value("Returned description"))
+                .andExpect(jsonPath("$.role").value("OWNER"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        UpdateStoryCommand command =
+                updateStoryUseCase.receivedCommand();
+
+        assertThat(command.authenticatedUser())
+                .isEqualTo(new AuthenticatedUser(USER_ID));
+        assertThat(command.storyId()).isEqualTo(FIRST_STORY_ID);
+        assertThat(command.title().isProvided()).isTrue();
+        assertThat(command.title().value()).isEqualTo("Updated Story");
+        assertThat(command.description().isProvided()).isFalse();
+        assertThat(command.currentTime()).isEqualTo(CURRENT_TIME);
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(updateStoryUseCase.callCount()).isEqualTo(1);
+        assertThat(getStoryUseCase.callCount()).isZero();
+        assertThat(response)
+                .doesNotContain("ownerId")
+                .doesNotContain("userId")
+                .doesNotContain("googleSubject")
+                .doesNotContain("joinedAt")
+                .doesNotContain("archived");
+    }
+
+    @Test
+    void shouldUpdateStoryDescriptionOnly() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "description": "Updated description"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        UpdateStoryCommand command =
+                updateStoryUseCase.receivedCommand();
+
+        assertThat(command.title().isProvided()).isFalse();
+        assertThat(command.description().isProvided()).isTrue();
+        assertThat(command.description().value())
+                .isEqualTo("Updated description");
+    }
+
+    @Test
+    void shouldClearStoryDescription() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "description": null
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        UpdateStoryCommand command =
+                updateStoryUseCase.receivedCommand();
+
+        assertThat(command.title().isProvided()).isFalse();
+        assertThat(command.description().isProvided()).isTrue();
+        assertThat(command.description().value()).isNull();
+    }
+
+    @Test
+    void shouldUpdateStoryTitleAndDescription() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story",
+                                  "description": "Updated description"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        UpdateStoryCommand command =
+                updateStoryUseCase.receivedCommand();
+
+        assertThat(command.title().isProvided()).isTrue();
+        assertThat(command.title().value()).isEqualTo("Updated Story");
+        assertThat(command.description().isProvided()).isTrue();
+        assertThat(command.description().value())
+                .isEqualTo("Updated description");
+    }
+
+    @Test
+    void shouldUpdateStoryTitleAndClearDescription() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story",
+                                  "description": null
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        UpdateStoryCommand command =
+                updateStoryUseCase.receivedCommand();
+
+        assertThat(command.title().value()).isEqualTo("Updated Story");
+        assertThat(command.description().isProvided()).isTrue();
+        assertThat(command.description().value()).isNull();
+    }
+
+    @Test
+    void shouldReturnBadRequestForEmptyUpdatePatch() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(updateStoryUseCase.callCount()).isZero();
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+    }
+
+    @Test
+    void shouldReturnBadRequestForNullUpdateTitle() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(updateStoryUseCase.callCount()).isZero();
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+    }
+
+    @Test
+    void shouldReturnBadRequestForEmptyUpdateTitle() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(updateStoryUseCase.callCount()).isZero();
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+    }
+
+    @Test
+    void shouldReturnBadRequestForBlankUpdateTitle() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(updateStoryUseCase.callCount()).isZero();
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+    }
+
+    @Test
+    void shouldReturnBadRequestForMalformedPatchJson() throws Exception {
+
+        mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story",
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(updateStoryUseCase.callCount()).isZero();
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+    }
+
+    @Test
+    void shouldRejectMalformedPatchStoryId() throws Exception {
+
+        mockMvc.perform(patch("/api/v1/stories/not-a-uuid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+        assertThat(updateStoryUseCase.callCount()).isZero();
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUpdateStoryIsUnavailable()
+            throws Exception {
+
+        updateStoryUseCase.failWith(new StoryNotFoundException());
+
+        String response = mockMvc.perform(patch(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated Story"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        ))
+                .andExpect(jsonPath("$.title").value("Not Found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail")
+                        .value("Story was not found"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/v1/stories"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(updateStoryUseCase.callCount()).isEqualTo(1);
+        assertThat(response)
+                .doesNotContain(FIRST_STORY_ID.toString())
+                .doesNotContain(USER_ID.toString())
+                .doesNotContain("ownerId")
+                .doesNotContain("access denied")
+                .doesNotContain("forbidden")
+                .doesNotContain("StoryNotFoundException")
+                .doesNotContain("stackTrace")
+                .doesNotContain("SQL")
+                .doesNotContain("Jdbc")
+                .doesNotContain("repository");
+    }
+
+    @Test
     void shouldCreateStoryFromAuthenticatedUserAndRequest()
             throws Exception {
 
@@ -415,6 +717,7 @@ class StoryControllerTest {
                 null,
                 getStoriesUseCase,
                 getStoryUseCase,
+                updateStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
@@ -429,6 +732,7 @@ class StoryControllerTest {
                 createStoryUseCase,
                 null,
                 getStoryUseCase,
+                updateStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
@@ -443,11 +747,27 @@ class StoryControllerTest {
                 createStoryUseCase,
                 getStoriesUseCase,
                 null,
+                updateStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("getStoryUseCase must not be null");
+    }
+
+    @Test
+    void shouldRejectNullUpdateStoryUseCaseDependency() {
+
+        assertThatThrownBy(() -> new StoryController(
+                createStoryUseCase,
+                getStoriesUseCase,
+                getStoryUseCase,
+                null,
+                currentAuthenticatedUserProvider,
+                clock
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("updateStoryUseCase must not be null");
     }
 
     @Test
@@ -457,6 +777,7 @@ class StoryControllerTest {
                 createStoryUseCase,
                 getStoriesUseCase,
                 getStoryUseCase,
+                updateStoryUseCase,
                 null,
                 clock
         ))
@@ -473,6 +794,7 @@ class StoryControllerTest {
                 createStoryUseCase,
                 getStoriesUseCase,
                 getStoryUseCase,
+                updateStoryUseCase,
                 currentAuthenticatedUserProvider,
                 null
         ))
@@ -504,6 +826,11 @@ class StoryControllerTest {
         @Bean
         FakeGetStoryUseCase getStoryUseCase() {
             return new FakeGetStoryUseCase();
+        }
+
+        @Bean
+        FakeUpdateStoryUseCase updateStoryUseCase() {
+            return new FakeUpdateStoryUseCase();
         }
 
         @Bean
@@ -647,6 +974,51 @@ class StoryControllerTest {
                     RETURNED_CREATED_AT,
                     RETURNED_UPDATED_AT
             );
+            exception = null;
+            callCount = 0;
+        }
+    }
+
+    static final class FakeUpdateStoryUseCase
+            implements UpdateStoryUseCase {
+
+        private UpdateStoryCommand receivedCommand;
+        private RuntimeException exception;
+        private int callCount;
+
+        @Override
+        public UserStory updateStory(UpdateStoryCommand command) {
+            receivedCommand = command;
+            callCount++;
+
+            if (exception != null) {
+                throw exception;
+            }
+
+            return StoryControllerTest.userStory(
+                    command.storyId(),
+                    "Returned Story",
+                    "Returned description",
+                    StoryRole.OWNER,
+                    RETURNED_CREATED_AT,
+                    RETURNED_UPDATED_AT
+            );
+        }
+
+        private UpdateStoryCommand receivedCommand() {
+            return receivedCommand;
+        }
+
+        private int callCount() {
+            return callCount;
+        }
+
+        private void failWith(RuntimeException exception) {
+            this.exception = exception;
+        }
+
+        private void reset() {
+            receivedCommand = null;
             exception = null;
             callCount = 0;
         }

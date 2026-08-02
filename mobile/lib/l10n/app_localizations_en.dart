@@ -115,4 +115,252 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tryLogoutAgain => 'Try to log out again';
+
+  @override
+  String storiesGreeting(String displayName) {
+    return 'Hi, $displayName! 👋';
+  }
+
+  @override
+  String get storiesSubtitle => 'Your shared memories live here';
+
+  @override
+  String get storiesSectionTitle => 'Your stories';
+
+  @override
+  String get storiesCreateAction => 'Create story';
+
+  @override
+  String get storiesEmptyTitle => 'No stories yet';
+
+  @override
+  String get storiesEmptyDescription =>
+      'Create your first story and save important moments together';
+
+  @override
+  String get storiesLoadFailureTitle => 'Could not load stories';
+
+  @override
+  String get storiesRefreshFailureTitle => 'Could not refresh stories';
+
+  @override
+  String get storyFailureValidation =>
+      'The request was invalid. Please try again.';
+
+  @override
+  String get storyFailureUnauthorized =>
+      'Your session needs attention. Please try again.';
+
+  @override
+  String get storyFailureNotFound => 'Story is unavailable.';
+
+  @override
+  String get storyFailureNetworkUnavailable =>
+      'No network connection. Check your connection and try again.';
+
+  @override
+  String get storyFailureRequestTimedOut =>
+      'The request timed out. Please try again.';
+
+  @override
+  String get storyFailureServerFailure =>
+      'The server is temporarily unavailable. Please try again.';
+
+  @override
+  String get storyFailureUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get storyRoleOwner => 'Owner';
+
+  @override
+  String get storyRoleCoOwner => 'Co-owner';
+
+  @override
+  String get storyRoleEditor => 'Editor';
+
+  @override
+  String get storyRoleViewer => 'Viewer';
+
+  @override
+  String get storiesNotificationUnavailableLabel =>
+      'Notifications are not available yet';
+
+  @override
+  String storiesAvatarLabel(String displayName) {
+    return '$displayName\'s avatar';
+  }
+
+  @override
+  String storiesOpenStoryLabel(String title) {
+    return 'Open story $title';
+  }
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get createStoryPageTitle => 'Create story';
+
+  @override
+  String get createStoryBackLabel => 'Back to stories';
+
+  @override
+  String get createStoryHeroTitle => 'New story';
+
+  @override
+  String get createStoryHeroSubtitle =>
+      'Create a space for your shared memories';
+
+  @override
+  String get createStoryTitleLabel => 'Story title';
+
+  @override
+  String get createStoryTitleHint => 'Example: Our story';
+
+  @override
+  String get createStoryTitleHelp =>
+      'The title will be visible to every story participant';
+
+  @override
+  String get createStoryTitleRequired => 'Enter a story title.';
+
+  @override
+  String get createStoryTitleBlank => 'Story title cannot be blank.';
+
+  @override
+  String get createStoryDescriptionLabel => 'Description';
+
+  @override
+  String get createStoryDescriptionOptional => 'optional';
+
+  @override
+  String get createStoryDescriptionHint => 'Add a short note about this story';
+
+  @override
+  String get createStoryWhyTitle => 'Why does a title matter?';
+
+  @override
+  String get createStoryWhyDescription =>
+      'A good title helps everyone remember what makes this story special.';
+
+  @override
+  String get createStoryIdeasTitle => 'Title ideas';
+
+  @override
+  String get createStoryIdeaOne => 'Our story';
+
+  @override
+  String get createStoryIdeaTwo => 'Best moments together';
+
+  @override
+  String get createStoryIdeaThree => 'Travels and adventures';
+
+  @override
+  String get createStorySubmitButton => 'Create story';
+
+  @override
+  String get createStoryCreatingButton => 'Creating story...';
+
+  @override
+  String get storyDetailsPageTitle => 'Story';
+
+  @override
+  String get storyDetailsBackLabel => 'Back to stories';
+
+  @override
+  String get storyDetailsEditAction => 'Edit story';
+
+  @override
+  String get storyDetailsLoadFailureTitle => 'Could not load story';
+
+  @override
+  String get storyDetailsDescriptionTitle => 'About this story';
+
+  @override
+  String get storyDetailsNoDescription => 'No description yet.';
+
+  @override
+  String get storyDetailsInfoTitle => 'Story info';
+
+  @override
+  String get storyDetailsCreatedLabel => 'Created';
+
+  @override
+  String get storyDetailsUpdatedLabel => 'Updated';
+
+  @override
+  String get storyDetailsRefreshFailureTitle => 'Could not refresh story';
+
+  @override
+  String get storyDetailsSectionsTitle => 'Explore';
+
+  @override
+  String get storyDetailsMemoriesAction => 'Memories';
+
+  @override
+  String get storyDetailsParticipantsAction => 'Participants';
+
+  @override
+  String get storyDetailsMapAction => 'Map';
+
+  @override
+  String get editStoryPageTitle => 'Edit story';
+
+  @override
+  String get editStoryBackLabel => 'Back to story';
+
+  @override
+  String get editStoryHeroTitle => 'Story details';
+
+  @override
+  String get editStoryHeroSubtitle =>
+      'Update the name and note shown to story participants';
+
+  @override
+  String get editStoryTitleLabel => 'Story title';
+
+  @override
+  String get editStoryTitleHint => 'Example: Our story';
+
+  @override
+  String get editStoryTitleHelp =>
+      'The title remains visible to every story participant';
+
+  @override
+  String get editStoryTitleRequired => 'Enter a story title.';
+
+  @override
+  String get editStoryTitleBlank => 'Story title cannot be blank.';
+
+  @override
+  String get editStoryDescriptionLabel => 'Description';
+
+  @override
+  String get editStoryDescriptionOptional => 'optional';
+
+  @override
+  String get editStoryDescriptionHint => 'Add a short note about this story';
+
+  @override
+  String get editStoryDescriptionHelp =>
+      'Clear the field to remove the existing description';
+
+  @override
+  String get editStorySaveButton => 'Save changes';
+
+  @override
+  String get editStorySavingButton => 'Saving changes...';
+
+  @override
+  String get editStoryNoChangesHint => 'Make a change to save.';
+
+  @override
+  String get editStoryUnavailableTitle => 'Editing is unavailable';
+
+  @override
+  String get editStoryUnavailableDescription =>
+      'This story cannot be edited from here.';
+
+  @override
+  String get editStoryUnavailableBackAction => 'Back to story';
 }
