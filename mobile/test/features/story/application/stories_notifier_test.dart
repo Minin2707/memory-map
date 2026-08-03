@@ -521,6 +521,132 @@ void main() {
     });
   });
 
+  group('StoriesNotifier upsert user story', () {
+    test('shouldAppendAcceptedStoryWhenMissing', () async {
+      final acceptedStory = userStory(
+        id: 'accepted-story',
+        title: 'A story that would sort first by title',
+        role: StoryRole.viewer,
+      );
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, coOwnerStory];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      final originalStories = readState(container).stories;
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .upsertUserStory(acceptedStory);
+
+      final stories = readState(container).stories;
+      expect(
+        stories,
+        <UserStory>[ownerStory, coOwnerStory, acceptedStory],
+      );
+      expect(stories.last, same(acceptedStory));
+      expect(stories.last.role, StoryRole.viewer);
+      expect(originalStories, <UserStory>[ownerStory, coOwnerStory]);
+      expect(identical(stories, originalStories), isFalse);
+      expect(
+        () => stories.add(userStory(id: 'mutation-attempt')),
+        throwsA(isA<UnsupportedError>()),
+      );
+      expect(repository.operations, <String>['getStories']);
+    });
+
+    test('shouldReplaceExistingAcceptedStoryWithoutChangingOrder', () async {
+      final thirdStory = userStory(
+        id: 'story-3',
+        title: 'Third story',
+        role: StoryRole.viewer,
+      );
+      final updatedCoOwnerStory = userStory(
+        id: coOwnerStory.story.id,
+        title: 'Accepted update',
+        role: StoryRole.viewer,
+      );
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, coOwnerStory, thirdStory];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .upsertUserStory(updatedCoOwnerStory);
+
+      final stories = readState(container).stories;
+      expect(
+        stories,
+        <UserStory>[ownerStory, updatedCoOwnerStory, thirdStory],
+      );
+      expect(stories.length, 3);
+      expect(
+        stories.where(
+          (userStory) => userStory.story.id == coOwnerStory.story.id,
+        ),
+        <UserStory>[updatedCoOwnerStory],
+      );
+      expect(stories[1], same(updatedCoOwnerStory));
+      expect(stories[1].role, StoryRole.viewer);
+    });
+
+    test('shouldAppendOnceThenReplaceRepeatedAcceptedStoryAtSamePosition',
+        () async {
+      final acceptedStory = userStory(
+        id: 'accepted-story',
+        title: 'Accepted story',
+        role: StoryRole.viewer,
+      );
+      final updatedAcceptedStory = userStory(
+        id: acceptedStory.story.id,
+        title: 'Accepted story updated',
+        role: StoryRole.coOwner,
+      );
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, coOwnerStory];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      final notifier = container.read(storiesNotifierProvider.notifier);
+
+      notifier.upsertUserStory(acceptedStory);
+      notifier.upsertUserStory(updatedAcceptedStory);
+
+      final stories = readState(container).stories;
+      expect(
+        stories,
+        <UserStory>[ownerStory, coOwnerStory, updatedAcceptedStory],
+      );
+      expect(
+        stories.where(
+          (userStory) => userStory.story.id == acceptedStory.story.id,
+        ),
+        <UserStory>[updatedAcceptedStory],
+      );
+      expect(stories.last, same(updatedAcceptedStory));
+      expect(stories.last.role, StoryRole.coOwner);
+    });
+
+    test('shouldIgnoreUpsertWhenLoadFailed', () async {
+      final repository = FakeStoryRepository()
+        ..getStoriesFailures.add(
+          const StoryApplicationException(StoryUnauthorized()),
+        );
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .upsertUserStory(ownerStory);
+
+      expect(readState(container).stories, isEmpty);
+      expect(readState(container).loadFailure, const StoryUnauthorized());
+    });
+  });
+
   group('StoriesNotifier security', () {
     test('shouldNotExposeStoryDetailsThroughNotifierStateToString', () async {
       final repository = FakeStoryRepository()

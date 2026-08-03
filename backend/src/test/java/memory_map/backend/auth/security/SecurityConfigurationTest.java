@@ -261,11 +261,14 @@ class SecurityConfigurationTest {
     }
 
     private static String tamperSignature(String token) {
-        char replacement = token.charAt(token.length() - 1) == 'a'
+        int signatureStart = token.lastIndexOf('.') + 1;
+        char replacement = token.charAt(signatureStart) == 'a'
                 ? 'b'
                 : 'a';
 
-        return token.substring(0, token.length() - 1) + replacement;
+        return token.substring(0, signatureStart)
+                + replacement
+                + token.substring(signatureStart + 1);
     }
 
     @SpringBootConfiguration

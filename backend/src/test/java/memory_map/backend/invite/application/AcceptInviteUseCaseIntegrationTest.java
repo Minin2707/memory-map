@@ -682,6 +682,11 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
         }
 
         @Override
+        public boolean lockById(UUID id) {
+            return delegate.lockById(id);
+        }
+
+        @Override
         public List<Story> findByOwnerId(UUID ownerId) {
             return delegate.findByOwnerId(ownerId);
         }
@@ -720,6 +725,11 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
         @Override
         public List<StoryParticipant> findByUserId(UUID userId) {
             return delegate.findByUserId(userId);
+        }
+
+        @Override
+        public long countOwners(UUID storyId) {
+            return delegate.countOwners(storyId);
         }
 
         @Override

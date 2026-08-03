@@ -144,6 +144,27 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
     );
   }
 
+  void upsertUserStory(UserStory userStory) {
+    final currentState = _currentState;
+    if (currentState == null || currentState.hasLoadFailure) {
+      return;
+    }
+
+    final stories = List<UserStory>.of(currentState.stories);
+    final index = stories.indexWhere(
+      (existing) => existing.story.id == userStory.story.id,
+    );
+    if (index < 0) {
+      stories.add(userStory);
+    } else {
+      stories[index] = userStory;
+    }
+
+    state = AsyncData<StoriesState>(
+      currentState.copyWith(stories: stories),
+    );
+  }
+
   Future<StoriesState> _load(StoryRepository repository) async {
     try {
       final stories = await repository.getStories();

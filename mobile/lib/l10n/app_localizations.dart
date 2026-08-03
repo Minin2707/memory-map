@@ -745,6 +745,354 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Back to story'**
   String get editStoryUnavailableBackAction;
+
+  /// No description provided for @invitePageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite participant'**
+  String get invitePageTitle;
+
+  /// No description provided for @inviteCreatedPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite created'**
+  String get inviteCreatedPageTitle;
+
+  /// No description provided for @inviteBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to story'**
+  String get inviteBackLabel;
+
+  /// No description provided for @inviteHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite someone close'**
+  String get inviteHeroTitle;
+
+  /// No description provided for @inviteHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a one-time invitation link so they can join your story.'**
+  String get inviteHeroSubtitle;
+
+  /// No description provided for @inviteLinkLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link'**
+  String get inviteLinkLabel;
+
+  /// No description provided for @inviteSingleUseDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time use. After it is accepted, the link stops working.'**
+  String get inviteSingleUseDescription;
+
+  /// No description provided for @inviteExpirationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires'**
+  String get inviteExpirationLabel;
+
+  /// No description provided for @inviteExpirationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The invite remains valid until the date returned by the server.'**
+  String get inviteExpirationDescription;
+
+  /// No description provided for @inviteWhatCanDoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What can you do with this link?'**
+  String get inviteWhatCanDoTitle;
+
+  /// No description provided for @inviteInstructionShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share it in any messenger.'**
+  String get inviteInstructionShare;
+
+  /// No description provided for @inviteInstructionCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy it and send it yourself.'**
+  String get inviteInstructionCopy;
+
+  /// No description provided for @inviteInstructionOneUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask the recipient to use it only once.'**
+  String get inviteInstructionOneUse;
+
+  /// No description provided for @inviteCreateButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create invite'**
+  String get inviteCreateButton;
+
+  /// No description provided for @inviteCreatingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating invite...'**
+  String get inviteCreatingButton;
+
+  /// No description provided for @inviteSuccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite is ready!'**
+  String get inviteSuccessTitle;
+
+  /// No description provided for @inviteSuccessSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the link with someone close. It is one-time and secure.'**
+  String get inviteSuccessSubtitle;
+
+  /// No description provided for @inviteLinkSemanticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link'**
+  String get inviteLinkSemanticsLabel;
+
+  /// No description provided for @inviteCopyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get inviteCopyAction;
+
+  /// No description provided for @inviteCopiedFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link copied.'**
+  String get inviteCopiedFeedback;
+
+  /// No description provided for @inviteCopyFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not copy the invite link.'**
+  String get inviteCopyFailure;
+
+  /// No description provided for @inviteShareAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get inviteShareAction;
+
+  /// No description provided for @inviteShareReadyFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Share options opened.'**
+  String get inviteShareReadyFeedback;
+
+  /// No description provided for @inviteShareFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not share the invite link.'**
+  String get inviteShareFailure;
+
+  /// No description provided for @inviteLinkCannotBeRestoredWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy or share this link before leaving this screen. It cannot be shown again.'**
+  String get inviteLinkCannotBeRestoredWarning;
+
+  /// No description provided for @inviteImportantTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Important'**
+  String get inviteImportantTitle;
+
+  /// No description provided for @inviteImportantSingleUse.
+  ///
+  /// In en, this message translates to:
+  /// **'This link can be used only once.'**
+  String get inviteImportantSingleUse;
+
+  /// No description provided for @inviteImportantAfterAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'After the invitation is accepted, the link becomes invalid.'**
+  String get inviteImportantAfterAccept;
+
+  /// No description provided for @inviteImportantExpiration.
+  ///
+  /// In en, this message translates to:
+  /// **'The invitation automatically expires after its expiration date.'**
+  String get inviteImportantExpiration;
+
+  /// No description provided for @inviteDoneAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get inviteDoneAction;
+
+  /// No description provided for @inviteFailureValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'The invite request was invalid. Please try again.'**
+  String get inviteFailureValidation;
+
+  /// No description provided for @inviteFailureUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session needs attention. Please try again.'**
+  String get inviteFailureUnauthorized;
+
+  /// No description provided for @inviteFailureNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'This story is unavailable for invites.'**
+  String get inviteFailureNotFound;
+
+  /// No description provided for @inviteFailureNetworkUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection. Check your connection and try again.'**
+  String get inviteFailureNetworkUnavailable;
+
+  /// No description provided for @inviteFailureRequestTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Please try again.'**
+  String get inviteFailureRequestTimedOut;
+
+  /// No description provided for @inviteFailureServerFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is temporarily unavailable. Please try again.'**
+  String get inviteFailureServerFailure;
+
+  /// No description provided for @inviteFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get inviteFailureUnknown;
+
+  /// No description provided for @acceptInvitePageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation'**
+  String get acceptInvitePageTitle;
+
+  /// No description provided for @acceptInviteBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to stories'**
+  String get acceptInviteBackLabel;
+
+  /// No description provided for @acceptInviteHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You were invited to a story'**
+  String get acceptInviteHeroTitle;
+
+  /// No description provided for @acceptInviteHeroDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept the invitation to join. We will show the story after the server confirms access.'**
+  String get acceptInviteHeroDescription;
+
+  /// No description provided for @acceptInviteDetailsAccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Private access'**
+  String get acceptInviteDetailsAccessTitle;
+
+  /// No description provided for @acceptInviteDetailsAccessBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Story details are hidden until you accept the invite.'**
+  String get acceptInviteDetailsAccessBody;
+
+  /// No description provided for @acceptInviteDetailsSingleUseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time link'**
+  String get acceptInviteDetailsSingleUseTitle;
+
+  /// No description provided for @acceptInviteDetailsSingleUseBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The invite can be accepted only once and may expire.'**
+  String get acceptInviteDetailsSingleUseBody;
+
+  /// No description provided for @acceptInviteAcceptAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept invite'**
+  String get acceptInviteAcceptAction;
+
+  /// No description provided for @acceptInviteAcceptingAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepting invite...'**
+  String get acceptInviteAcceptingAction;
+
+  /// No description provided for @acceptInviteRetryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get acceptInviteRetryAction;
+
+  /// No description provided for @acceptInviteCancelAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get acceptInviteCancelAction;
+
+  /// No description provided for @acceptInviteBackToStoriesAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to stories'**
+  String get acceptInviteBackToStoriesAction;
+
+  /// No description provided for @acceptInviteInvalidLinkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link is unavailable'**
+  String get acceptInviteInvalidLinkTitle;
+
+  /// No description provided for @acceptInviteInvalidLinkDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This invitation cannot be opened.'**
+  String get acceptInviteInvalidLinkDescription;
+
+  /// No description provided for @acceptInviteUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This invitation cannot be accepted.'**
+  String get acceptInviteUnavailable;
+
+  /// No description provided for @acceptInviteFailureUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session needs attention. Please sign in again.'**
+  String get acceptInviteFailureUnauthorized;
+
+  /// No description provided for @acceptInviteFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get acceptInviteFailureUnknown;
+
+  /// No description provided for @acceptInviteAcceptSemanticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept invitation'**
+  String get acceptInviteAcceptSemanticsLabel;
+
+  /// No description provided for @acceptInviteCancelSemanticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invitation'**
+  String get acceptInviteCancelSemanticsLabel;
+
+  /// No description provided for @acceptInviteErrorSemanticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation error'**
+  String get acceptInviteErrorSemanticsLabel;
 }
 
 class _AppLocalizationsDelegate

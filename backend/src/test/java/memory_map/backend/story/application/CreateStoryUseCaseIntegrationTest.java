@@ -212,6 +212,11 @@ class CreateStoryUseCaseIntegrationTest extends IntegrationTest {
         }
 
         @Override
+        public long countOwners(UUID storyId) {
+            return delegate.countOwners(storyId);
+        }
+
+        @Override
         public boolean exists(UUID storyId, UUID userId) {
             return delegate.exists(storyId, userId);
         }

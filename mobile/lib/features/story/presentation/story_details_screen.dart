@@ -14,6 +14,7 @@ class StoryDetailsScreen extends ConsumerWidget {
     required this.storyId,
     this.onBack,
     this.onEditStory,
+    this.onInvite,
     this.onMemoriesSelected,
     this.onParticipantsSelected,
     this.onMapSelected,
@@ -23,6 +24,7 @@ class StoryDetailsScreen extends ConsumerWidget {
   final String storyId;
   final VoidCallback? onBack;
   final ValueChanged<UserStory>? onEditStory;
+  final VoidCallback? onInvite;
   final ValueChanged<UserStory>? onMemoriesSelected;
   final ValueChanged<UserStory>? onParticipantsSelected;
   final ValueChanged<UserStory>? onMapSelected;
@@ -137,7 +139,6 @@ class StoryDetailsScreen extends ConsumerWidget {
     if (userStory == null) {
       return const [];
     }
-
     return [
       if (state.isRefreshing)
         const SliverPadding(
@@ -169,6 +170,7 @@ class StoryDetailsScreen extends ConsumerWidget {
         sliver: SliverToBoxAdapter(
           child: _StoryHero(
             userStory: userStory,
+            onInvite: userStory.canUpdateStoryMetadata ? onInvite : null,
             onEditStory: userStory.canUpdateStoryMetadata
                 ? onEditStory
                 : null,
@@ -251,10 +253,12 @@ class _StoryDetailsAppBar extends StatelessWidget {
 class _StoryHero extends StatelessWidget {
   const _StoryHero({
     required this.userStory,
+    required this.onInvite,
     required this.onEditStory,
   });
 
   final UserStory userStory;
+  final VoidCallback? onInvite;
   final ValueChanged<UserStory>? onEditStory;
 
   @override
@@ -293,6 +297,23 @@ class _StoryHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: StoryRoleBadge(role: userStory.role)),
+              if (onInvite != null) ...[
+                Semantics(
+                  label: l10n.invitePageTitle,
+                  button: true,
+                  child: IconButton.filled(
+                    key: const ValueKey('story-details.invite-action'),
+                    onPressed: onInvite,
+                    tooltip: l10n.invitePageTitle,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFFFF5D72),
+                    ),
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               if (onEditStory != null)
                 IconButton.filled(
                   key: const ValueKey('story-details.edit-action'),

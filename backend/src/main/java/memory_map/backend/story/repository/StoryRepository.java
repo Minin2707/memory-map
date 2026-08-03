@@ -14,6 +14,8 @@ public interface StoryRepository {
 
     Optional<Story> findById(UUID id);
 
+    boolean lockById(UUID id);
+
     List<Story> findByOwnerId(UUID ownerId);
 
 }

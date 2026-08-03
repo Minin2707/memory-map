@@ -34,8 +34,7 @@ class StoryRoleBadge extends StatelessWidget {
               color: colors.foreground,
             ),
             const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 150),
+            Flexible(
               child: Text(
                 label,
                 maxLines: 1,

@@ -14,6 +14,14 @@ import 'package:memory_map/features/auth/domain/auth_repository.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
 import 'package:memory_map/features/auth/domain/auth_tokens.dart';
 import 'package:memory_map/features/auth/domain/auth_user.dart';
+import 'package:memory_map/features/invite/application/invite_application_exception.dart';
+import 'package:memory_map/features/invite/application/invite_application_providers.dart';
+import 'package:memory_map/features/invite/application/pending_invite_notifier.dart';
+import 'package:memory_map/features/invite/domain/accept_invite_input.dart';
+import 'package:memory_map/features/invite/domain/create_invite_input.dart';
+import 'package:memory_map/features/invite/domain/invite.dart';
+import 'package:memory_map/features/invite/domain/invite_failure.dart';
+import 'package:memory_map/features/invite/domain/invite_repository.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/domain/story.dart';
 import 'package:memory_map/features/story/domain/story_repository.dart';
@@ -165,6 +173,7 @@ void main() {
         createStoryRoute,
         '/stories/story-1',
         '/stories/story-1/edit',
+        '/stories/story-1/invite',
         homeRoute,
       ]) {
         GoRouter.of(context).go(route);
@@ -422,6 +431,387 @@ void main() {
         );
       }
     });
+
+    testWidgets('shouldShowInviteActionOnlyForOwnerAndCoOwner', (
+      WidgetTester tester,
+    ) async {
+      for (final role in StoryRole.values) {
+        final fakeAuthRepository = FakeAuthRepository()
+          ..restoreResult = session;
+        final fakeStoryRepository = FakeStoryRepository()
+          ..storiesResult = <UserStory>[userStory(role: role)]
+          ..storyResult = userStory(role: role);
+
+        await pumpApp(
+          tester,
+          fakeAuthRepository,
+          storyRepository: fakeStoryRepository,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(ownerStory.story.title));
+        await tester.pumpAndSettle();
+
+        final inviteAction =
+            find.byKey(const ValueKey('story-details.invite-action'));
+        if (role.canUpdateStoryMetadata) {
+          expect(inviteAction, findsOneWidget);
+        } else {
+          expect(inviteAction, findsNothing);
+        }
+      }
+    });
+
+    testWidgets('shouldOpenInviteFromDetailsWithoutCreatingInvite', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeInviteRepository = FakeInviteRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        inviteRepository: fakeInviteRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.invite-action')),
+      );
+
+      expect(find.text('Invite someone close'), findsOneWidget);
+      expect(find.byKey(const ValueKey('invite.create-action')), findsOneWidget);
+      expect(fakeInviteRepository.createCalls, 0);
+      expect(fakeInviteRepository.acceptCalls, 0);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('invite.create-action')),
+      );
+
+      expect(fakeInviteRepository.createCalls, 1);
+      expect(
+        fakeInviteRepository.receivedCreateInput,
+        CreateInviteInput(storyId: ownerStory.story.id),
+      );
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('invite.done-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+    });
+
+    testWidgets('shouldReturnFromInviteToDetailsWithBackActions', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.invite-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('invite.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.invite-action')),
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(find.text('Invite someone close'), findsNothing);
+    });
+
+    testWidgets('shouldOpenDirectInviteRouteAndFallbackBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository();
+      final fakeInviteRepository = FakeInviteRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        inviteRepository: fakeInviteRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/invite');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Invite someone close'), findsOneWidget);
+      expect(fakeStoryRepository.getStoryCalls, 0);
+      expect(fakeInviteRepository.createCalls, 0);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('invite.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(
+        fakeStoryRepository.receivedGetStoryIds,
+        contains(ownerStory.story.id),
+      );
+    });
+
+    testWidgets('shouldKeepAuthenticatedUserOnDirectInviteRoute', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/invite');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Invite someone close'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('invite.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+    });
+
+    testWidgets('shouldNotMatchInviteRouteWithoutStoryId', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories//invite');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Invite someone close'), findsNothing);
+    });
+  });
+
+  group('Router invite deep links', () {
+    testWidgets('shouldStorePendingInviteAndContinueAfterLogin', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository();
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory]
+        ..storyResult = acceptedInviteStory;
+      final fakeInviteRepository = FakeInviteRepository()
+        ..acceptResult = acceptedInviteStory;
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        inviteRepository: fakeInviteRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final loginContext = tester.element(find.text('Continue with Google'));
+      GoRouter.of(loginContext).go('/invite/$validInviteToken');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(
+        container.read(pendingInviteProvider).rawToken,
+        validInviteToken,
+      );
+      expect(fakeInviteRepository.acceptCalls, 0);
+
+      await tapVisibleText(tester, 'Continue with Google');
+      await tester.pumpAndSettle();
+
+      expect(find.text('You were invited to a story'), findsOneWidget);
+      expect(find.textContaining(validInviteToken), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('accept-invite.accept-action')),
+      );
+
+      expect(fakeInviteRepository.acceptCalls, 1);
+      expect(
+        fakeInviteRepository.receivedAcceptInput,
+        AcceptInviteInput(rawToken: validInviteToken),
+      );
+      expect(container.read(pendingInviteProvider).hasInvite, isFalse);
+      expect(find.text(acceptedInviteStory.story.title), findsOneWidget);
+      expect(find.text('You were invited to a story'), findsNothing);
+    });
+
+    testWidgets('shouldRetainPendingInviteDuringAuthLoading', (
+      WidgetTester tester,
+    ) async {
+      final restoreCompleter = Completer<AuthSession?>();
+      final fakeAuthRepository = FakeAuthRepository()
+        ..restoreCompleter = restoreCompleter;
+      final container = await pumpApp(tester, fakeAuthRepository);
+
+      final checkingContext =
+          tester.element(find.textContaining('Checking your session'));
+      GoRouter.of(checkingContext).go('/invite/$validInviteToken');
+      await tester.pump();
+
+      expect(
+        container.read(pendingInviteProvider).rawToken,
+        validInviteToken,
+      );
+      expect(find.textContaining('Checking your session'), findsOneWidget);
+
+      restoreCompleter.complete(null);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(
+        container.read(pendingInviteProvider).rawToken,
+        validInviteToken,
+      );
+    });
+
+    testWidgets('shouldOpenAcceptInviteForAuthenticatedDirectRoute', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storyResult = acceptedInviteStory;
+      final fakeInviteRepository = FakeInviteRepository()
+        ..acceptResult = acceptedInviteStory;
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        inviteRepository: fakeInviteRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/invite/$validInviteToken');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Invitation'), findsOneWidget);
+      expect(find.textContaining(validInviteToken), findsNothing);
+      expect(fakeInviteRepository.acceptCalls, 0);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('accept-invite.accept-action')),
+      );
+
+      expect(fakeInviteRepository.acceptCalls, 1);
+      expect(find.text(acceptedInviteStory.story.title), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderInvalidInviteRouteSafelyForAuthenticatedUser', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeInviteRepository = FakeInviteRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        inviteRepository: fakeInviteRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/invite/not-a-valid-token');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Invite link is unavailable'), findsOneWidget);
+      expect(find.textContaining('not-a-valid-token'), findsNothing);
+      expect(fakeInviteRepository.acceptCalls, 0);
+    });
+
+    testWidgets('shouldKeepUnavailableInviteFailureSafeAndClearPending', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository();
+      final fakeInviteRepository = FakeInviteRepository()
+        ..acceptFailure = const InviteApplicationException(InviteNotFound());
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        inviteRepository: fakeInviteRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final loginContext = tester.element(find.text('Continue with Google'));
+      GoRouter.of(loginContext).go('/invite/$validInviteToken');
+      await tester.pumpAndSettle();
+      await tapVisibleText(tester, 'Continue with Google');
+      await tester.pumpAndSettle();
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('accept-invite.accept-action')),
+      );
+
+      expect(fakeInviteRepository.acceptCalls, 1);
+      expect(find.text('This invitation cannot be accepted.'), findsOneWidget);
+      expect(find.textContaining(validInviteToken), findsNothing);
+      expect(container.read(pendingInviteProvider).hasInvite, isFalse);
+    });
+
+    testWidgets('shouldClearPendingInviteWhenCanceled', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository();
+      final container = await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      final loginContext = tester.element(find.text('Continue with Google'));
+      GoRouter.of(loginContext).go('/invite/$validInviteToken');
+      await tester.pumpAndSettle();
+      await tapVisibleText(tester, 'Continue with Google');
+      await tester.pumpAndSettle();
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('accept-invite.cancel-action')),
+      );
+
+      expect(find.text('Your stories'), findsOneWidget);
+      expect(container.read(pendingInviteProvider).hasInvite, isFalse);
+    });
+
+    testWidgets('shouldClearPendingInviteOnLogout', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final container = await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+      container
+          .read(pendingInviteProvider.notifier)
+          .setToken(validInviteToken);
+
+      await container.read(authNotifierProvider.notifier).logout();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(container.read(pendingInviteProvider).hasInvite, isFalse);
+    });
   });
 
   group('Router stability', () {
@@ -498,10 +888,12 @@ Future<ProviderContainer> pumpApp(
   WidgetTester tester,
   FakeAuthRepository fakeAuthRepository, {
   FakeStoryRepository? storyRepository,
+  FakeInviteRepository? inviteRepository,
 }) async {
   final container = createContainer(
     fakeAuthRepository,
     storyRepository: storyRepository,
+    inviteRepository: inviteRepository,
   );
   addTearDown(container.dispose);
 
@@ -519,12 +911,16 @@ Future<ProviderContainer> pumpApp(
 ProviderContainer createContainer(
   FakeAuthRepository fakeAuthRepository, {
   FakeStoryRepository? storyRepository,
+  FakeInviteRepository? inviteRepository,
 }) {
   return ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(fakeAuthRepository),
       storyRepositoryProvider.overrideWithValue(
         storyRepository ?? FakeStoryRepository(),
+      ),
+      inviteRepositoryProvider.overrideWithValue(
+        inviteRepository ?? FakeInviteRepository(),
       ),
     ],
   );
@@ -585,6 +981,17 @@ final UserStory createdOwnerStory = UserStory(
 final UserStory updatedOwnerStory = userStory(
   title: 'Updated story',
   description: 'Updated description',
+);
+final UserStory acceptedInviteStory = userStory(
+  id: 'accepted-story',
+  title: 'Accepted invite story',
+  description: 'Joined through an invite',
+  role: StoryRole.viewer,
+);
+const String validInviteToken = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+final Invite invite = Invite(
+  inviteLink: Uri.parse('https://app.memorymap.app/invite/$validInviteToken'),
+  expiresAt: DateTime.utc(2026, 2, 9, 10),
 );
 
 final class FakeAuthRepository implements AuthRepository {
@@ -682,6 +1089,35 @@ final class FakeStoryRepository implements StoryRepository {
   Future<UserStory> updateStory(UpdateStoryInput input) async {
     updateStoryCalls += 1;
     return updateStoryResult;
+  }
+}
+
+final class FakeInviteRepository implements InviteRepository {
+  int createCalls = 0;
+  int acceptCalls = 0;
+  CreateInviteInput? receivedCreateInput;
+  AcceptInviteInput? receivedAcceptInput;
+  UserStory acceptResult = ownerStory;
+  Object? acceptFailure;
+
+  @override
+  Future<Invite> createInvite(CreateInviteInput input) async {
+    createCalls += 1;
+    receivedCreateInput = input;
+    return invite;
+  }
+
+  @override
+  Future<UserStory> acceptInvite(AcceptInviteInput input) async {
+    acceptCalls += 1;
+    receivedAcceptInput = input;
+
+    final failure = acceptFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    return acceptResult;
   }
 }
 

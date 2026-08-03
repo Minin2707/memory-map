@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -48,6 +49,13 @@ public class JdbcStoryRepository implements StoryRepository {
                 updated_at
             FROM stories
             WHERE id = :id
+            """;
+
+    private static final String LOCK_BY_ID_SQL = """
+            SELECT id
+            FROM stories
+            WHERE id = :id
+            FOR UPDATE
             """;
 
     private static final String UPDATE_SQL = """
@@ -131,6 +139,18 @@ public class JdbcStoryRepository implements StoryRepository {
                 .param("id", id)
                 .query(rowMapper)
                 .optional();
+    }
+
+    @Override
+    public boolean lockById(UUID id) {
+
+        Objects.requireNonNull(id, "id must not be null");
+
+        return jdbcClient.sql(LOCK_BY_ID_SQL)
+                .param("id", id)
+                .query(UUID.class)
+                .optional()
+                .isPresent();
     }
 
     @Override

@@ -363,4 +363,199 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get editStoryUnavailableBackAction => 'Вернуться к истории';
+
+  @override
+  String get invitePageTitle => 'Пригласить участника';
+
+  @override
+  String get inviteCreatedPageTitle => 'Приглашение создано';
+
+  @override
+  String get inviteBackLabel => 'Вернуться к истории';
+
+  @override
+  String get inviteHeroTitle => 'Пригласите близкого человека';
+
+  @override
+  String get inviteHeroSubtitle =>
+      'Поделитесь одноразовой ссылкой, чтобы он мог присоединиться к вашей истории.';
+
+  @override
+  String get inviteLinkLabel => 'Ссылка-приглашение';
+
+  @override
+  String get inviteSingleUseDescription =>
+      'Ссылка одноразовая. После принятия приглашения она перестанет работать.';
+
+  @override
+  String get inviteExpirationLabel => 'Срок действия';
+
+  @override
+  String get inviteExpirationDescription =>
+      'Приглашение действительно до даты, которую вернул сервер.';
+
+  @override
+  String get inviteWhatCanDoTitle => 'Что можно сделать с этой ссылкой?';
+
+  @override
+  String get inviteInstructionShare => 'Поделиться в любом мессенджере.';
+
+  @override
+  String get inviteInstructionCopy => 'Скопировать и отправить самостоятельно.';
+
+  @override
+  String get inviteInstructionOneUse =>
+      'Попросить получателя использовать её только один раз.';
+
+  @override
+  String get inviteCreateButton => 'Создать приглашение';
+
+  @override
+  String get inviteCreatingButton => 'Создаём приглашение...';
+
+  @override
+  String get inviteSuccessTitle => 'Приглашение готово!';
+
+  @override
+  String get inviteSuccessSubtitle =>
+      'Поделитесь ссылкой с близким человеком. Она одноразовая и безопасная.';
+
+  @override
+  String get inviteLinkSemanticsLabel => 'Ссылка-приглашение';
+
+  @override
+  String get inviteCopyAction => 'Копировать';
+
+  @override
+  String get inviteCopiedFeedback => 'Ссылка-приглашение скопирована.';
+
+  @override
+  String get inviteCopyFailure => 'Не удалось скопировать ссылку-приглашение.';
+
+  @override
+  String get inviteShareAction => 'Поделиться';
+
+  @override
+  String get inviteShareReadyFeedback => 'Открыты варианты отправки.';
+
+  @override
+  String get inviteShareFailure =>
+      'Не удалось поделиться ссылкой-приглашением.';
+
+  @override
+  String get inviteLinkCannotBeRestoredWarning =>
+      'Скопируйте или отправьте эту ссылку до выхода с экрана. Повторно показать её нельзя.';
+
+  @override
+  String get inviteImportantTitle => 'Важно';
+
+  @override
+  String get inviteImportantSingleUse =>
+      'Эту ссылку можно использовать только один раз.';
+
+  @override
+  String get inviteImportantAfterAccept =>
+      'После принятия приглашения ссылка станет недействительной.';
+
+  @override
+  String get inviteImportantExpiration =>
+      'Приглашение автоматически истечёт после окончания срока действия.';
+
+  @override
+  String get inviteDoneAction => 'Готово';
+
+  @override
+  String get inviteFailureValidation =>
+      'Запрос приглашения содержит ошибку. Попробуйте ещё раз.';
+
+  @override
+  String get inviteFailureUnauthorized =>
+      'Сеанс требует внимания. Попробуйте ещё раз.';
+
+  @override
+  String get inviteFailureNotFound => 'Эта история недоступна для приглашений.';
+
+  @override
+  String get inviteFailureNetworkUnavailable =>
+      'Нет подключения к интернету. Проверьте соединение и повторите попытку.';
+
+  @override
+  String get inviteFailureRequestTimedOut =>
+      'Время ожидания истекло. Попробуйте ещё раз.';
+
+  @override
+  String get inviteFailureServerFailure =>
+      'Сервер временно недоступен. Попробуйте ещё раз.';
+
+  @override
+  String get inviteFailureUnknown => 'Что-то пошло не так. Попробуйте ещё раз.';
+
+  @override
+  String get acceptInvitePageTitle => 'Приглашение';
+
+  @override
+  String get acceptInviteBackLabel => 'Вернуться к историям';
+
+  @override
+  String get acceptInviteHeroTitle => 'Вас пригласили в историю';
+
+  @override
+  String get acceptInviteHeroDescription =>
+      'Примите приглашение, чтобы присоединиться. История откроется после подтверждения доступа сервером.';
+
+  @override
+  String get acceptInviteDetailsAccessTitle => 'Приватный доступ';
+
+  @override
+  String get acceptInviteDetailsAccessBody =>
+      'Детали истории скрыты, пока вы не примете приглашение.';
+
+  @override
+  String get acceptInviteDetailsSingleUseTitle => 'Одноразовая ссылка';
+
+  @override
+  String get acceptInviteDetailsSingleUseBody =>
+      'Приглашение можно принять только один раз, и срок его действия может истечь.';
+
+  @override
+  String get acceptInviteAcceptAction => 'Принять приглашение';
+
+  @override
+  String get acceptInviteAcceptingAction => 'Принимаем приглашение...';
+
+  @override
+  String get acceptInviteRetryAction => 'Попробовать снова';
+
+  @override
+  String get acceptInviteCancelAction => 'Отмена';
+
+  @override
+  String get acceptInviteBackToStoriesAction => 'Вернуться к историям';
+
+  @override
+  String get acceptInviteInvalidLinkTitle => 'Приглашение недоступно';
+
+  @override
+  String get acceptInviteInvalidLinkDescription =>
+      'Это приглашение нельзя открыть.';
+
+  @override
+  String get acceptInviteUnavailable => 'Это приглашение нельзя принять.';
+
+  @override
+  String get acceptInviteFailureUnauthorized =>
+      'Сеанс требует внимания. Войдите снова.';
+
+  @override
+  String get acceptInviteFailureUnknown =>
+      'Что-то пошло не так. Попробуйте ещё раз.';
+
+  @override
+  String get acceptInviteAcceptSemanticsLabel => 'Принять приглашение';
+
+  @override
+  String get acceptInviteCancelSemanticsLabel => 'Отменить приглашение';
+
+  @override
+  String get acceptInviteErrorSemanticsLabel => 'Ошибка приглашения';
 }

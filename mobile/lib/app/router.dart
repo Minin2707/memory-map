@@ -9,6 +9,11 @@ import 'package:memory_map/features/auth/presentation/auth_checking_screen.dart'
 import 'package:memory_map/features/auth/presentation/auth_restore_failure_screen.dart';
 import 'package:memory_map/features/auth/presentation/auth_unexpected_error_screen.dart';
 import 'package:memory_map/features/auth/presentation/login_screen.dart';
+import 'package:memory_map/features/invite/application/invite_deep_link_parser.dart';
+import 'package:memory_map/features/invite/application/pending_invite_notifier.dart';
+import 'package:memory_map/features/invite/application/pending_invite_state.dart';
+import 'package:memory_map/features/invite/presentation/accept_invite_screen.dart';
+import 'package:memory_map/features/invite/presentation/invite_screen.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
@@ -26,18 +31,28 @@ const storiesRoute = '/stories';
 const createStoryRoute = '/stories/create';
 const storyDetailsRoute = '/stories/:storyId';
 const editStoryRoute = '/stories/:storyId/edit';
+const inviteStoryRoute = '/stories/:storyId/invite';
+const acceptInviteRoute = '/invite/:token';
 
 const storiesRouteName = 'stories';
 const createStoryRouteName = 'createStory';
 const storyDetailsRouteName = 'storyDetails';
 const editStoryRouteName = 'editStory';
+const inviteStoryRouteName = 'inviteStory';
+const acceptInviteRouteName = 'acceptInvite';
 
 const _storyIdPathParameter = 'storyId';
+const _inviteTokenPathParameter = 'token';
+const _inviteDeepLinkParser = InviteDeepLinkParser();
 
 final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
   final notifier = RouterRefreshNotifier();
 
-  ref.listen(authNotifierProvider, (_, __) {
+  ref.listen(authNotifierProvider, (previous, next) {
+    if (_shouldClearPendingInviteAfterAuthChange(previous, next)) {
+      ref.read(pendingInviteProvider.notifier).clear();
+    }
+
     notifier.refresh();
   });
   ref.onDispose(notifier.dispose);
@@ -52,7 +67,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refreshNotifier,
     redirect: (BuildContext context, GoRouterState state) {
       final authState = ref.read(authNotifierProvider);
-      return _redirectFor(authState, state.uri.path);
+      final inviteToken = _inviteTokenFromState(state);
+      if (inviteToken != null && !_hasAuthenticatedSession(authState)) {
+        ref.read(pendingInviteProvider.notifier).setToken(inviteToken);
+      }
+
+      return _redirectFor(
+        authState,
+        state.uri.path,
+        ref.read(pendingInviteProvider),
+      );
     },
     routes: [
       GoRoute(
@@ -83,6 +107,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: homeRoute,
         redirect: (BuildContext context, GoRouterState state) {
           return storiesRoute;
+        },
+      ),
+      GoRoute(
+        name: acceptInviteRouteName,
+        path: acceptInviteRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final inviteToken = _inviteTokenFromState(state);
+          if (inviteToken == null) {
+            return AcceptInviteScreen.invalid(
+              onCancel: () {
+                _clearPendingInviteAndGoToStories(ref, context);
+              },
+            );
+          }
+
+          return AcceptInviteScreen(
+            rawToken: inviteToken,
+            onCancel: () {
+              _clearPendingInviteAndGoToStories(ref, context);
+            },
+            onAccepted: (userStory) {
+              _completeAcceptedInvite(ref, context, userStory);
+            },
+            onUnavailable: () {
+              ref.read(pendingInviteProvider.notifier).clear();
+            },
+          );
         },
       ),
       GoRoute(
@@ -144,6 +195,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 extra: userStory,
               );
             },
+            onInvite: () {
+              context.pushNamed(
+                inviteStoryRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: inviteStoryRouteName,
+        path: inviteStoryRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final storyId =
+              state.pathParameters[_storyIdPathParameter] ?? '';
+
+          return InviteScreen(
+            storyId: storyId,
+            onBack: () {
+              _popOrGoToStoryDetails(context, storyId);
+            },
           );
         },
       ),
@@ -184,6 +256,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 String? _redirectFor(
   AsyncValue<AuthState> authState,
   String path,
+  PendingInviteState pendingInvite,
 ) {
   if (authState.isLoading) {
     return path == authCheckingRoute ? null : authCheckingRoute;
@@ -205,7 +278,12 @@ String? _redirectFor(
   if (value is AuthAuthenticated ||
       value is AuthLoggingOut ||
       value is AuthLogoutFailure) {
-    if (_isAuthenticatedRoute(path)) {
+    final pendingToken = pendingInvite.rawToken;
+    if (pendingToken != null && !_isAcceptInviteRoute(path)) {
+      return _acceptInvitePath(pendingToken);
+    }
+
+    if (_isAuthenticatedRoute(path) || _isAcceptInviteRoute(path)) {
       return null;
     }
 
@@ -219,8 +297,62 @@ String? _redirectFor(
   return authLoginRoute;
 }
 
+bool _shouldClearPendingInviteAfterAuthChange(
+  AsyncValue<AuthState>? previous,
+  AsyncValue<AuthState> next,
+) {
+  final previousValue = previous?.asData?.value;
+  final nextValue = next.asData?.value;
+  final previousHadSession = previousValue is AuthAuthenticated ||
+      previousValue is AuthLoggingOut ||
+      previousValue is AuthLogoutFailure;
+
+  return previousHadSession && nextValue is AuthUnauthenticated;
+}
+
+bool _hasAuthenticatedSession(AsyncValue<AuthState> authState) {
+  final value = authState.asData?.value;
+  return value is AuthAuthenticated ||
+      value is AuthLoggingOut ||
+      value is AuthLogoutFailure;
+}
+
 bool _isAuthenticatedRoute(String path) {
   return path == storiesRoute || path.startsWith('$storiesRoute/');
+}
+
+bool _isAcceptInviteRoute(String path) {
+  final segments = Uri(path: path).pathSegments;
+  return segments.length == 2 && segments.first == 'invite';
+}
+
+String? _inviteTokenFromState(GoRouterState state) {
+  final canonicalInvite = _inviteDeepLinkParser.parse(state.uri);
+  if (canonicalInvite != null) {
+    return canonicalInvite.rawToken;
+  }
+
+  if (state.uri.scheme.isNotEmpty ||
+      state.uri.host.isNotEmpty ||
+      state.uri.hasQuery ||
+      state.uri.hasFragment) {
+    return null;
+  }
+
+  final rawToken = state.pathParameters[_inviteTokenPathParameter];
+  if (rawToken == null) {
+    return null;
+  }
+
+  return _inviteDeepLinkParser
+      .parseString(
+        'https://app.memorymap.app/invite/${Uri.encodeComponent(rawToken)}',
+      )
+      ?.rawToken;
+}
+
+String _acceptInvitePath(String rawToken) {
+  return '/invite/${Uri.encodeComponent(rawToken)}';
 }
 
 void _popOrGoToStories(BuildContext context) {
@@ -240,6 +372,27 @@ void _popOrGoToStoryDetails(BuildContext context, String storyId) {
     return;
   }
 
+  context.goNamed(
+    storyDetailsRouteName,
+    pathParameters: {_storyIdPathParameter: storyId},
+  );
+}
+
+void _clearPendingInviteAndGoToStories(Ref ref, BuildContext context) {
+  ref.read(pendingInviteProvider.notifier).clear();
+  context.goNamed(storiesRouteName);
+}
+
+void _completeAcceptedInvite(
+  Ref ref,
+  BuildContext context,
+  UserStory userStory,
+) {
+  final storyId = userStory.story.id;
+
+  ref.read(pendingInviteProvider.notifier).clear();
+  ref.read(storiesNotifierProvider.notifier).upsertUserStory(userStory);
+  ref.read(storyDetailsProvider(storyId).notifier).applyUpdatedStory(userStory);
   context.goNamed(
     storyDetailsRouteName,
     pathParameters: {_storyIdPathParameter: storyId},

@@ -318,6 +318,76 @@ class JdbcStoryParticipantRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldCountOwnersByStoryId() {
+
+        User owner = saveUser("owner-google-subject");
+        User secondOwner = saveUser("second-owner-google-subject");
+        User coOwner = saveUser("co-owner-google-subject");
+        User editor = saveUser("editor-google-subject");
+        User otherOwner = saveUser("other-owner-google-subject");
+        Story story = saveStory(owner);
+        Story otherStory = saveStory(otherOwner);
+
+        repository.save(createParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        ));
+        repository.save(createParticipant(
+                story.id(),
+                secondOwner.id(),
+                StoryRole.OWNER,
+                BASE_TIME.plusSeconds(1)
+        ));
+        repository.save(createParticipant(
+                story.id(),
+                coOwner.id(),
+                StoryRole.CO_OWNER,
+                BASE_TIME.plusSeconds(2)
+        ));
+        repository.save(createParticipant(
+                story.id(),
+                editor.id(),
+                StoryRole.EDITOR,
+                BASE_TIME.plusSeconds(3)
+        ));
+        repository.save(createParticipant(
+                otherStory.id(),
+                otherOwner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        ));
+
+        assertThat(repository.countOwners(story.id())).isEqualTo(2);
+    }
+
+    @Test
+    void shouldReturnZeroWhenCountingOwnersForStoryWithoutOwners() {
+
+        User owner = saveUser("owner-google-subject");
+        User viewer = saveUser("viewer-google-subject");
+        Story story = saveStory(owner);
+
+        repository.save(createParticipant(
+                story.id(),
+                viewer.id(),
+                StoryRole.VIEWER,
+                BASE_TIME
+        ));
+
+        assertThat(repository.countOwners(story.id())).isZero();
+    }
+
+    @Test
+    void shouldRejectNullStoryIdWhenCountingOwners() {
+
+        assertThatThrownBy(() -> repository.countOwners(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("storyId must not be null");
+    }
+
+    @Test
     void shouldCheckStoryParticipantExists() {
 
         User user = saveUser("google-subject-123");

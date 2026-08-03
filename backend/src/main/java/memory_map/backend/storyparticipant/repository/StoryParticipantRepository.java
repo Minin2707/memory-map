@@ -14,6 +14,8 @@ public interface StoryParticipantRepository {
 
     List<StoryParticipant> findByUserId(UUID userId);
 
+    long countOwners(UUID storyId);
+
     boolean exists(UUID storyId, UUID userId);
 
     void save(StoryParticipant participant);

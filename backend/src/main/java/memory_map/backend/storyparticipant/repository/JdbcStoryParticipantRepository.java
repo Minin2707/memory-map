@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -69,6 +70,13 @@ public class JdbcStoryParticipantRepository implements StoryParticipantRepositor
             )
             """;
 
+    private static final String COUNT_OWNERS_SQL = """
+            SELECT COUNT(*)
+            FROM story_participants
+            WHERE story_id = :storyId
+              AND role = 'OWNER'
+            """;
+
     private static final String UPDATE_SQL = """
             UPDATE story_participants
             SET role = :role
@@ -116,6 +124,17 @@ public class JdbcStoryParticipantRepository implements StoryParticipantRepositor
                 .param("userId", userId)
                 .query(rowMapper)
                 .list();
+    }
+
+    @Override
+    public long countOwners(UUID storyId) {
+
+        Objects.requireNonNull(storyId, "storyId must not be null");
+
+        return jdbcClient.sql(COUNT_OWNERS_SQL)
+                .param("storyId", storyId)
+                .query(Long.class)
+                .single();
     }
 
     @Override

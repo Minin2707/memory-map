@@ -319,6 +319,11 @@ class TransactionalCreateStoryServiceTest {
         }
 
         @Override
+        public boolean lockById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<Story> findByOwnerId(UUID ownerId) {
             return List.of();
         }
@@ -356,6 +361,11 @@ class TransactionalCreateStoryServiceTest {
         @Override
         public List<StoryParticipant> findByUserId(UUID userId) {
             return List.of();
+        }
+
+        @Override
+        public long countOwners(UUID storyId) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

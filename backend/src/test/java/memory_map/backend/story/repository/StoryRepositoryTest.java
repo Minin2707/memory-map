@@ -8,14 +8,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StoryRepositoryTest extends IntegrationTest {
 
@@ -30,6 +39,9 @@ class StoryRepositoryTest extends IntegrationTest {
 
     @Autowired
     private Clock clock;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     private int storyTimestampOffsetSeconds;
 
@@ -117,6 +129,89 @@ class StoryRepositoryTest extends IntegrationTest {
                 repository.findById(id);
 
         assertThat(found).isEmpty();
+    }
+
+    @Test
+    void shouldLockExistingStoryById() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+
+        boolean locked = repository.lockById(saved.id());
+
+        assertThat(locked).isTrue();
+        assertThat(repository.findById(saved.id())).contains(saved);
+    }
+
+    @Test
+    void shouldReturnFalseWhenLockingMissingStory() {
+
+        boolean locked = repository.lockById(UUID.randomUUID());
+
+        assertThat(locked).isFalse();
+    }
+
+    @Test
+    void shouldRejectNullStoryLockId() {
+
+        assertThatThrownBy(() -> repository.lockById(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("id must not be null");
+    }
+
+    @Test
+    void shouldHoldStoryLockUntilTransactionCompletes() throws Exception {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+        TransactionTemplate transactionTemplate =
+                new TransactionTemplate(transactionManager);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch firstLockAcquired = new CountDownLatch(1);
+        CountDownLatch releaseFirstTransaction = new CountDownLatch(1);
+        CountDownLatch secondLockAttemptStarted = new CountDownLatch(1);
+
+        try {
+            Future<Boolean> first = executor.submit(() ->
+                    transactionTemplate.execute(status -> {
+                        boolean locked = repository.lockById(saved.id());
+                        firstLockAcquired.countDown();
+                        await(releaseFirstTransaction);
+                        status.setRollbackOnly();
+
+                        return locked;
+                    })
+            );
+
+            assertThat(firstLockAcquired.await(10, TimeUnit.SECONDS))
+                    .isTrue();
+
+            Future<Boolean> second = executor.submit(() ->
+                    transactionTemplate.execute(status -> {
+                        secondLockAttemptStarted.countDown();
+
+                        return repository.lockById(saved.id());
+                    })
+            );
+
+            assertThat(secondLockAttemptStarted.await(10, TimeUnit.SECONDS))
+                    .isTrue();
+            assertThatThrownBy(() -> second.get(250, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            releaseFirstTransaction.countDown();
+
+            assertThat(first.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(repository.findById(saved.id())).contains(saved);
+        } finally {
+            releaseFirstTransaction.countDown();
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -223,5 +318,19 @@ class StoryRepositoryTest extends IntegrationTest {
         assertThat(updated.createdAt()).isEqualTo(saved.createdAt());
         assertThat(repository.findById(saved.id()))
                 .contains(updated);
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Timed out waiting");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Interrupted while waiting",
+                    exception
+            );
+        }
     }
 }

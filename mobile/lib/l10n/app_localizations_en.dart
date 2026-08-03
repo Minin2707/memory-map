@@ -363,4 +363,197 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editStoryUnavailableBackAction => 'Back to story';
+
+  @override
+  String get invitePageTitle => 'Invite participant';
+
+  @override
+  String get inviteCreatedPageTitle => 'Invite created';
+
+  @override
+  String get inviteBackLabel => 'Back to story';
+
+  @override
+  String get inviteHeroTitle => 'Invite someone close';
+
+  @override
+  String get inviteHeroSubtitle =>
+      'Share a one-time invitation link so they can join your story.';
+
+  @override
+  String get inviteLinkLabel => 'Invite link';
+
+  @override
+  String get inviteSingleUseDescription =>
+      'One-time use. After it is accepted, the link stops working.';
+
+  @override
+  String get inviteExpirationLabel => 'Expires';
+
+  @override
+  String get inviteExpirationDescription =>
+      'The invite remains valid until the date returned by the server.';
+
+  @override
+  String get inviteWhatCanDoTitle => 'What can you do with this link?';
+
+  @override
+  String get inviteInstructionShare => 'Share it in any messenger.';
+
+  @override
+  String get inviteInstructionCopy => 'Copy it and send it yourself.';
+
+  @override
+  String get inviteInstructionOneUse =>
+      'Ask the recipient to use it only once.';
+
+  @override
+  String get inviteCreateButton => 'Create invite';
+
+  @override
+  String get inviteCreatingButton => 'Creating invite...';
+
+  @override
+  String get inviteSuccessTitle => 'Invite is ready!';
+
+  @override
+  String get inviteSuccessSubtitle =>
+      'Share the link with someone close. It is one-time and secure.';
+
+  @override
+  String get inviteLinkSemanticsLabel => 'Invite link';
+
+  @override
+  String get inviteCopyAction => 'Copy';
+
+  @override
+  String get inviteCopiedFeedback => 'Invite link copied.';
+
+  @override
+  String get inviteCopyFailure => 'Could not copy the invite link.';
+
+  @override
+  String get inviteShareAction => 'Share';
+
+  @override
+  String get inviteShareReadyFeedback => 'Share options opened.';
+
+  @override
+  String get inviteShareFailure => 'Could not share the invite link.';
+
+  @override
+  String get inviteLinkCannotBeRestoredWarning =>
+      'Copy or share this link before leaving this screen. It cannot be shown again.';
+
+  @override
+  String get inviteImportantTitle => 'Important';
+
+  @override
+  String get inviteImportantSingleUse => 'This link can be used only once.';
+
+  @override
+  String get inviteImportantAfterAccept =>
+      'After the invitation is accepted, the link becomes invalid.';
+
+  @override
+  String get inviteImportantExpiration =>
+      'The invitation automatically expires after its expiration date.';
+
+  @override
+  String get inviteDoneAction => 'Done';
+
+  @override
+  String get inviteFailureValidation =>
+      'The invite request was invalid. Please try again.';
+
+  @override
+  String get inviteFailureUnauthorized =>
+      'Your session needs attention. Please try again.';
+
+  @override
+  String get inviteFailureNotFound => 'This story is unavailable for invites.';
+
+  @override
+  String get inviteFailureNetworkUnavailable =>
+      'No network connection. Check your connection and try again.';
+
+  @override
+  String get inviteFailureRequestTimedOut =>
+      'The request timed out. Please try again.';
+
+  @override
+  String get inviteFailureServerFailure =>
+      'The server is temporarily unavailable. Please try again.';
+
+  @override
+  String get inviteFailureUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get acceptInvitePageTitle => 'Invitation';
+
+  @override
+  String get acceptInviteBackLabel => 'Back to stories';
+
+  @override
+  String get acceptInviteHeroTitle => 'You were invited to a story';
+
+  @override
+  String get acceptInviteHeroDescription =>
+      'Accept the invitation to join. We will show the story after the server confirms access.';
+
+  @override
+  String get acceptInviteDetailsAccessTitle => 'Private access';
+
+  @override
+  String get acceptInviteDetailsAccessBody =>
+      'Story details are hidden until you accept the invite.';
+
+  @override
+  String get acceptInviteDetailsSingleUseTitle => 'One-time link';
+
+  @override
+  String get acceptInviteDetailsSingleUseBody =>
+      'The invite can be accepted only once and may expire.';
+
+  @override
+  String get acceptInviteAcceptAction => 'Accept invite';
+
+  @override
+  String get acceptInviteAcceptingAction => 'Accepting invite...';
+
+  @override
+  String get acceptInviteRetryAction => 'Try again';
+
+  @override
+  String get acceptInviteCancelAction => 'Cancel';
+
+  @override
+  String get acceptInviteBackToStoriesAction => 'Back to stories';
+
+  @override
+  String get acceptInviteInvalidLinkTitle => 'Invite link is unavailable';
+
+  @override
+  String get acceptInviteInvalidLinkDescription =>
+      'This invitation cannot be opened.';
+
+  @override
+  String get acceptInviteUnavailable => 'This invitation cannot be accepted.';
+
+  @override
+  String get acceptInviteFailureUnauthorized =>
+      'Your session needs attention. Please sign in again.';
+
+  @override
+  String get acceptInviteFailureUnknown =>
+      'Something went wrong. Please try again.';
+
+  @override
+  String get acceptInviteAcceptSemanticsLabel => 'Accept invitation';
+
+  @override
+  String get acceptInviteCancelSemanticsLabel => 'Cancel invitation';
+
+  @override
+  String get acceptInviteErrorSemanticsLabel => 'Invitation error';
 }

@@ -504,6 +504,11 @@ class UpdateStoryUseCaseIntegrationTest extends IntegrationTest {
         }
 
         @Override
+        public boolean lockById(UUID id) {
+            return delegate.lockById(id);
+        }
+
+        @Override
         public List<Story> findByOwnerId(UUID ownerId) {
             return delegate.findByOwnerId(ownerId);
         }

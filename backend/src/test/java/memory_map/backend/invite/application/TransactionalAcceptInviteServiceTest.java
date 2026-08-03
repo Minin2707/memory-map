@@ -653,6 +653,11 @@ class TransactionalAcceptInviteServiceTest {
         }
 
         @Override
+        public boolean lockById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<Story> findByOwnerId(UUID ownerId) {
             throw new UnsupportedOperationException();
         }
@@ -707,6 +712,11 @@ class TransactionalAcceptInviteServiceTest {
         @Override
         public List<StoryParticipant> findByUserId(UUID userId) {
             return List.of();
+        }
+
+        @Override
+        public long countOwners(UUID storyId) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

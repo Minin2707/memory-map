@@ -213,6 +213,11 @@ class InviteApplicationConfigurationTest {
         }
 
         @Override
+        public boolean lockById(UUID id) {
+            return false;
+        }
+
+        @Override
         public List<Story> findByOwnerId(UUID ownerId) {
             return List.of();
         }
@@ -234,6 +239,11 @@ class InviteApplicationConfigurationTest {
         @Override
         public List<StoryParticipant> findByUserId(UUID userId) {
             return List.of();
+        }
+
+        @Override
+        public long countOwners(UUID storyId) {
+            return 0;
         }
 
         @Override

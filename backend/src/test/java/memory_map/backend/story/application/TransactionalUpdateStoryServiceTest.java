@@ -469,6 +469,11 @@ class TransactionalUpdateStoryServiceTest {
         }
 
         @Override
+        public boolean lockById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<Story> findByOwnerId(UUID ownerId) {
             throw new UnsupportedOperationException();
         }

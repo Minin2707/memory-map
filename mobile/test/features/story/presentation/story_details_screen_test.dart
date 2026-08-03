@@ -163,9 +163,13 @@ void main() {
       UserStory? memoriesStory;
       UserStory? participantsStory;
       UserStory? mapStory;
+      var inviteCalls = 0;
       await pumpScreen(
         tester,
         FakeStoryRepository()..storyResult = ownerStory,
+        onInvite: () {
+          inviteCalls += 1;
+        },
         onMemoriesSelected: (userStory) {
           memoriesStory = userStory;
         },
@@ -188,12 +192,52 @@ void main() {
       );
       await pressButton(
         tester,
+        find.byKey(const ValueKey('story-details.invite-action')),
+      );
+      await pressButton(
+        tester,
         find.byKey(const ValueKey('story-details.map-action')),
       );
 
       expect(memoriesStory, ownerStory);
       expect(participantsStory, ownerStory);
       expect(mapStory, ownerStory);
+      expect(inviteCalls, 1);
+    });
+
+    testWidgets('shouldShowInviteForOwnerAndCoOwner', (
+      WidgetTester tester,
+    ) async {
+      for (final role in <StoryRole>[StoryRole.owner, StoryRole.coOwner]) {
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = userStory(role: role),
+          onInvite: () {},
+        );
+
+        expect(
+          find.byKey(const ValueKey('story-details.invite-action')),
+          findsOneWidget,
+        );
+        expect(find.bySemanticsLabel('Invite participant'), findsOneWidget);
+      }
+    });
+
+    testWidgets('shouldHideInviteForEditorAndViewer', (
+      WidgetTester tester,
+    ) async {
+      for (final role in <StoryRole>[StoryRole.editor, StoryRole.viewer]) {
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = userStory(role: role),
+          onInvite: () {},
+        );
+
+        expect(
+          find.byKey(const ValueKey('story-details.invite-action')),
+          findsNothing,
+        );
+      }
     });
 
     testWidgets('shouldHideFutureSectionsWhenCallbacksAreAbsent', (
@@ -390,6 +434,7 @@ Future<ProviderContainer> pumpScreen(
   String storyId = 'story-1',
   VoidCallback? onBack,
   ValueChanged<UserStory>? onEditStory,
+  VoidCallback? onInvite,
   ValueChanged<UserStory>? onMemoriesSelected,
   ValueChanged<UserStory>? onParticipantsSelected,
   ValueChanged<UserStory>? onMapSelected,
@@ -420,6 +465,7 @@ Future<ProviderContainer> pumpScreen(
           storyId: storyId,
           onBack: onBack,
           onEditStory: onEditStory,
+          onInvite: onInvite,
           onMemoriesSelected: onMemoriesSelected,
           onParticipantsSelected: onParticipantsSelected,
           onMapSelected: onMapSelected,
