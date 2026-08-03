@@ -5,7 +5,9 @@ import memory_map.backend.invite.domain.Invite;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,6 +32,12 @@ public class JdbcInviteRepository implements InviteRepository {
 
     private static final String FIND_BY_TOKEN_HASH_SQL = SELECT_COLUMNS_SQL + """
             WHERE token_hash = :tokenHash
+            """;
+
+    private static final String FIND_BY_TOKEN_HASH_FOR_UPDATE_SQL =
+            SELECT_COLUMNS_SQL + """
+            WHERE token_hash = :tokenHash
+            FOR UPDATE
             """;
 
     private static final String FIND_BY_STORY_ID_SQL = SELECT_COLUMNS_SQL + """
@@ -58,10 +66,11 @@ public class JdbcInviteRepository implements InviteRepository {
             )
             """;
 
-    private static final String UPDATE_SQL = """
+    private static final String MARK_USED_IF_UNUSED_SQL = """
             UPDATE invites
             SET used_at = :usedAt
             WHERE id = :id
+              AND used_at IS NULL
             """;
 
     private static final String DELETE_SQL = """
@@ -89,7 +98,20 @@ public class JdbcInviteRepository implements InviteRepository {
     @Override
     public Optional<Invite> findByTokenHash(String tokenHash) {
 
+        Objects.requireNonNull(tokenHash, "tokenHash must not be null");
+
         return jdbcClient.sql(FIND_BY_TOKEN_HASH_SQL)
+                .param("tokenHash", tokenHash)
+                .query(rowMapper)
+                .optional();
+    }
+
+    @Override
+    public Optional<Invite> findByTokenHashForUpdate(String tokenHash) {
+
+        Objects.requireNonNull(tokenHash, "tokenHash must not be null");
+
+        return jdbcClient.sql(FIND_BY_TOKEN_HASH_FOR_UPDATE_SQL)
                 .param("tokenHash", tokenHash)
                 .query(rowMapper)
                 .optional();
@@ -124,17 +146,23 @@ public class JdbcInviteRepository implements InviteRepository {
     }
 
     @Override
-    public void update(Invite invite) {
+    public boolean markUsedIfUnused(
+            UUID inviteId,
+            Instant usedAt
+    ) {
 
-        jdbcClient.sql(UPDATE_SQL)
-                .param("id", invite.id())
+        Objects.requireNonNull(inviteId, "inviteId must not be null");
+        Objects.requireNonNull(usedAt, "usedAt must not be null");
+
+        int updatedRows = jdbcClient.sql(MARK_USED_IF_UNUSED_SQL)
+                .param("id", inviteId)
                 .param(
                         "usedAt",
-                        invite.usedAt() == null
-                                ? null
-                                : DatabaseTimestamps.toOffsetDateTime(invite.usedAt())
+                        DatabaseTimestamps.toOffsetDateTime(usedAt)
                 )
                 .update();
+
+        return updatedRows == 1;
     }
 
     @Override

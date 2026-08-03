@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.List;
@@ -34,6 +36,9 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
 
     @Autowired
     private JdbcClient jdbcClient;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
@@ -205,6 +210,105 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldFindInviteByTokenHashForUpdate() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Invite invite = createInvite(
+                story.id(),
+                user.id(),
+                "hash-invite-001"
+        );
+
+        repository.save(invite);
+
+        Optional<Invite> found =
+                repository.findByTokenHashForUpdate(invite.tokenHash());
+
+        assertThat(found).contains(invite);
+    }
+
+    @Test
+    void shouldReturnEmptyWhenInviteTokenHashDoesNotExistForUpdate() {
+
+        Optional<Invite> found =
+                repository.findByTokenHashForUpdate("hash-invite-missing");
+
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void shouldFindUsedInviteByTokenHashForUpdate() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Invite invite = createUsedInvite(
+                story.id(),
+                user.id(),
+                "hash-invite-001"
+        );
+
+        repository.save(invite);
+
+        Optional<Invite> found =
+                repository.findByTokenHashForUpdate(invite.tokenHash());
+
+        assertThat(found).contains(invite);
+    }
+
+    @Test
+    void shouldFindExpiredInviteByTokenHashForUpdate() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Invite invite = createInvite(
+                UUID.randomUUID(),
+                story.id(),
+                "hash-invite-001",
+                user.id(),
+                Instant.parse("2025-01-01T10:00:00Z"),
+                Instant.parse("2025-01-02T10:00:00Z"),
+                null
+        );
+
+        repository.save(invite);
+
+        Optional<Invite> found =
+                repository.findByTokenHashForUpdate(invite.tokenHash());
+
+        assertThat(found).contains(invite);
+    }
+
+    @Test
+    void shouldNotModifyInviteWhenFindingByTokenHashForUpdate() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Invite invite = createInvite(
+                story.id(),
+                user.id(),
+                "hash-invite-001"
+        );
+
+        repository.save(invite);
+
+        repository.findByTokenHashForUpdate(invite.tokenHash());
+
+        Invite loaded = repository.findById(invite.id())
+                .orElseThrow();
+
+        assertInviteMatches(loaded, invite);
+    }
+
+    @Test
+    void shouldRejectNullTokenHashWhenFindingByTokenHashForUpdate() {
+
+        assertThatThrownBy(() -> repository.findByTokenHashForUpdate(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("tokenHash must not be null");
+    }
+
+    @Test
     void shouldReturnEmptyWhenInviteDoesNotExist() {
 
         Optional<Invite> found =
@@ -338,7 +442,7 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
     }
 
     @Test
-    void shouldUpdateUsedAt() {
+    void shouldMarkInviteUsedIfUnused() {
 
         User user = saveUser("google-subject-123");
         Story story = saveStory(user);
@@ -347,28 +451,46 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
                 user.id(),
                 "hash-invite-001"
         );
-        Invite updatedInvite = createInvite(
-                invite.id(),
-                invite.storyId(),
-                invite.tokenHash(),
-                invite.createdBy(),
-                invite.createdAt(),
-                invite.expiresAt(),
-                BASE_TIME.plusSeconds(60)
-        );
+        Instant usedAt = BASE_TIME.plusSeconds(60);
 
         repository.save(invite);
 
-        repository.update(updatedInvite);
+        boolean marked = repository.markUsedIfUnused(
+                invite.id(),
+                usedAt
+        );
 
         Invite loaded = repository.findById(invite.id())
                 .orElseThrow();
 
-        assertInviteMatches(loaded, updatedInvite);
+        assertThat(marked).isTrue();
+        assertInviteMatches(
+                loaded,
+                createInvite(
+                        invite.id(),
+                        invite.storyId(),
+                        invite.tokenHash(),
+                        invite.createdBy(),
+                        invite.createdAt(),
+                        invite.expiresAt(),
+                        usedAt
+                )
+        );
     }
 
     @Test
-    void shouldUpdateUsedAtBackToNull() {
+    void shouldReturnFalseWhenInviteDoesNotExistForMarkUsedIfUnused() {
+
+        boolean marked = repository.markUsedIfUnused(
+                UUID.randomUUID(),
+                BASE_TIME.plusSeconds(60)
+        );
+
+        assertThat(marked).isFalse();
+    }
+
+    @Test
+    void shouldReturnFalseWhenInviteIsAlreadyUsed() {
 
         User user = saveUser("google-subject-123");
         Story story = saveStory(user);
@@ -377,25 +499,140 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
                 user.id(),
                 "hash-invite-001"
         );
-        Invite updatedInvite = createInvite(
-                invite.id(),
-                invite.storyId(),
-                invite.tokenHash(),
-                invite.createdBy(),
-                invite.createdAt(),
-                invite.expiresAt(),
-                null
-        );
 
         repository.save(invite);
 
-        repository.update(updatedInvite);
+        boolean marked = repository.markUsedIfUnused(
+                invite.id(),
+                BASE_TIME.plusSeconds(120)
+        );
 
         Invite loaded = repository.findById(invite.id())
                 .orElseThrow();
 
+        assertThat(marked).isFalse();
+        assertInviteMatches(loaded, invite);
+    }
+
+    @Test
+    void shouldPreserveFirstUsedAtWhenSecondMarkUsedFails() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Invite invite = createInvite(
+                story.id(),
+                user.id(),
+                "hash-invite-001"
+        );
+        Instant firstUsedAt = BASE_TIME.plusSeconds(60);
+        Instant secondUsedAt = BASE_TIME.plusSeconds(120);
+
+        repository.save(invite);
+
+        boolean first = repository.markUsedIfUnused(
+                invite.id(),
+                firstUsedAt
+        );
+        boolean second = repository.markUsedIfUnused(
+                invite.id(),
+                secondUsedAt
+        );
+
+        Invite loaded = repository.findById(invite.id())
+                .orElseThrow();
+
+        assertThat(first).isTrue();
+        assertThat(second).isFalse();
+        assertThat(loaded.usedAt()).isEqualTo(firstUsedAt);
+    }
+
+    @Test
+    void shouldMarkOnlySpecifiedInviteUsed() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Invite first = createInvite(
+                story.id(),
+                user.id(),
+                "hash-invite-001"
+        );
+        Invite second = createInvite(
+                story.id(),
+                user.id(),
+                "hash-invite-002"
+        );
+        Instant usedAt = BASE_TIME.plusSeconds(60);
+
+        repository.save(first);
+        repository.save(second);
+
+        boolean marked = repository.markUsedIfUnused(
+                first.id(),
+                usedAt
+        );
+
+        Invite loadedFirst = repository.findById(first.id())
+                .orElseThrow();
+        Invite loadedSecond = repository.findById(second.id())
+                .orElseThrow();
+
+        assertThat(marked).isTrue();
+        assertThat(loadedFirst.usedAt()).isEqualTo(usedAt);
+        assertThat(loadedSecond.usedAt()).isNull();
+    }
+
+    @Test
+    void shouldRejectNullInviteIdWhenMarkingUsedIfUnused() {
+
+        assertThatThrownBy(() -> repository.markUsedIfUnused(
+                null,
+                BASE_TIME.plusSeconds(60)
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("inviteId must not be null");
+    }
+
+    @Test
+    void shouldRejectNullUsedAtWhenMarkingUsedIfUnused() {
+
+        assertThatThrownBy(() -> repository.markUsedIfUnused(
+                UUID.randomUUID(),
+                null
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("usedAt must not be null");
+    }
+
+    @Test
+    void shouldRollBackMarkUsedIfUnusedInOuterTransaction() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Invite invite = createInvite(
+                story.id(),
+                user.id(),
+                "hash-invite-001"
+        );
+        TransactionTemplate transactionTemplate =
+                new TransactionTemplate(transactionManager);
+
+        repository.save(invite);
+
+        Boolean marked = transactionTemplate.execute(status -> {
+            boolean result = repository.markUsedIfUnused(
+                    invite.id(),
+                    BASE_TIME.plusSeconds(60)
+            );
+
+            status.setRollbackOnly();
+            return result;
+        });
+
+        Invite loaded = repository.findById(invite.id())
+                .orElseThrow();
+
+        assertThat(marked).isTrue();
         assertThat(loaded.usedAt()).isNull();
-        assertInviteMatches(loaded, updatedInvite);
     }
 
     @Test

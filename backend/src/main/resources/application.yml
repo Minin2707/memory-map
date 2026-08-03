@@ -9,6 +9,10 @@ spring:
     import: optional:file:./config/application-local.yml
 
 app:
+  invite:
+    ttl: ${INVITE_TTL:P30D}
+    base-url: ${INVITE_BASE_URL:https://app.memorymap.app}
+
   auth:
     google:
       client-id: ${GOOGLE_CLIENT_ID:}
@@ -20,4 +24,3 @@ app:
 
     refresh-token:
       ttl: P30D
-
