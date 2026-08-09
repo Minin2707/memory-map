@@ -303,6 +303,153 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storyDetailsMapAction => 'Карта';
 
   @override
+  String get participantsPageTitle => 'Участники';
+
+  @override
+  String get participantsBack => 'Вернуться к истории';
+
+  @override
+  String get participantsHeaderTitle => 'Люди в этой истории';
+
+  @override
+  String participantsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count участника',
+      many: '$count участников',
+      few: '$count участника',
+      one: '1 участник',
+      zero: 'Нет участников',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get participantsSectionTitle => 'Участники';
+
+  @override
+  String get participantsSectionSubtitle =>
+      'Роли определяют, что участники могут делать в этой истории.';
+
+  @override
+  String get participantsInvite => 'Пригласить участника';
+
+  @override
+  String get participantsLeaveStory => 'Покинуть историю';
+
+  @override
+  String get participantsLeaveConfirmTitle => 'Покинуть историю?';
+
+  @override
+  String get participantsLeaveConfirmBody =>
+      'Вы потеряете доступ к этой истории. Чтобы вернуться, потребуется новое приглашение. Если вы последний владелец, сервер может отклонить действие.';
+
+  @override
+  String get participantsLeaveConfirmAction => 'Покинуть';
+
+  @override
+  String get participantsLeaveCancel => 'Отмена';
+
+  @override
+  String get participantsLeaving => 'Покидаем историю...';
+
+  @override
+  String get participantsCurrentUser => 'Вы';
+
+  @override
+  String get participantsEmptyTitle => 'Некого показать';
+
+  @override
+  String get participantsEmptyBody =>
+      'Список участников сейчас пуст. Попробуйте обновить его чуть позже.';
+
+  @override
+  String get participantsRetry => 'Повторить';
+
+  @override
+  String get participantsRefreshFailed => 'Не удалось обновить участников';
+
+  @override
+  String get participantsLoadFailed => 'Не удалось загрузить участников';
+
+  @override
+  String get participantsRemoveAction => 'Удалить';
+
+  @override
+  String participantsRemoveConfirmTitle(String displayName) {
+    return 'Удалить участника $displayName?';
+  }
+
+  @override
+  String participantsRemoveConfirmBody(String displayName) {
+    return '$displayName потеряет доступ к этой истории. Он сможет вернуться по новому приглашению.';
+  }
+
+  @override
+  String get participantsRemoveConfirmAction => 'Удалить';
+
+  @override
+  String get participantsRemoveCancel => 'Отмена';
+
+  @override
+  String get participantsRemoving => 'Удаляем участника...';
+
+  @override
+  String participantsRemoveSuccess(String displayName) {
+    return 'Участник $displayName удалён.';
+  }
+
+  @override
+  String participantsAvatarLabel(String displayName) {
+    return 'Аватар пользователя $displayName';
+  }
+
+  @override
+  String participantsRemoveParticipantLabel(String displayName) {
+    return 'Удалить участника $displayName';
+  }
+
+  @override
+  String get participantFailureValidation =>
+      'Запрос содержит ошибку. Попробуйте ещё раз.';
+
+  @override
+  String get participantFailureUnauthorized =>
+      'Сеанс требует внимания. Попробуйте ещё раз.';
+
+  @override
+  String get participantFailureNotFound => 'Участники недоступны.';
+
+  @override
+  String get participantFailureLastOwner =>
+      'Последний владелец не может покинуть эту историю.';
+
+  @override
+  String get participantFailureCannotRemoveSelf =>
+      'Чтобы удалить себя, используйте действие «Покинуть историю».';
+
+  @override
+  String get participantFailureOwnerCannotBeRemoved =>
+      'Владельца нельзя удалить отсюда.';
+
+  @override
+  String get participantFailureNetwork =>
+      'Нет подключения к интернету. Проверьте соединение и повторите попытку.';
+
+  @override
+  String get participantFailureTimeout =>
+      'Время ожидания истекло. Попробуйте ещё раз.';
+
+  @override
+  String get participantFailureServer =>
+      'Сервер временно недоступен. Попробуйте ещё раз.';
+
+  @override
+  String get participantFailureUnknown =>
+      'Что-то пошло не так. Попробуйте ещё раз.';
+
+  @override
   String get editStoryPageTitle => 'Редактирование истории';
 
   @override

@@ -647,6 +647,110 @@ void main() {
     });
   });
 
+  group('StoriesNotifier remove story by id', () {
+    test('shouldRemoveMatchingStoryWithoutChangingRemainingOrder', () async {
+      final thirdStory = userStory(
+        id: 'story-3',
+        title: 'Third story',
+        role: StoryRole.viewer,
+      );
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, coOwnerStory, thirdStory];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      final originalStories = readState(container).stories;
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .removeStoryById(coOwnerStory.story.id);
+
+      final stories = readState(container).stories;
+      expect(stories, <UserStory>[ownerStory, thirdStory]);
+      expect(stories.first, same(ownerStory));
+      expect(stories.last, same(thirdStory));
+      expect(originalStories, <UserStory>[ownerStory, coOwnerStory, thirdStory]);
+      expect(identical(stories, originalStories), isFalse);
+      expect(
+        () => stories.add(userStory(id: 'mutation-attempt')),
+        throwsA(isA<UnsupportedError>()),
+      );
+      expect(repository.operations, <String>['getStories']);
+    });
+
+    test('shouldNoOpWhenStoryIdIsMissing', () async {
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, coOwnerStory];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      final originalStories = readState(container).stories;
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .removeStoryById('missing-story');
+
+      expect(readState(container).stories, originalStories);
+      expect(repository.operations, <String>['getStories']);
+    });
+
+    test('shouldRemoveAllAccidentalDuplicateMatches', () async {
+      final duplicateOwnerStory = userStory(
+        id: ownerStory.story.id,
+        title: 'Duplicate owner story',
+        role: StoryRole.viewer,
+      );
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[
+          ownerStory,
+          coOwnerStory,
+          duplicateOwnerStory,
+        ];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .removeStoryById(ownerStory.story.id);
+
+      expect(readState(container).stories, <UserStory>[coOwnerStory]);
+    });
+
+    test('shouldBeSafeWhenRepeated', () async {
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, coOwnerStory];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      final notifier = container.read(storiesNotifierProvider.notifier);
+
+      notifier.removeStoryById(ownerStory.story.id);
+      notifier.removeStoryById(ownerStory.story.id);
+
+      expect(readState(container).stories, <UserStory>[coOwnerStory]);
+      expect(repository.operations, <String>['getStories']);
+    });
+
+    test('shouldIgnoreRemovalWhenLoadFailed', () async {
+      final repository = FakeStoryRepository()
+        ..getStoriesFailures.add(
+          const StoryApplicationException(StoryUnauthorized()),
+        );
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .removeStoryById(ownerStory.story.id);
+
+      expect(readState(container).stories, isEmpty);
+      expect(readState(container).loadFailure, const StoryUnauthorized());
+      expect(repository.operations, <String>['getStories']);
+    });
+  });
+
   group('StoriesNotifier security', () {
     test('shouldNotExposeStoryDetailsThroughNotifierStateToString', () async {
       final repository = FakeStoryRepository()

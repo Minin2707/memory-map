@@ -632,6 +632,234 @@ abstract class AppLocalizations {
   /// **'Map'**
   String get storyDetailsMapAction;
 
+  /// No description provided for @participantsPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Participants'**
+  String get participantsPageTitle;
+
+  /// No description provided for @participantsBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to story'**
+  String get participantsBack;
+
+  /// No description provided for @participantsHeaderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'People in this story'**
+  String get participantsHeaderTitle;
+
+  /// Participant count shown on the Participants screen
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No participants} =1{1 participant} other{{count} participants}}'**
+  String participantsCount(int count);
+
+  /// No description provided for @participantsSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Participants'**
+  String get participantsSectionTitle;
+
+  /// No description provided for @participantsSectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Roles shape what each participant can do in this story.'**
+  String get participantsSectionSubtitle;
+
+  /// No description provided for @participantsInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite participant'**
+  String get participantsInvite;
+
+  /// No description provided for @participantsLeaveStory.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave story'**
+  String get participantsLeaveStory;
+
+  /// No description provided for @participantsLeaveConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave story?'**
+  String get participantsLeaveConfirmTitle;
+
+  /// No description provided for @participantsLeaveConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You will lose access to this story. To join again, you will need a new invitation. If you are the last owner, the server may reject this action.'**
+  String get participantsLeaveConfirmBody;
+
+  /// No description provided for @participantsLeaveConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get participantsLeaveConfirmAction;
+
+  /// No description provided for @participantsLeaveCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get participantsLeaveCancel;
+
+  /// No description provided for @participantsLeaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaving story...'**
+  String get participantsLeaving;
+
+  /// No description provided for @participantsCurrentUser.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get participantsCurrentUser;
+
+  /// No description provided for @participantsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No participants to show'**
+  String get participantsEmptyTitle;
+
+  /// No description provided for @participantsEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The participant list is empty right now. Try refreshing in a moment.'**
+  String get participantsEmptyBody;
+
+  /// No description provided for @participantsRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get participantsRetry;
+
+  /// No description provided for @participantsRefreshFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not refresh participants'**
+  String get participantsRefreshFailed;
+
+  /// No description provided for @participantsLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load participants'**
+  String get participantsLoadFailed;
+
+  /// No description provided for @participantsRemoveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get participantsRemoveAction;
+
+  /// Title for confirming participant removal
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {displayName}?'**
+  String participantsRemoveConfirmTitle(String displayName);
+
+  /// Body for confirming participant removal
+  ///
+  /// In en, this message translates to:
+  /// **'{displayName} will lose access to this story. They can join again with a new invitation.'**
+  String participantsRemoveConfirmBody(String displayName);
+
+  /// No description provided for @participantsRemoveConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get participantsRemoveConfirmAction;
+
+  /// No description provided for @participantsRemoveCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get participantsRemoveCancel;
+
+  /// No description provided for @participantsRemoving.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing participant...'**
+  String get participantsRemoving;
+
+  /// SnackBar shown after a participant is removed
+  ///
+  /// In en, this message translates to:
+  /// **'{displayName} was removed.'**
+  String participantsRemoveSuccess(String displayName);
+
+  /// Accessibility label for a participant avatar
+  ///
+  /// In en, this message translates to:
+  /// **'{displayName}\'s avatar'**
+  String participantsAvatarLabel(String displayName);
+
+  /// Accessibility label for removing a participant
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {displayName}'**
+  String participantsRemoveParticipantLabel(String displayName);
+
+  /// No description provided for @participantFailureValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'The request was invalid. Please try again.'**
+  String get participantFailureValidation;
+
+  /// No description provided for @participantFailureUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session needs attention. Please try again.'**
+  String get participantFailureUnauthorized;
+
+  /// No description provided for @participantFailureNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Participants are unavailable.'**
+  String get participantFailureNotFound;
+
+  /// No description provided for @participantFailureLastOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'The last owner cannot leave this story.'**
+  String get participantFailureLastOwner;
+
+  /// No description provided for @participantFailureCannotRemoveSelf.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Leave story to remove yourself.'**
+  String get participantFailureCannotRemoveSelf;
+
+  /// No description provided for @participantFailureOwnerCannotBeRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Owners cannot be removed from here.'**
+  String get participantFailureOwnerCannotBeRemoved;
+
+  /// No description provided for @participantFailureNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection. Check your connection and try again.'**
+  String get participantFailureNetwork;
+
+  /// No description provided for @participantFailureTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Please try again.'**
+  String get participantFailureTimeout;
+
+  /// No description provided for @participantFailureServer.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is temporarily unavailable. Please try again.'**
+  String get participantFailureServer;
+
+  /// No description provided for @participantFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get participantFailureUnknown;
+
   /// No description provided for @editStoryPageTitle.
   ///
   /// In en, this message translates to:

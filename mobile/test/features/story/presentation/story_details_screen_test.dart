@@ -223,6 +223,34 @@ void main() {
       }
     });
 
+    testWidgets('shouldShowParticipantsForEveryRoleWhenCallbackExists', (
+      WidgetTester tester,
+    ) async {
+      setSurface(tester, const Size(390, 1200));
+
+      for (final role in StoryRole.values) {
+        UserStory? selectedStory;
+        final story = userStory(role: role);
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = story,
+          onParticipantsSelected: (userStory) {
+            selectedStory = userStory;
+          },
+        );
+
+        final action =
+            find.byKey(const ValueKey('story-details.participants-action'));
+        expect(action, findsOneWidget);
+        expect(find.text('Participants'), findsOneWidget);
+
+        await pressButton(tester, action);
+
+        expect(selectedStory, story);
+        expect(find.textContaining(story.story.id), findsNothing);
+      }
+    });
+
     testWidgets('shouldHideInviteForEditorAndViewer', (
       WidgetTester tester,
     ) async {

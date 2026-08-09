@@ -124,6 +124,92 @@
   "storyDetailsMemoriesAction": "Воспоминания",
   "storyDetailsParticipantsAction": "Участники",
   "storyDetailsMapAction": "Карта",
+  "participantsPageTitle": "Участники",
+  "participantsBack": "Вернуться к истории",
+  "participantsHeaderTitle": "Люди в этой истории",
+  "participantsCount": "{count, plural, =0{Нет участников} =1{1 участник} few{{count} участника} many{{count} участников} other{{count} участника}}",
+  "@participantsCount": {
+    "description": "Participant count shown on the Participants screen",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "participantsSectionTitle": "Участники",
+  "participantsSectionSubtitle": "Роли определяют, что участники могут делать в этой истории.",
+  "participantsInvite": "Пригласить участника",
+  "participantsLeaveStory": "Покинуть историю",
+  "participantsLeaveConfirmTitle": "Покинуть историю?",
+  "participantsLeaveConfirmBody": "Вы потеряете доступ к этой истории. Чтобы вернуться, потребуется новое приглашение. Если вы последний владелец, сервер может отклонить действие.",
+  "participantsLeaveConfirmAction": "Покинуть",
+  "participantsLeaveCancel": "Отмена",
+  "participantsLeaving": "Покидаем историю...",
+  "participantsCurrentUser": "Вы",
+  "participantsEmptyTitle": "Некого показать",
+  "participantsEmptyBody": "Список участников сейчас пуст. Попробуйте обновить его чуть позже.",
+  "participantsRetry": "Повторить",
+  "participantsRefreshFailed": "Не удалось обновить участников",
+  "participantsLoadFailed": "Не удалось загрузить участников",
+  "participantsRemoveAction": "Удалить",
+  "participantsRemoveConfirmTitle": "Удалить участника {displayName}?",
+  "@participantsRemoveConfirmTitle": {
+    "description": "Title for confirming participant removal",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveConfirmBody": "{displayName} потеряет доступ к этой истории. Он сможет вернуться по новому приглашению.",
+  "@participantsRemoveConfirmBody": {
+    "description": "Body for confirming participant removal",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveConfirmAction": "Удалить",
+  "participantsRemoveCancel": "Отмена",
+  "participantsRemoving": "Удаляем участника...",
+  "participantsRemoveSuccess": "Участник {displayName} удалён.",
+  "@participantsRemoveSuccess": {
+    "description": "SnackBar shown after a participant is removed",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsAvatarLabel": "Аватар пользователя {displayName}",
+  "@participantsAvatarLabel": {
+    "description": "Accessibility label for a participant avatar",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveParticipantLabel": "Удалить участника {displayName}",
+  "@participantsRemoveParticipantLabel": {
+    "description": "Accessibility label for removing a participant",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantFailureValidation": "Запрос содержит ошибку. Попробуйте ещё раз.",
+  "participantFailureUnauthorized": "Сеанс требует внимания. Попробуйте ещё раз.",
+  "participantFailureNotFound": "Участники недоступны.",
+  "participantFailureLastOwner": "Последний владелец не может покинуть эту историю.",
+  "participantFailureCannotRemoveSelf": "Чтобы удалить себя, используйте действие «Покинуть историю».",
+  "participantFailureOwnerCannotBeRemoved": "Владельца нельзя удалить отсюда.",
+  "participantFailureNetwork": "Нет подключения к интернету. Проверьте соединение и повторите попытку.",
+  "participantFailureTimeout": "Время ожидания истекло. Попробуйте ещё раз.",
+  "participantFailureServer": "Сервер временно недоступен. Попробуйте ещё раз.",
+  "participantFailureUnknown": "Что-то пошло не так. Попробуйте ещё раз.",
   "editStoryPageTitle": "Редактирование истории",
   "editStoryBackLabel": "Вернуться к истории",
   "editStoryHeroTitle": "Детали истории",

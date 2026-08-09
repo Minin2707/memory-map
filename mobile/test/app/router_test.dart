@@ -22,7 +22,15 @@ import 'package:memory_map/features/invite/domain/create_invite_input.dart';
 import 'package:memory_map/features/invite/domain/invite.dart';
 import 'package:memory_map/features/invite/domain/invite_failure.dart';
 import 'package:memory_map/features/invite/domain/invite_repository.dart';
+import 'package:memory_map/features/participant/application/participant_application_exception.dart';
+import 'package:memory_map/features/participant/application/participant_application_providers.dart';
+import 'package:memory_map/features/participant/domain/leave_story_input.dart';
+import 'package:memory_map/features/participant/domain/participant_failure.dart';
+import 'package:memory_map/features/participant/domain/remove_story_participant_input.dart';
+import 'package:memory_map/features/participant/domain/story_participant.dart';
+import 'package:memory_map/features/participant/domain/story_participant_repository.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
+import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/domain/story.dart';
 import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
@@ -607,6 +615,320 @@ void main() {
 
       expect(find.text('Invite someone close'), findsNothing);
     });
+
+    testWidgets('shouldRedirectUnauthenticatedParticipantsRouteToLogin', (
+      WidgetTester tester,
+    ) async {
+      await pumpApp(tester, FakeAuthRepository());
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Continue with Google'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Participants'), findsNothing);
+    });
+
+    testWidgets('shouldOpenAuthenticatedDirectParticipantsRoute', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeParticipantRepository = FakeStoryParticipantRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        participantRepository: fakeParticipantRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Participants'), findsWidgets);
+      expect(find.text('Ada Lovelace'), findsOneWidget);
+      expect(find.text('You'), findsOneWidget);
+      expect(fakeParticipantRepository.getParticipantsCalls, 1);
+      expect(
+        fakeParticipantRepository.receivedStoryIds,
+        <String>[ownerStory.story.id],
+      );
+    });
+
+    testWidgets('shouldOpenParticipantsFromDetailsAndBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeParticipantRepository = FakeStoryParticipantRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        participantRepository: fakeParticipantRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+
+      await scrollToStoryDetailsParticipantsAction(tester);
+      await tapButton(tester, storyDetailsParticipantsActionFinder());
+
+      expect(find.text('Participants'), findsWidgets);
+      expect(
+        fakeParticipantRepository.receivedStoryIds,
+        contains(ownerStory.story.id),
+      );
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+    });
+
+    testWidgets('shouldFallbackDirectParticipantsBackToStoryDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        participantRepository: FakeStoryParticipantRepository(),
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
+      await tester.pumpAndSettle();
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(
+        fakeStoryRepository.receivedGetStoryIds,
+        contains(ownerStory.story.id),
+      );
+    });
+
+    testWidgets('shouldOpenInviteFromParticipantsAndBackToParticipants', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeInviteRepository = FakeInviteRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        inviteRepository: fakeInviteRepository,
+        participantRepository: FakeStoryParticipantRepository(),
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
+      await tester.pumpAndSettle();
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.invite-action')),
+      );
+
+      expect(find.text('Invite someone close'), findsOneWidget);
+      expect(fakeInviteRepository.createCalls, 0);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('invite.back-action')),
+      );
+
+      expect(find.text('Participants'), findsWidgets);
+    });
+
+    testWidgets('shouldRemainOnParticipantsAfterRemoveSuccess', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeParticipantRepository = FakeStoryParticipantRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        participantRepository: fakeParticipantRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsParticipantsAction(tester);
+      await tapButton(tester, storyDetailsParticipantsActionFinder());
+
+      await tapButton(tester, removeActionFor(viewerParticipant));
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.remove.confirm-action')),
+      );
+
+      expect(fakeParticipantRepository.removeParticipantCalls, 1);
+      expect(
+        fakeParticipantRepository.receivedRemoveInput,
+        RemoveStoryParticipantInput(
+          storyId: ownerStory.story.id,
+          participantUserId: viewerParticipant.userId,
+        ),
+      );
+      expect(find.text('Participants'), findsWidgets);
+      expect(find.text(viewerParticipant.displayName), findsNothing);
+      expect(find.text('About this story'), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+    });
+
+    testWidgets('shouldSynchronizeStoriesAndGoToStoriesAfterLeaveSuccess', (
+      WidgetTester tester,
+    ) async {
+      final storyA = userStory(
+        id: 'story-a',
+        title: 'Story A',
+        description: 'First',
+      );
+      final storyB = userStory(
+        id: ownerStory.story.id,
+        title: ownerStory.story.title,
+        description: ownerStory.story.description,
+      );
+      final storyC = userStory(
+        id: 'story-c',
+        title: 'Story C',
+        description: 'Third',
+      );
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[storyA, storyB, storyC]
+        ..storyResult = storyB;
+      final fakeParticipantRepository = FakeStoryParticipantRepository();
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        participantRepository: fakeParticipantRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(storyB.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsParticipantsAction(tester);
+      await tapButton(tester, storyDetailsParticipantsActionFinder());
+
+      await scrollToLeaveAction(tester);
+      await tapButton(tester, leaveActionFinder());
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.leave.confirm-action')),
+      );
+
+      expect(fakeParticipantRepository.leaveStoryCalls, 1);
+      expect(
+        fakeParticipantRepository.receivedLeaveInput,
+        LeaveStoryInput(storyId: storyB.story.id),
+      );
+      expect(find.text('Your stories'), findsOneWidget);
+      expect(find.text(storyA.story.title), findsOneWidget);
+      expect(find.text(storyB.story.title), findsNothing);
+      expect(find.text(storyC.story.title), findsOneWidget);
+      expect(
+        container.read(storiesNotifierProvider).asData!.value.stories,
+        <UserStory>[storyA, storyC],
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('About this story'), findsNothing);
+      expect(find.text('Participants'), findsNothing);
+    });
+
+    testWidgets('shouldStayOnParticipantsAndKeepStoriesAfterLeaveFailure', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory];
+      final fakeParticipantRepository = FakeStoryParticipantRepository()
+        ..leaveFailure = const ParticipantApplicationException(
+          ParticipantLastOwnerConflict(),
+        );
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        participantRepository: fakeParticipantRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
+      await tester.pumpAndSettle();
+
+      await scrollToLeaveAction(tester);
+      await tapButton(tester, leaveActionFinder());
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.leave.confirm-action')),
+      );
+
+      expect(fakeParticipantRepository.leaveStoryCalls, 1);
+      expect(find.text('Participants'), findsWidgets);
+      expect(find.text('Your stories'), findsNothing);
+      expect(
+        find.text('The last owner cannot leave this story.'),
+        findsOneWidget,
+      );
+      expect(
+        container.read(storiesNotifierProvider).asData!.value.stories,
+        <UserStory>[ownerStory],
+      );
+    });
+
+    testWidgets('shouldHandleDirectParticipantsLeaveWithoutLoadedStoryMatch', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: FakeStoryRepository()
+          ..storiesResult = <UserStory>[],
+        participantRepository: FakeStoryParticipantRepository(),
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
+      await tester.pumpAndSettle();
+
+      await scrollToLeaveAction(tester);
+      await tapButton(tester, leaveActionFinder());
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.leave.confirm-action')),
+      );
+
+      expect(find.text('Your stories'), findsOneWidget);
+      expect(find.text('Participants'), findsNothing);
+    });
   });
 
   group('Router invite deep links', () {
@@ -884,16 +1206,50 @@ Future<void> tapButton(
   await tester.pumpAndSettle();
 }
 
+Future<void> scrollToLeaveAction(WidgetTester tester) async {
+  await tester.scrollUntilVisible(
+    leaveActionFinder(),
+    120,
+    scrollable: find.byType(Scrollable),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> scrollToStoryDetailsParticipantsAction(
+  WidgetTester tester,
+) async {
+  await tester.scrollUntilVisible(
+    storyDetailsParticipantsActionFinder(),
+    120,
+    scrollable: find.byType(Scrollable),
+  );
+  await tester.pumpAndSettle();
+}
+
+Finder leaveActionFinder() {
+  return find.byKey(const ValueKey('participants.leave-action'));
+}
+
+Finder storyDetailsParticipantsActionFinder() {
+  return find.byKey(const ValueKey('story-details.participants-action'));
+}
+
+Finder removeActionFor(StoryParticipant participant) {
+  return find.byKey(ValueKey('participants.remove-action.${participant.userId}'));
+}
+
 Future<ProviderContainer> pumpApp(
   WidgetTester tester,
   FakeAuthRepository fakeAuthRepository, {
   FakeStoryRepository? storyRepository,
   FakeInviteRepository? inviteRepository,
+  FakeStoryParticipantRepository? participantRepository,
 }) async {
   final container = createContainer(
     fakeAuthRepository,
     storyRepository: storyRepository,
     inviteRepository: inviteRepository,
+    participantRepository: participantRepository,
   );
   addTearDown(container.dispose);
 
@@ -912,6 +1268,7 @@ ProviderContainer createContainer(
   FakeAuthRepository fakeAuthRepository, {
   FakeStoryRepository? storyRepository,
   FakeInviteRepository? inviteRepository,
+  FakeStoryParticipantRepository? participantRepository,
 }) {
   return ProviderContainer(
     overrides: [
@@ -921,6 +1278,9 @@ ProviderContainer createContainer(
       ),
       inviteRepositoryProvider.overrideWithValue(
         inviteRepository ?? FakeInviteRepository(),
+      ),
+      storyParticipantRepositoryProvider.overrideWithValue(
+        participantRepository ?? FakeStoryParticipantRepository(),
       ),
     ],
   );
@@ -992,6 +1352,20 @@ const String validInviteToken = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 final Invite invite = Invite(
   inviteLink: Uri.parse('https://app.memorymap.app/invite/$validInviteToken'),
   expiresAt: DateTime.utc(2026, 2, 9, 10),
+);
+final StoryParticipant currentUserParticipant = StoryParticipant(
+  userId: session.user.id,
+  displayName: session.user.displayName,
+  avatarUrl: session.user.avatarUrl,
+  role: StoryRole.owner,
+  joinedAt: DateTime.utc(2026, 8, 9, 10),
+);
+final StoryParticipant viewerParticipant = StoryParticipant(
+  userId: 'viewer-user-id',
+  displayName: 'Grace Hopper',
+  avatarUrl: null,
+  role: StoryRole.viewer,
+  joinedAt: DateTime.utc(2026, 8, 9, 11),
 );
 
 final class FakeAuthRepository implements AuthRepository {
@@ -1118,6 +1492,51 @@ final class FakeInviteRepository implements InviteRepository {
     }
 
     return acceptResult;
+  }
+}
+
+final class FakeStoryParticipantRepository
+    implements StoryParticipantRepository {
+  int getParticipantsCalls = 0;
+  int leaveStoryCalls = 0;
+  int removeParticipantCalls = 0;
+  LeaveStoryInput? receivedLeaveInput;
+  RemoveStoryParticipantInput? receivedRemoveInput;
+  List<StoryParticipant> participantsResult = <StoryParticipant>[
+    currentUserParticipant,
+    viewerParticipant,
+  ];
+  final List<String> receivedStoryIds = <String>[];
+  Object? leaveFailure;
+  Object? removeFailure;
+
+  @override
+  Future<List<StoryParticipant>> getParticipants(String storyId) async {
+    getParticipantsCalls += 1;
+    receivedStoryIds.add(storyId);
+    return participantsResult;
+  }
+
+  @override
+  Future<void> leaveStory(LeaveStoryInput input) async {
+    leaveStoryCalls += 1;
+    receivedLeaveInput = input;
+
+    final failure = leaveFailure;
+    if (failure != null) {
+      throw failure;
+    }
+  }
+
+  @override
+  Future<void> removeParticipant(RemoveStoryParticipantInput input) async {
+    removeParticipantCalls += 1;
+    receivedRemoveInput = input;
+
+    final failure = removeFailure;
+    if (failure != null) {
+      throw failure;
+    }
   }
 }
 

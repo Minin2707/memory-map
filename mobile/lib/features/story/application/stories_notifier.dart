@@ -165,6 +165,24 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
     );
   }
 
+  void removeStoryById(String storyId) {
+    final currentState = _currentState;
+    if (currentState == null || currentState.hasLoadFailure) {
+      return;
+    }
+
+    final stories = currentState.stories
+        .where((userStory) => userStory.story.id != storyId)
+        .toList();
+    if (stories.length == currentState.stories.length) {
+      return;
+    }
+
+    state = AsyncData<StoriesState>(
+      currentState.copyWith(stories: stories),
+    );
+  }
+
   Future<StoriesState> _load(StoryRepository repository) async {
     try {
       final stories = await repository.getStories();

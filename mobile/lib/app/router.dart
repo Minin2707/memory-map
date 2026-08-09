@@ -14,6 +14,8 @@ import 'package:memory_map/features/invite/application/pending_invite_notifier.d
 import 'package:memory_map/features/invite/application/pending_invite_state.dart';
 import 'package:memory_map/features/invite/presentation/accept_invite_screen.dart';
 import 'package:memory_map/features/invite/presentation/invite_screen.dart';
+import 'package:memory_map/features/participant/application/participants_notifier.dart';
+import 'package:memory_map/features/participant/presentation/participants_screen.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
@@ -32,6 +34,7 @@ const createStoryRoute = '/stories/create';
 const storyDetailsRoute = '/stories/:storyId';
 const editStoryRoute = '/stories/:storyId/edit';
 const inviteStoryRoute = '/stories/:storyId/invite';
+const storyParticipantsRoute = '/stories/:storyId/participants';
 const acceptInviteRoute = '/invite/:token';
 
 const storiesRouteName = 'stories';
@@ -39,6 +42,7 @@ const createStoryRouteName = 'createStory';
 const storyDetailsRouteName = 'storyDetails';
 const editStoryRouteName = 'editStory';
 const inviteStoryRouteName = 'inviteStory';
+const storyParticipantsRouteName = 'storyParticipants';
 const acceptInviteRouteName = 'acceptInvite';
 
 const _storyIdPathParameter = 'storyId';
@@ -201,6 +205,44 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pathParameters: {_storyIdPathParameter: storyId},
               );
             },
+            onParticipantsSelected: (_) {
+              context.pushNamed(
+                storyParticipantsRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: storyParticipantsRouteName,
+        path: storyParticipantsRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final storyId =
+              state.pathParameters[_storyIdPathParameter] ?? '';
+          final session = _sessionForAuthenticatedRoute(
+            ref.read(authNotifierProvider),
+          );
+          if (session == null) {
+            return const AuthUnexpectedErrorScreen();
+          }
+
+          return ParticipantsScreen(
+            storyId: storyId,
+            currentUserId: session.user.id,
+            onBack: () {
+              _popOrGoToStoryDetails(context, storyId);
+            },
+            onInvite: () {
+              context.pushNamed(
+                inviteStoryRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+            onLeftStory: () {
+              _completeLeftStory(ref, context, storyId);
+            },
+            onParticipantRemoved: (_) {},
           );
         },
       ),
@@ -397,6 +439,17 @@ void _completeAcceptedInvite(
     storyDetailsRouteName,
     pathParameters: {_storyIdPathParameter: storyId},
   );
+}
+
+void _completeLeftStory(
+  Ref ref,
+  BuildContext context,
+  String storyId,
+) {
+  ref.read(storiesNotifierProvider.notifier).removeStoryById(storyId);
+  context.goNamed(storiesRouteName);
+  ref.invalidate(storyDetailsProvider(storyId));
+  ref.invalidate(storyParticipantsProvider(storyId));
 }
 
 AuthSession? _sessionForAuthenticatedRoute(AsyncValue<AuthState> authState) {

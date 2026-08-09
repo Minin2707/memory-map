@@ -124,6 +124,92 @@
   "storyDetailsMemoriesAction": "Memories",
   "storyDetailsParticipantsAction": "Participants",
   "storyDetailsMapAction": "Map",
+  "participantsPageTitle": "Participants",
+  "participantsBack": "Back to story",
+  "participantsHeaderTitle": "People in this story",
+  "participantsCount": "{count, plural, =0{No participants} =1{1 participant} other{{count} participants}}",
+  "@participantsCount": {
+    "description": "Participant count shown on the Participants screen",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "participantsSectionTitle": "Participants",
+  "participantsSectionSubtitle": "Roles shape what each participant can do in this story.",
+  "participantsInvite": "Invite participant",
+  "participantsLeaveStory": "Leave story",
+  "participantsLeaveConfirmTitle": "Leave story?",
+  "participantsLeaveConfirmBody": "You will lose access to this story. To join again, you will need a new invitation. If you are the last owner, the server may reject this action.",
+  "participantsLeaveConfirmAction": "Leave",
+  "participantsLeaveCancel": "Cancel",
+  "participantsLeaving": "Leaving story...",
+  "participantsCurrentUser": "You",
+  "participantsEmptyTitle": "No participants to show",
+  "participantsEmptyBody": "The participant list is empty right now. Try refreshing in a moment.",
+  "participantsRetry": "Retry",
+  "participantsRefreshFailed": "Could not refresh participants",
+  "participantsLoadFailed": "Could not load participants",
+  "participantsRemoveAction": "Remove",
+  "participantsRemoveConfirmTitle": "Remove {displayName}?",
+  "@participantsRemoveConfirmTitle": {
+    "description": "Title for confirming participant removal",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveConfirmBody": "{displayName} will lose access to this story. They can join again with a new invitation.",
+  "@participantsRemoveConfirmBody": {
+    "description": "Body for confirming participant removal",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveConfirmAction": "Remove",
+  "participantsRemoveCancel": "Cancel",
+  "participantsRemoving": "Removing participant...",
+  "participantsRemoveSuccess": "{displayName} was removed.",
+  "@participantsRemoveSuccess": {
+    "description": "SnackBar shown after a participant is removed",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsAvatarLabel": "{displayName}'s avatar",
+  "@participantsAvatarLabel": {
+    "description": "Accessibility label for a participant avatar",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveParticipantLabel": "Remove {displayName}",
+  "@participantsRemoveParticipantLabel": {
+    "description": "Accessibility label for removing a participant",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantFailureValidation": "The request was invalid. Please try again.",
+  "participantFailureUnauthorized": "Your session needs attention. Please try again.",
+  "participantFailureNotFound": "Participants are unavailable.",
+  "participantFailureLastOwner": "The last owner cannot leave this story.",
+  "participantFailureCannotRemoveSelf": "Use Leave story to remove yourself.",
+  "participantFailureOwnerCannotBeRemoved": "Owners cannot be removed from here.",
+  "participantFailureNetwork": "No network connection. Check your connection and try again.",
+  "participantFailureTimeout": "The request timed out. Please try again.",
+  "participantFailureServer": "The server is temporarily unavailable. Please try again.",
+  "participantFailureUnknown": "Something went wrong. Please try again.",
   "editStoryPageTitle": "Edit story",
   "editStoryBackLabel": "Back to story",
   "editStoryHeroTitle": "Story details",

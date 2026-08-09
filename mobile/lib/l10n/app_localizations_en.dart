@@ -304,6 +304,151 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyDetailsMapAction => 'Map';
 
   @override
+  String get participantsPageTitle => 'Participants';
+
+  @override
+  String get participantsBack => 'Back to story';
+
+  @override
+  String get participantsHeaderTitle => 'People in this story';
+
+  @override
+  String participantsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count participants',
+      one: '1 participant',
+      zero: 'No participants',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get participantsSectionTitle => 'Participants';
+
+  @override
+  String get participantsSectionSubtitle =>
+      'Roles shape what each participant can do in this story.';
+
+  @override
+  String get participantsInvite => 'Invite participant';
+
+  @override
+  String get participantsLeaveStory => 'Leave story';
+
+  @override
+  String get participantsLeaveConfirmTitle => 'Leave story?';
+
+  @override
+  String get participantsLeaveConfirmBody =>
+      'You will lose access to this story. To join again, you will need a new invitation. If you are the last owner, the server may reject this action.';
+
+  @override
+  String get participantsLeaveConfirmAction => 'Leave';
+
+  @override
+  String get participantsLeaveCancel => 'Cancel';
+
+  @override
+  String get participantsLeaving => 'Leaving story...';
+
+  @override
+  String get participantsCurrentUser => 'You';
+
+  @override
+  String get participantsEmptyTitle => 'No participants to show';
+
+  @override
+  String get participantsEmptyBody =>
+      'The participant list is empty right now. Try refreshing in a moment.';
+
+  @override
+  String get participantsRetry => 'Retry';
+
+  @override
+  String get participantsRefreshFailed => 'Could not refresh participants';
+
+  @override
+  String get participantsLoadFailed => 'Could not load participants';
+
+  @override
+  String get participantsRemoveAction => 'Remove';
+
+  @override
+  String participantsRemoveConfirmTitle(String displayName) {
+    return 'Remove $displayName?';
+  }
+
+  @override
+  String participantsRemoveConfirmBody(String displayName) {
+    return '$displayName will lose access to this story. They can join again with a new invitation.';
+  }
+
+  @override
+  String get participantsRemoveConfirmAction => 'Remove';
+
+  @override
+  String get participantsRemoveCancel => 'Cancel';
+
+  @override
+  String get participantsRemoving => 'Removing participant...';
+
+  @override
+  String participantsRemoveSuccess(String displayName) {
+    return '$displayName was removed.';
+  }
+
+  @override
+  String participantsAvatarLabel(String displayName) {
+    return '$displayName\'s avatar';
+  }
+
+  @override
+  String participantsRemoveParticipantLabel(String displayName) {
+    return 'Remove $displayName';
+  }
+
+  @override
+  String get participantFailureValidation =>
+      'The request was invalid. Please try again.';
+
+  @override
+  String get participantFailureUnauthorized =>
+      'Your session needs attention. Please try again.';
+
+  @override
+  String get participantFailureNotFound => 'Participants are unavailable.';
+
+  @override
+  String get participantFailureLastOwner =>
+      'The last owner cannot leave this story.';
+
+  @override
+  String get participantFailureCannotRemoveSelf =>
+      'Use Leave story to remove yourself.';
+
+  @override
+  String get participantFailureOwnerCannotBeRemoved =>
+      'Owners cannot be removed from here.';
+
+  @override
+  String get participantFailureNetwork =>
+      'No network connection. Check your connection and try again.';
+
+  @override
+  String get participantFailureTimeout =>
+      'The request timed out. Please try again.';
+
+  @override
+  String get participantFailureServer =>
+      'The server is temporarily unavailable. Please try again.';
+
+  @override
+  String get participantFailureUnknown =>
+      'Something went wrong. Please try again.';
+
+  @override
   String get editStoryPageTitle => 'Edit story';
 
   @override
