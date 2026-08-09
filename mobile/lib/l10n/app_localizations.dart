@@ -860,6 +860,480 @@ abstract class AppLocalizations {
   /// **'Something went wrong. Please try again.'**
   String get participantFailureUnknown;
 
+  /// No description provided for @storyMemoriesPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Memories'**
+  String get storyMemoriesPageTitle;
+
+  /// No description provided for @storyMemoriesBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to story'**
+  String get storyMemoriesBackLabel;
+
+  /// No description provided for @storyMemoriesRefreshAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh memories'**
+  String get storyMemoriesRefreshAction;
+
+  /// No description provided for @storyMemoriesHeaderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Story memories'**
+  String get storyMemoriesHeaderTitle;
+
+  /// Memory count shown on the Story Memories screen
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No memories} =1{1 memory} other{{count} memories}}'**
+  String storyMemoriesCount(int count);
+
+  /// No description provided for @storyMemoriesCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Add memory'**
+  String get storyMemoriesCreate;
+
+  /// No description provided for @storyMemoriesEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No memories yet'**
+  String get storyMemoriesEmptyTitle;
+
+  /// No description provided for @storyMemoriesEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add the first memory when something worth saving happens.'**
+  String get storyMemoriesEmptyBody;
+
+  /// No description provided for @storyMemoriesLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load memories'**
+  String get storyMemoriesLoadFailureTitle;
+
+  /// No description provided for @storyMemoriesRefreshFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not refresh memories'**
+  String get storyMemoriesRefreshFailureTitle;
+
+  /// Accessibility label for a tappable memory item
+  ///
+  /// In en, this message translates to:
+  /// **'Open memory {title}'**
+  String memoryOpenLabel(String title);
+
+  /// No description provided for @memoryFailureValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'The request was invalid. Please try again.'**
+  String get memoryFailureValidation;
+
+  /// No description provided for @memoryFailureUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session needs attention. Please try again.'**
+  String get memoryFailureUnauthorized;
+
+  /// No description provided for @memoryFailureStoryUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Story memories are unavailable.'**
+  String get memoryFailureStoryUnavailable;
+
+  /// No description provided for @memoryFailureNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory is unavailable.'**
+  String get memoryFailureNotFound;
+
+  /// No description provided for @memoryFailureCreationUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory cannot be created from here.'**
+  String get memoryFailureCreationUnavailable;
+
+  /// No description provided for @memoryFailureUpdateUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory cannot be updated from here.'**
+  String get memoryFailureUpdateUnavailable;
+
+  /// No description provided for @memoryFailureDeletionUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory cannot be deleted from here.'**
+  String get memoryFailureDeletionUnavailable;
+
+  /// No description provided for @memoryFailureNetworkUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection. Check your connection and try again.'**
+  String get memoryFailureNetworkUnavailable;
+
+  /// No description provided for @memoryFailureRequestTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Please try again.'**
+  String get memoryFailureRequestTimedOut;
+
+  /// No description provided for @memoryFailureServerFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is temporarily unavailable. Please try again.'**
+  String get memoryFailureServerFailure;
+
+  /// No description provided for @memoryFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get memoryFailureUnknown;
+
+  /// No description provided for @createMemoryPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add memory'**
+  String get createMemoryPageTitle;
+
+  /// No description provided for @createMemoryBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to memories'**
+  String get createMemoryBackLabel;
+
+  /// No description provided for @createMemoryTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get createMemoryTitleLabel;
+
+  /// No description provided for @createMemoryTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Example: Sunset in Bali'**
+  String get createMemoryTitleHint;
+
+  /// No description provided for @createMemoryTitleRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a memory title.'**
+  String get createMemoryTitleRequired;
+
+  /// No description provided for @createMemoryTitleBlank.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory title cannot be blank.'**
+  String get createMemoryTitleBlank;
+
+  /// No description provided for @createMemoryTitleMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory title must be 255 characters or fewer.'**
+  String get createMemoryTitleMax;
+
+  /// No description provided for @createMemoryDescriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get createMemoryDescriptionLabel;
+
+  /// No description provided for @createMemoryDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a note about this moment'**
+  String get createMemoryDescriptionHint;
+
+  /// No description provided for @createMemoryPlaceNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Place name'**
+  String get createMemoryPlaceNameLabel;
+
+  /// No description provided for @createMemoryPlaceNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Example: Seminyak Beach'**
+  String get createMemoryPlaceNameHint;
+
+  /// No description provided for @createMemoryPlaceNameMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Place name must be 255 characters or fewer.'**
+  String get createMemoryPlaceNameMax;
+
+  /// No description provided for @createMemoryOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'optional'**
+  String get createMemoryOptionalLabel;
+
+  /// No description provided for @createMemoryEventDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Event date'**
+  String get createMemoryEventDateLabel;
+
+  /// No description provided for @createMemoryEventDateEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No date selected'**
+  String get createMemoryEventDateEmpty;
+
+  /// No description provided for @createMemoryChooseDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose'**
+  String get createMemoryChooseDate;
+
+  /// No description provided for @createMemoryChangeDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get createMemoryChangeDate;
+
+  /// No description provided for @createMemoryDateRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an event date.'**
+  String get createMemoryDateRequired;
+
+  /// No description provided for @createMemoryLocationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get createMemoryLocationLabel;
+
+  /// No description provided for @createMemoryLocationEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No location selected'**
+  String get createMemoryLocationEmpty;
+
+  /// No description provided for @createMemoryLocationSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Location selected'**
+  String get createMemoryLocationSelected;
+
+  /// No description provided for @createMemoryChooseLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose'**
+  String get createMemoryChooseLocation;
+
+  /// No description provided for @createMemoryChangeLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get createMemoryChangeLocation;
+
+  /// No description provided for @createMemoryLocationRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a location.'**
+  String get createMemoryLocationRequired;
+
+  /// No description provided for @createMemorySubmitButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create memory'**
+  String get createMemorySubmitButton;
+
+  /// No description provided for @createMemorySubmittingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating memory...'**
+  String get createMemorySubmittingButton;
+
+  /// No description provided for @editMemoryPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit memory'**
+  String get editMemoryPageTitle;
+
+  /// No description provided for @editMemoryBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to memory'**
+  String get editMemoryBackLabel;
+
+  /// No description provided for @editMemorySaveButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get editMemorySaveButton;
+
+  /// No description provided for @editMemorySavingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving changes...'**
+  String get editMemorySavingButton;
+
+  /// No description provided for @editMemoryNoChangesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Make a change to save.'**
+  String get editMemoryNoChangesHint;
+
+  /// No description provided for @memoryDetailsPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory'**
+  String get memoryDetailsPageTitle;
+
+  /// No description provided for @memoryDetailsBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to memories'**
+  String get memoryDetailsBackLabel;
+
+  /// No description provided for @memoryDetailsRefreshAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh memory'**
+  String get memoryDetailsRefreshAction;
+
+  /// No description provided for @memoryDetailsEditAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit memory'**
+  String get memoryDetailsEditAction;
+
+  /// No description provided for @memoryDetailsDeleteAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete memory'**
+  String get memoryDetailsDeleteAction;
+
+  /// No description provided for @memoryDetailsLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load memory'**
+  String get memoryDetailsLoadFailureTitle;
+
+  /// No description provided for @memoryDetailsRefreshFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not refresh memory'**
+  String get memoryDetailsRefreshFailureTitle;
+
+  /// No description provided for @memoryDetailsDescriptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory note'**
+  String get memoryDetailsDescriptionTitle;
+
+  /// No description provided for @memoryDetailsNoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'No description yet.'**
+  String get memoryDetailsNoDescription;
+
+  /// No description provided for @memoryDetailsPlaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Place'**
+  String get memoryDetailsPlaceTitle;
+
+  /// No description provided for @memoryDetailsNoPlace.
+  ///
+  /// In en, this message translates to:
+  /// **'No place name yet.'**
+  String get memoryDetailsNoPlace;
+
+  /// No description provided for @deleteMemoryDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete memory?'**
+  String get deleteMemoryDialogTitle;
+
+  /// No description provided for @deleteMemoryDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This memory will be permanently deleted. This action cannot be undone.'**
+  String get deleteMemoryDialogBody;
+
+  /// No description provided for @deleteMemoryCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get deleteMemoryCancel;
+
+  /// No description provided for @deleteMemoryConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deleteMemoryConfirm;
+
+  /// No description provided for @deleteMemoryDeleting.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting memory...'**
+  String get deleteMemoryDeleting;
+
+  /// No description provided for @locationPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a place'**
+  String get locationPickerTitle;
+
+  /// No description provided for @locationPickerBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get locationPickerBackLabel;
+
+  /// No description provided for @locationPickerInstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the map to choose the exact point for this memory.'**
+  String get locationPickerInstruction;
+
+  /// No description provided for @locationPickerSelectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Location selected'**
+  String get locationPickerSelectedTitle;
+
+  /// No description provided for @locationPickerSelectedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm when the pin marks the place you want to save.'**
+  String get locationPickerSelectedDescription;
+
+  /// No description provided for @locationPickerNoSelectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No location selected'**
+  String get locationPickerNoSelectionTitle;
+
+  /// No description provided for @locationPickerNoSelectionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a point on the map before confirming.'**
+  String get locationPickerNoSelectionDescription;
+
+  /// No description provided for @locationPickerConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm location'**
+  String get locationPickerConfirmAction;
+
+  /// No description provided for @locationPickerMapLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading map...'**
+  String get locationPickerMapLoading;
+
+  /// No description provided for @locationPickerMapUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Map is unavailable. Please try again later.'**
+  String get locationPickerMapUnavailable;
+
   /// No description provided for @editStoryPageTitle.
   ///
   /// In en, this message translates to:

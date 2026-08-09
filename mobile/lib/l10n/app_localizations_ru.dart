@@ -450,6 +450,278 @@ class AppLocalizationsRu extends AppLocalizations {
       'Что-то пошло не так. Попробуйте ещё раз.';
 
   @override
+  String get storyMemoriesPageTitle => 'Воспоминания';
+
+  @override
+  String get storyMemoriesBackLabel => 'Вернуться к истории';
+
+  @override
+  String get storyMemoriesRefreshAction => 'Обновить воспоминания';
+
+  @override
+  String get storyMemoriesHeaderTitle => 'Воспоминания истории';
+
+  @override
+  String storyMemoriesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count воспоминания',
+      many: '$count воспоминаний',
+      few: '$count воспоминания',
+      one: '1 воспоминание',
+      zero: 'Нет воспоминаний',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get storyMemoriesCreate => 'Добавить воспоминание';
+
+  @override
+  String get storyMemoriesEmptyTitle => 'Пока нет воспоминаний';
+
+  @override
+  String get storyMemoriesEmptyBody =>
+      'Добавьте первое воспоминание, когда появится момент, который хочется сохранить.';
+
+  @override
+  String get storyMemoriesLoadFailureTitle =>
+      'Не удалось загрузить воспоминания';
+
+  @override
+  String get storyMemoriesRefreshFailureTitle =>
+      'Не удалось обновить воспоминания';
+
+  @override
+  String memoryOpenLabel(String title) {
+    return 'Открыть воспоминание $title';
+  }
+
+  @override
+  String get memoryFailureValidation =>
+      'Запрос содержит ошибку. Попробуйте ещё раз.';
+
+  @override
+  String get memoryFailureUnauthorized =>
+      'Сеанс требует внимания. Попробуйте ещё раз.';
+
+  @override
+  String get memoryFailureStoryUnavailable =>
+      'Воспоминания истории недоступны.';
+
+  @override
+  String get memoryFailureNotFound => 'Воспоминание недоступно.';
+
+  @override
+  String get memoryFailureCreationUnavailable =>
+      'Воспоминание нельзя создать отсюда.';
+
+  @override
+  String get memoryFailureUpdateUnavailable =>
+      'Воспоминание нельзя обновить отсюда.';
+
+  @override
+  String get memoryFailureDeletionUnavailable =>
+      'Воспоминание нельзя удалить отсюда.';
+
+  @override
+  String get memoryFailureNetworkUnavailable =>
+      'Нет подключения к интернету. Проверьте соединение и повторите попытку.';
+
+  @override
+  String get memoryFailureRequestTimedOut =>
+      'Время ожидания истекло. Попробуйте ещё раз.';
+
+  @override
+  String get memoryFailureServerFailure =>
+      'Сервер временно недоступен. Попробуйте ещё раз.';
+
+  @override
+  String get memoryFailureUnknown => 'Что-то пошло не так. Попробуйте ещё раз.';
+
+  @override
+  String get createMemoryPageTitle => 'Добавить воспоминание';
+
+  @override
+  String get createMemoryBackLabel => 'Назад к воспоминаниям';
+
+  @override
+  String get createMemoryTitleLabel => 'Название';
+
+  @override
+  String get createMemoryTitleHint => 'Например: Закат на Бали';
+
+  @override
+  String get createMemoryTitleRequired => 'Введите название воспоминания.';
+
+  @override
+  String get createMemoryTitleBlank =>
+      'Название воспоминания не может быть пустым.';
+
+  @override
+  String get createMemoryTitleMax =>
+      'Название воспоминания должно быть не длиннее 255 символов.';
+
+  @override
+  String get createMemoryDescriptionLabel => 'Описание';
+
+  @override
+  String get createMemoryDescriptionHint => 'Добавьте заметку об этом моменте';
+
+  @override
+  String get createMemoryPlaceNameLabel => 'Подпись места';
+
+  @override
+  String get createMemoryPlaceNameHint => 'Например: Пляж Семиньяк';
+
+  @override
+  String get createMemoryPlaceNameMax =>
+      'Подпись места должна быть не длиннее 255 символов.';
+
+  @override
+  String get createMemoryOptionalLabel => 'необязательно';
+
+  @override
+  String get createMemoryEventDateLabel => 'Дата события';
+
+  @override
+  String get createMemoryEventDateEmpty => 'Дата не выбрана';
+
+  @override
+  String get createMemoryChooseDate => 'Выбрать';
+
+  @override
+  String get createMemoryChangeDate => 'Изменить';
+
+  @override
+  String get createMemoryDateRequired => 'Выберите дату события.';
+
+  @override
+  String get createMemoryLocationLabel => 'Место';
+
+  @override
+  String get createMemoryLocationEmpty => 'Место не выбрано';
+
+  @override
+  String get createMemoryLocationSelected => 'Место выбрано';
+
+  @override
+  String get createMemoryChooseLocation => 'Выбрать';
+
+  @override
+  String get createMemoryChangeLocation => 'Изменить';
+
+  @override
+  String get createMemoryLocationRequired => 'Выберите место.';
+
+  @override
+  String get createMemorySubmitButton => 'Создать воспоминание';
+
+  @override
+  String get createMemorySubmittingButton => 'Создаём воспоминание...';
+
+  @override
+  String get editMemoryPageTitle => 'Редактирование воспоминания';
+
+  @override
+  String get editMemoryBackLabel => 'Вернуться к воспоминанию';
+
+  @override
+  String get editMemorySaveButton => 'Сохранить изменения';
+
+  @override
+  String get editMemorySavingButton => 'Сохраняем изменения...';
+
+  @override
+  String get editMemoryNoChangesHint => 'Измените поле, чтобы сохранить.';
+
+  @override
+  String get memoryDetailsPageTitle => 'Воспоминание';
+
+  @override
+  String get memoryDetailsBackLabel => 'Вернуться к воспоминаниям';
+
+  @override
+  String get memoryDetailsRefreshAction => 'Обновить воспоминание';
+
+  @override
+  String get memoryDetailsEditAction => 'Редактировать воспоминание';
+
+  @override
+  String get memoryDetailsDeleteAction => 'Удалить воспоминание';
+
+  @override
+  String get memoryDetailsLoadFailureTitle =>
+      'Не удалось загрузить воспоминание';
+
+  @override
+  String get memoryDetailsRefreshFailureTitle =>
+      'Не удалось обновить воспоминание';
+
+  @override
+  String get memoryDetailsDescriptionTitle => 'Заметка';
+
+  @override
+  String get memoryDetailsNoDescription => 'Описания пока нет.';
+
+  @override
+  String get memoryDetailsPlaceTitle => 'Место';
+
+  @override
+  String get memoryDetailsNoPlace => 'Подписи места пока нет.';
+
+  @override
+  String get deleteMemoryDialogTitle => 'Удалить воспоминание?';
+
+  @override
+  String get deleteMemoryDialogBody =>
+      'Воспоминание будет удалено без возможности восстановления.';
+
+  @override
+  String get deleteMemoryCancel => 'Отмена';
+
+  @override
+  String get deleteMemoryConfirm => 'Удалить';
+
+  @override
+  String get deleteMemoryDeleting => 'Удаляем воспоминание...';
+
+  @override
+  String get locationPickerTitle => 'Выберите место';
+
+  @override
+  String get locationPickerBackLabel => 'Назад';
+
+  @override
+  String get locationPickerInstruction =>
+      'Нажмите на карту, чтобы выбрать точную точку для этого воспоминания.';
+
+  @override
+  String get locationPickerSelectedTitle => 'Место выбрано';
+
+  @override
+  String get locationPickerSelectedDescription =>
+      'Подтвердите выбор, когда маркер стоит в нужном месте.';
+
+  @override
+  String get locationPickerNoSelectionTitle => 'Место не выбрано';
+
+  @override
+  String get locationPickerNoSelectionDescription =>
+      'Выберите точку на карте перед подтверждением.';
+
+  @override
+  String get locationPickerConfirmAction => 'Подтвердить место';
+
+  @override
+  String get locationPickerMapLoading => 'Загружаем карту...';
+
+  @override
+  String get locationPickerMapUnavailable =>
+      'Карта недоступна. Попробуйте позже.';
+
+  @override
   String get editStoryPageTitle => 'Редактирование истории';
 
   @override

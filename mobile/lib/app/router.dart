@@ -14,6 +14,14 @@ import 'package:memory_map/features/invite/application/pending_invite_notifier.d
 import 'package:memory_map/features/invite/application/pending_invite_state.dart';
 import 'package:memory_map/features/invite/presentation/accept_invite_screen.dart';
 import 'package:memory_map/features/invite/presentation/invite_screen.dart';
+import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
+import 'package:memory_map/features/memory/domain/memory.dart';
+import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/presentation/create_memory_screen.dart';
+import 'package:memory_map/features/memory/presentation/location_picker_route.dart';
+import 'package:memory_map/features/memory/presentation/memory_details_route.dart';
+import 'package:memory_map/features/memory/presentation/memory_edit_route.dart';
+import 'package:memory_map/features/memory/presentation/story_memories_route.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
@@ -35,6 +43,11 @@ const storyDetailsRoute = '/stories/:storyId';
 const editStoryRoute = '/stories/:storyId/edit';
 const inviteStoryRoute = '/stories/:storyId/invite';
 const storyParticipantsRoute = '/stories/:storyId/participants';
+const storyMemoriesRoute = '/stories/:storyId/memories';
+const createMemoryRoute = '/stories/:storyId/memories/create';
+const memoryDetailsRoute = '/memories/:memoryId';
+const editMemoryRoute = '/memories/:memoryId/edit';
+const memoryLocationPickerRoute = '/memory-location-picker';
 const acceptInviteRoute = '/invite/:token';
 
 const storiesRouteName = 'stories';
@@ -43,9 +56,15 @@ const storyDetailsRouteName = 'storyDetails';
 const editStoryRouteName = 'editStory';
 const inviteStoryRouteName = 'inviteStory';
 const storyParticipantsRouteName = 'storyParticipants';
+const storyMemoriesRouteName = 'storyMemories';
+const createMemoryRouteName = 'createMemory';
+const memoryDetailsRouteName = 'memoryDetails';
+const editMemoryRouteName = 'editMemory';
+const memoryLocationPickerRouteName = 'memoryLocationPicker';
 const acceptInviteRouteName = 'acceptInvite';
 
 const _storyIdPathParameter = 'storyId';
+const _memoryIdPathParameter = 'memoryId';
 const _inviteTokenPathParameter = 'token';
 const _inviteDeepLinkParser = InviteDeepLinkParser();
 
@@ -211,6 +230,127 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pathParameters: {_storyIdPathParameter: storyId},
               );
             },
+            onMemoriesSelected: (_) {
+              context.pushNamed(
+                storyMemoriesRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: storyMemoriesRouteName,
+        path: storyMemoriesRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final storyId =
+              state.pathParameters[_storyIdPathParameter] ?? '';
+
+          return StoryMemoriesRoute(
+            storyId: storyId,
+            onBack: () {
+              _popOrGoToStoryDetails(context, storyId);
+            },
+            onCreateMemory: () {
+              context.pushNamed(
+                createMemoryRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+            onMemorySelected: (memory) {
+              context.pushNamed(
+                memoryDetailsRouteName,
+                pathParameters: {_memoryIdPathParameter: memory.id},
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: createMemoryRouteName,
+        path: createMemoryRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final storyId =
+              state.pathParameters[_storyIdPathParameter] ?? '';
+
+          return CreateMemoryScreen(
+            storyId: storyId,
+            onBack: () {
+              _popOrGoToStoryMemories(context, storyId);
+            },
+            onPickLocation: (initialLocation) {
+              return _pickMemoryLocation(context, initialLocation);
+            },
+            onMemoryCreated: (memory) {
+              context.pushReplacementNamed(
+                memoryDetailsRouteName,
+                pathParameters: {_memoryIdPathParameter: memory.id},
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: memoryDetailsRouteName,
+        path: memoryDetailsRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final memoryId =
+              state.pathParameters[_memoryIdPathParameter] ?? '';
+          final session = _sessionForAuthenticatedRoute(
+            ref.read(authNotifierProvider),
+          );
+
+          return MemoryDetailsRoute(
+            memoryId: memoryId,
+            currentUserId: session?.user.id,
+            onBackUnavailable: () {
+              _popOrGoToStories(context);
+            },
+            onBack: (memory) {
+              _popOrGoToStoryMemories(context, memory.storyId);
+            },
+            onEdit: (memory) {
+              context.pushNamed(
+                editMemoryRouteName,
+                pathParameters: {_memoryIdPathParameter: memory.id},
+              );
+            },
+            onDelete: (memory) {
+              _completeDeletedMemory(ref, context, memory);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: editMemoryRouteName,
+        path: editMemoryRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final memoryId =
+              state.pathParameters[_memoryIdPathParameter] ?? '';
+
+          return MemoryEditRoute(
+            memoryId: memoryId,
+            onBack: () {
+              _popOrGoToMemoryDetails(context, memoryId);
+            },
+            onPickLocation: (initialLocation) {
+              return _pickMemoryLocation(context, initialLocation);
+            },
+            onMemoryUpdated: (memory) {
+              _popOrGoToMemoryDetails(context, memory.id);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: memoryLocationPickerRouteName,
+        path: memoryLocationPickerRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final extra = state.extra;
+
+          return LocationPickerRoute(
+            initialLocation: extra is MemoryLocation ? extra : null,
+            fallbackRouteName: storiesRouteName,
           );
         },
       ),
@@ -360,7 +500,10 @@ bool _hasAuthenticatedSession(AsyncValue<AuthState> authState) {
 }
 
 bool _isAuthenticatedRoute(String path) {
-  return path == storiesRoute || path.startsWith('$storiesRoute/');
+  return path == storiesRoute ||
+      path.startsWith('$storiesRoute/') ||
+      path == memoryLocationPickerRoute ||
+      path.startsWith('/memories/');
 }
 
 bool _isAcceptInviteRoute(String path) {
@@ -420,6 +563,42 @@ void _popOrGoToStoryDetails(BuildContext context, String storyId) {
   );
 }
 
+void _popOrGoToStoryMemories(BuildContext context, String storyId) {
+  final router = GoRouter.of(context);
+  if (router.canPop()) {
+    router.pop();
+    return;
+  }
+
+  context.goNamed(
+    storyMemoriesRouteName,
+    pathParameters: {_storyIdPathParameter: storyId},
+  );
+}
+
+void _popOrGoToMemoryDetails(BuildContext context, String memoryId) {
+  final router = GoRouter.of(context);
+  if (router.canPop()) {
+    router.pop();
+    return;
+  }
+
+  context.goNamed(
+    memoryDetailsRouteName,
+    pathParameters: {_memoryIdPathParameter: memoryId},
+  );
+}
+
+Future<MemoryLocation?> _pickMemoryLocation(
+  BuildContext context,
+  MemoryLocation? initialLocation,
+) {
+  return context.pushNamed<MemoryLocation>(
+    memoryLocationPickerRouteName,
+    extra: initialLocation,
+  );
+}
+
 void _clearPendingInviteAndGoToStories(Ref ref, BuildContext context) {
   ref.read(pendingInviteProvider.notifier).clear();
   context.goNamed(storiesRouteName);
@@ -450,6 +629,18 @@ void _completeLeftStory(
   context.goNamed(storiesRouteName);
   ref.invalidate(storyDetailsProvider(storyId));
   ref.invalidate(storyParticipantsProvider(storyId));
+}
+
+void _completeDeletedMemory(
+  Ref ref,
+  BuildContext context,
+  Memory memory,
+) {
+  context.goNamed(
+    storyMemoriesRouteName,
+    pathParameters: {_storyIdPathParameter: memory.storyId},
+  );
+  ref.invalidate(memoryDetailsProvider(memory.id));
 }
 
 AuthSession? _sessionForAuthenticatedRoute(AsyncValue<AuthState> authState) {

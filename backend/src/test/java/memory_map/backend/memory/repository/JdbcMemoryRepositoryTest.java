@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,6 +38,9 @@ class JdbcMemoryRepositoryTest extends IntegrationTest {
 
     @Autowired
     private JdbcClient jdbcClient;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
@@ -217,6 +222,86 @@ class JdbcMemoryRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldFindExistingMemoryByIdForUpdate() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Memory memory = createMemory(
+                story.id(),
+                user.id()
+        );
+
+        repository.save(memory);
+
+        Optional<Memory> found =
+                repository.findByIdForUpdate(memory.id());
+
+        assertThat(found)
+                .contains(memory);
+
+        assertThat(repository.findById(memory.id()))
+                .contains(memory);
+    }
+
+    @Test
+    void shouldReturnEmptyWhenLockedMemoryDoesNotExist() {
+
+        Optional<Memory> found =
+                repository.findByIdForUpdate(UUID.randomUUID());
+
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void shouldFindLockedMemoryWithNullableFields() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Memory memory = createMemory(
+                UUID.randomUUID(),
+                story.id(),
+                user.id(),
+                "Quiet evening",
+                null,
+                null,
+                41.715137,
+                44.827096,
+                LocalDate.of(2024, 6, 1),
+                BASE_TIME,
+                BASE_TIME
+        );
+
+        repository.save(memory);
+
+        Memory locked = repository.findByIdForUpdate(memory.id())
+                .orElseThrow();
+
+        assertMemoryMatches(locked, memory);
+        assertThat(locked.description()).isNull();
+        assertThat(locked.placeName()).isNull();
+    }
+
+    @Test
+    void shouldRejectNullFindByIdForUpdateId() {
+
+        assertThatThrownBy(() -> repository.findByIdForUpdate(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("id must not be null");
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenStoryHasNoMemories() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+
+        List<Memory> memories =
+                repository.findByStoryId(story.id());
+
+        assertThat(memories).isEmpty();
+    }
+
+    @Test
     void shouldFindMemoriesByStoryId() {
 
         User user = saveUser("google-subject-123");
@@ -361,11 +446,12 @@ class JdbcMemoryRepositoryTest extends IntegrationTest {
 
         repository.save(memory);
 
-        repository.update(updatedMemory);
+        boolean updated = repository.update(updatedMemory);
 
         Memory loaded = repository.findById(memory.id())
                 .orElseThrow();
 
+        assertThat(updated).isTrue();
         assertMemoryMatches(loaded, updatedMemory);
         assertThat(loaded.id()).isEqualTo(memory.id());
         assertThat(loaded.storyId()).isEqualTo(memory.storyId());
@@ -398,13 +484,46 @@ class JdbcMemoryRepositoryTest extends IntegrationTest {
 
         repository.save(memory);
 
-        repository.update(updatedMemory);
+        boolean updated = repository.update(updatedMemory);
 
         Memory loaded = repository.findById(memory.id())
                 .orElseThrow();
 
+        assertThat(updated).isTrue();
         assertThat(loaded.description()).isNull();
         assertThat(loaded.placeName()).isNull();
+    }
+
+    @Test
+    void shouldReturnFalseWhenUpdatingMissingMemory() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Memory memory = createMemory(
+                UUID.randomUUID(),
+                story.id(),
+                user.id(),
+                "Missing",
+                "This row was never inserted",
+                "Tbilisi",
+                41.715137,
+                44.827096,
+                LocalDate.of(2024, 5, 20),
+                BASE_TIME,
+                BASE_TIME.plusSeconds(60)
+        );
+
+        boolean updated = repository.update(memory);
+
+        assertThat(updated).isFalse();
+    }
+
+    @Test
+    void shouldRejectNullMemoryUpdate() {
+
+        assertThatThrownBy(() -> repository.update(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("memory must not be null");
     }
 
     @Test
@@ -433,13 +552,54 @@ class JdbcMemoryRepositoryTest extends IntegrationTest {
         repository.save(first);
         repository.save(second);
 
-        repository.delete(first.id());
+        boolean deleted = repository.delete(first.id());
 
+        assertThat(deleted).isTrue();
         assertThat(repository.findById(first.id()))
                 .isEmpty();
 
         assertThat(repository.findById(second.id()))
                 .isPresent();
+
+        assertThat(storyRepository.findById(story.id()))
+                .isPresent();
+    }
+
+    @Test
+    void shouldReturnFalseWhenDeletingMissingMemory() {
+
+        boolean deleted = repository.delete(UUID.randomUUID());
+
+        assertThat(deleted).isFalse();
+    }
+
+    @Test
+    void shouldReturnFalseWhenDeletingMemoryTwice() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Memory memory = createMemory(
+                story.id(),
+                user.id()
+        );
+
+        repository.save(memory);
+
+        boolean firstDelete = repository.delete(memory.id());
+        boolean secondDelete = repository.delete(memory.id());
+
+        assertThat(firstDelete).isTrue();
+        assertThat(secondDelete).isFalse();
+        assertThat(repository.findById(memory.id()))
+                .isEmpty();
+    }
+
+    @Test
+    void shouldRejectNullMemoryDeleteId() {
+
+        assertThatThrownBy(() -> repository.delete(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("id must not be null");
     }
 
     @Test
@@ -514,5 +674,70 @@ class JdbcMemoryRepositoryTest extends IntegrationTest {
 
         assertThat(loaded.longitude())
                 .isCloseTo(44.827096, within(0.000001));
+    }
+
+    @Test
+    void shouldStorePostgisLocationWithSrid4326() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Memory memory = createMemory(
+                UUID.randomUUID(),
+                story.id(),
+                user.id(),
+                "Tbilisi",
+                "SRID must remain explicit",
+                "Tbilisi",
+                41.715137,
+                44.827096,
+                LocalDate.of(2024, 5, 20),
+                BASE_TIME,
+                BASE_TIME
+        );
+
+        repository.save(memory);
+
+        Integer srid = jdbcClient.sql("""
+                SELECT ST_SRID(location::geometry)
+                FROM memories
+                WHERE id = :id
+                """)
+                .param("id", memory.id())
+                .query(Integer.class)
+                .single();
+
+        assertThat(srid).isEqualTo(4326);
+    }
+
+    @Test
+    void shouldRollbackRepositoryDeleteInExternalTransaction() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Memory memory = createMemory(
+                story.id(),
+                user.id()
+        );
+        TransactionTemplate transactionTemplate =
+                new TransactionTemplate(transactionManager);
+
+        repository.save(memory);
+
+        assertThatThrownBy(() ->
+                transactionTemplate.execute(status -> {
+                    boolean deleted = repository.delete(memory.id());
+
+                    assertThat(deleted).isTrue();
+                    assertThat(repository.findById(memory.id()))
+                            .isEmpty();
+
+                    throw new IllegalStateException("rollback memory delete");
+                })
+        )
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("rollback memory delete");
+
+        assertThat(repository.findById(memory.id()))
+                .contains(memory);
     }
 }

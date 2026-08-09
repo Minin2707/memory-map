@@ -449,6 +449,270 @@ class AppLocalizationsEn extends AppLocalizations {
       'Something went wrong. Please try again.';
 
   @override
+  String get storyMemoriesPageTitle => 'Memories';
+
+  @override
+  String get storyMemoriesBackLabel => 'Back to story';
+
+  @override
+  String get storyMemoriesRefreshAction => 'Refresh memories';
+
+  @override
+  String get storyMemoriesHeaderTitle => 'Story memories';
+
+  @override
+  String storyMemoriesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+      zero: 'No memories',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get storyMemoriesCreate => 'Add memory';
+
+  @override
+  String get storyMemoriesEmptyTitle => 'No memories yet';
+
+  @override
+  String get storyMemoriesEmptyBody =>
+      'Add the first memory when something worth saving happens.';
+
+  @override
+  String get storyMemoriesLoadFailureTitle => 'Could not load memories';
+
+  @override
+  String get storyMemoriesRefreshFailureTitle => 'Could not refresh memories';
+
+  @override
+  String memoryOpenLabel(String title) {
+    return 'Open memory $title';
+  }
+
+  @override
+  String get memoryFailureValidation =>
+      'The request was invalid. Please try again.';
+
+  @override
+  String get memoryFailureUnauthorized =>
+      'Your session needs attention. Please try again.';
+
+  @override
+  String get memoryFailureStoryUnavailable => 'Story memories are unavailable.';
+
+  @override
+  String get memoryFailureNotFound => 'Memory is unavailable.';
+
+  @override
+  String get memoryFailureCreationUnavailable =>
+      'Memory cannot be created from here.';
+
+  @override
+  String get memoryFailureUpdateUnavailable =>
+      'Memory cannot be updated from here.';
+
+  @override
+  String get memoryFailureDeletionUnavailable =>
+      'Memory cannot be deleted from here.';
+
+  @override
+  String get memoryFailureNetworkUnavailable =>
+      'No network connection. Check your connection and try again.';
+
+  @override
+  String get memoryFailureRequestTimedOut =>
+      'The request timed out. Please try again.';
+
+  @override
+  String get memoryFailureServerFailure =>
+      'The server is temporarily unavailable. Please try again.';
+
+  @override
+  String get memoryFailureUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get createMemoryPageTitle => 'Add memory';
+
+  @override
+  String get createMemoryBackLabel => 'Back to memories';
+
+  @override
+  String get createMemoryTitleLabel => 'Title';
+
+  @override
+  String get createMemoryTitleHint => 'Example: Sunset in Bali';
+
+  @override
+  String get createMemoryTitleRequired => 'Enter a memory title.';
+
+  @override
+  String get createMemoryTitleBlank => 'Memory title cannot be blank.';
+
+  @override
+  String get createMemoryTitleMax =>
+      'Memory title must be 255 characters or fewer.';
+
+  @override
+  String get createMemoryDescriptionLabel => 'Description';
+
+  @override
+  String get createMemoryDescriptionHint => 'Add a note about this moment';
+
+  @override
+  String get createMemoryPlaceNameLabel => 'Place name';
+
+  @override
+  String get createMemoryPlaceNameHint => 'Example: Seminyak Beach';
+
+  @override
+  String get createMemoryPlaceNameMax =>
+      'Place name must be 255 characters or fewer.';
+
+  @override
+  String get createMemoryOptionalLabel => 'optional';
+
+  @override
+  String get createMemoryEventDateLabel => 'Event date';
+
+  @override
+  String get createMemoryEventDateEmpty => 'No date selected';
+
+  @override
+  String get createMemoryChooseDate => 'Choose';
+
+  @override
+  String get createMemoryChangeDate => 'Change';
+
+  @override
+  String get createMemoryDateRequired => 'Choose an event date.';
+
+  @override
+  String get createMemoryLocationLabel => 'Location';
+
+  @override
+  String get createMemoryLocationEmpty => 'No location selected';
+
+  @override
+  String get createMemoryLocationSelected => 'Location selected';
+
+  @override
+  String get createMemoryChooseLocation => 'Choose';
+
+  @override
+  String get createMemoryChangeLocation => 'Change';
+
+  @override
+  String get createMemoryLocationRequired => 'Choose a location.';
+
+  @override
+  String get createMemorySubmitButton => 'Create memory';
+
+  @override
+  String get createMemorySubmittingButton => 'Creating memory...';
+
+  @override
+  String get editMemoryPageTitle => 'Edit memory';
+
+  @override
+  String get editMemoryBackLabel => 'Back to memory';
+
+  @override
+  String get editMemorySaveButton => 'Save changes';
+
+  @override
+  String get editMemorySavingButton => 'Saving changes...';
+
+  @override
+  String get editMemoryNoChangesHint => 'Make a change to save.';
+
+  @override
+  String get memoryDetailsPageTitle => 'Memory';
+
+  @override
+  String get memoryDetailsBackLabel => 'Back to memories';
+
+  @override
+  String get memoryDetailsRefreshAction => 'Refresh memory';
+
+  @override
+  String get memoryDetailsEditAction => 'Edit memory';
+
+  @override
+  String get memoryDetailsDeleteAction => 'Delete memory';
+
+  @override
+  String get memoryDetailsLoadFailureTitle => 'Could not load memory';
+
+  @override
+  String get memoryDetailsRefreshFailureTitle => 'Could not refresh memory';
+
+  @override
+  String get memoryDetailsDescriptionTitle => 'Memory note';
+
+  @override
+  String get memoryDetailsNoDescription => 'No description yet.';
+
+  @override
+  String get memoryDetailsPlaceTitle => 'Place';
+
+  @override
+  String get memoryDetailsNoPlace => 'No place name yet.';
+
+  @override
+  String get deleteMemoryDialogTitle => 'Delete memory?';
+
+  @override
+  String get deleteMemoryDialogBody =>
+      'This memory will be permanently deleted. This action cannot be undone.';
+
+  @override
+  String get deleteMemoryCancel => 'Cancel';
+
+  @override
+  String get deleteMemoryConfirm => 'Delete';
+
+  @override
+  String get deleteMemoryDeleting => 'Deleting memory...';
+
+  @override
+  String get locationPickerTitle => 'Choose a place';
+
+  @override
+  String get locationPickerBackLabel => 'Back';
+
+  @override
+  String get locationPickerInstruction =>
+      'Tap the map to choose the exact point for this memory.';
+
+  @override
+  String get locationPickerSelectedTitle => 'Location selected';
+
+  @override
+  String get locationPickerSelectedDescription =>
+      'Confirm when the pin marks the place you want to save.';
+
+  @override
+  String get locationPickerNoSelectionTitle => 'No location selected';
+
+  @override
+  String get locationPickerNoSelectionDescription =>
+      'Choose a point on the map before confirming.';
+
+  @override
+  String get locationPickerConfirmAction => 'Confirm location';
+
+  @override
+  String get locationPickerMapLoading => 'Loading map...';
+
+  @override
+  String get locationPickerMapUnavailable =>
+      'Map is unavailable. Please try again later.';
+
+  @override
   String get editStoryPageTitle => 'Edit story';
 
   @override

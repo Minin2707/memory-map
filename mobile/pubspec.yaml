@@ -39,6 +39,7 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   google_sign_in: ^7.2.0
   flutter_svg: ^2.0.17
+  maplibre_gl: ^0.26.2
   intl: ^0.20.2
 
   # The following adds the Cupertino Icons font to your application.

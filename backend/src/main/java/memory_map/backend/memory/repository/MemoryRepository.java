@@ -10,12 +10,14 @@ public interface MemoryRepository {
 
     Optional<Memory> findById(UUID id);
 
+    Optional<Memory> findByIdForUpdate(UUID id);
+
     List<Memory> findByStoryId(UUID storyId);
 
     void save(Memory memory);
 
-    void update(Memory memory);
+    boolean update(Memory memory);
 
-    void delete(UUID id);
+    boolean delete(UUID id);
 
 }

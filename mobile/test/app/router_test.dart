@@ -22,6 +22,16 @@ import 'package:memory_map/features/invite/domain/create_invite_input.dart';
 import 'package:memory_map/features/invite/domain/invite.dart';
 import 'package:memory_map/features/invite/domain/invite_failure.dart';
 import 'package:memory_map/features/invite/domain/invite_repository.dart';
+import 'package:memory_map/features/memory/application/memory_application_providers.dart';
+import 'package:memory_map/features/memory/domain/create_memory_input.dart';
+import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
+import 'package:memory_map/features/memory/domain/memory.dart';
+import 'package:memory_map/features/memory/domain/memory_date.dart';
+import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/update_memory_input.dart';
+import 'package:memory_map/features/memory/presentation/location_picker_map_configuration.dart';
+import 'package:memory_map/features/memory/presentation/location_picker_route.dart';
 import 'package:memory_map/features/participant/application/participant_application_exception.dart';
 import 'package:memory_map/features/participant/application/participant_application_providers.dart';
 import 'package:memory_map/features/participant/domain/leave_story_input.dart';
@@ -182,6 +192,11 @@ void main() {
         '/stories/story-1',
         '/stories/story-1/edit',
         '/stories/story-1/invite',
+        '/stories/story-1/memories',
+        '/stories/story-1/memories/create',
+        '/memories/memory-1',
+        '/memories/memory-1/edit',
+        memoryLocationPickerRoute,
         homeRoute,
       ]) {
         GoRouter.of(context).go(route);
@@ -931,6 +946,365 @@ void main() {
     });
   });
 
+  group('Router memory navigation', () {
+    testWidgets('shouldOpenStoryMemoriesFromDetailsAndBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsMemoriesAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.memories-action')),
+      );
+
+      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-memories.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(find.text('Memories'), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenDirectStoryMemoriesRouteAndFallbackBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+      final fakeStoryRepository = FakeStoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/memories');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Memories'), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-memories.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(
+        fakeStoryRepository.receivedGetStoryIds,
+        contains(ownerStory.story.id),
+      );
+    });
+
+    testWidgets('shouldOpenMemoryDetailsFromStoryMemoriesAndBackToMemories', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsMemoriesAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.memories-action')),
+      );
+      await tester.tap(find.text(memoryA.title));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Memory'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.back-action')),
+      );
+
+      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+    });
+
+    testWidgets('shouldFallbackDirectMemoryDetailsBackToStoryMemoriesAfterLoad', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/memories/${memoryA.id}');
+      await tester.pumpAndSettle();
+
+      expect(find.text(memoryA.title), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.back-action')),
+      );
+
+      expect(find.text('Memories'), findsOneWidget);
+    });
+
+    testWidgets('shouldCreateMemoryThroughLocationPickerAndOpenDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..createResult = createdMemory;
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsMemoriesAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.memories-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-memories.create-action')),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('create-memory.title-field')),
+        'Router memory',
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('create-memory.date-action')),
+      );
+      await tapVisibleText(tester, 'OK');
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('create-memory.location-action')),
+      );
+
+      expect(find.text('Choose a place'), findsOneWidget);
+      expect(find.textContaining('41.7151'), findsNothing);
+      expect(find.textContaining('44.8271'), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('location-picker.fake-map.select-a')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('location-picker.confirm-action')),
+      );
+
+      expect(find.text('Router memory'), findsOneWidget);
+      expect(find.text('Location selected'), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('create-memory.submit-action')),
+      );
+
+      expect(fakeMemoryRepository.createMemoryCalls, 1);
+      expect(
+        fakeMemoryRepository.receivedCreateInput?.storyId,
+        ownerStory.story.id,
+      );
+      expect(
+        fakeMemoryRepository.receivedCreateInput?.location,
+        memoryLocationA,
+      );
+      expect(find.text('Memory'), findsOneWidget);
+      expect(find.text(createdMemory.title), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.back-action')),
+      );
+
+      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(createdMemory.title), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-memories.create-action')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shouldHideCreateMemoryForViewer', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storyResult = userStory(role: StoryRole.viewer);
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/memories');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Memories'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-memories.create-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-memories.empty.create-action')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldOpenDirectEditRouteAndReturnToUpdatedDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..updateResult = updatedMemory;
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/memories/${memoryA.id}/edit');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit memory'), findsOneWidget);
+      expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
+
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-memory.title-field')),
+        'Updated through router',
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('edit-memory.save-action')),
+      );
+
+      expect(fakeMemoryRepository.updateMemoryCalls, 1);
+      expect(find.text('Memory'), findsOneWidget);
+      expect(find.text(updatedMemory.title), findsOneWidget);
+      expect(find.text('Edit memory'), findsNothing);
+    });
+
+    testWidgets('shouldNavigateAfterDeleteAndRemoveStaleDetailsFromStack', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsMemoriesAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.memories-action')),
+      );
+      await tester.tap(find.text(memoryA.title));
+      await tester.pumpAndSettle();
+      await scrollToMemoryDetailsDeleteAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.delete-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.delete.confirm-action')),
+      );
+
+      expect(fakeMemoryRepository.deleteMemoryCalls, 1);
+      expect(
+        fakeMemoryRepository.receivedDeleteInput,
+        DeleteMemoryInput(memoryId: memoryA.id),
+      );
+      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(memoryA.title), findsNothing);
+      expect(find.text(memoryB.title), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(find.text(memoryA.title), findsNothing);
+    });
+
+    testWidgets('shouldHideMemoryMutationsWhenViewerIsNotAuthor', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storyResult = userStory(role: StoryRole.viewer);
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..memoryResult = memoryA;
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/memories/${memoryA.id}');
+      await tester.pumpAndSettle();
+
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('memory-details.edit-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('memory-details.delete-action')),
+        findsNothing,
+      );
+    });
+  });
+
   group('Router invite deep links', () {
     testWidgets('shouldStorePendingInviteAndContinueAfterLogin', (
       WidgetTester tester,
@@ -1196,6 +1570,7 @@ Future<void> tapButton(
   final widget = tester.widget<Widget>(finder);
   final onPressed = switch (widget) {
     FilledButton(:final onPressed) => onPressed,
+    FloatingActionButton(:final onPressed) => onPressed,
     OutlinedButton(:final onPressed) => onPressed,
     IconButton(:final onPressed) => onPressed,
     TextButton(:final onPressed) => onPressed,
@@ -1226,12 +1601,42 @@ Future<void> scrollToStoryDetailsParticipantsAction(
   await tester.pumpAndSettle();
 }
 
+Future<void> scrollToStoryDetailsMemoriesAction(
+  WidgetTester tester,
+) async {
+  await tester.scrollUntilVisible(
+    storyDetailsMemoriesActionFinder(),
+    120,
+    scrollable: find.byType(Scrollable),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> scrollToMemoryDetailsDeleteAction(
+  WidgetTester tester,
+) async {
+  await tester.scrollUntilVisible(
+    memoryDetailsDeleteActionFinder(),
+    120,
+    scrollable: find.byType(Scrollable),
+  );
+  await tester.pumpAndSettle();
+}
+
 Finder leaveActionFinder() {
   return find.byKey(const ValueKey('participants.leave-action'));
 }
 
+Finder storyDetailsMemoriesActionFinder() {
+  return find.byKey(const ValueKey('story-details.memories-action'));
+}
+
 Finder storyDetailsParticipantsActionFinder() {
   return find.byKey(const ValueKey('story-details.participants-action'));
+}
+
+Finder memoryDetailsDeleteActionFinder() {
+  return find.byKey(const ValueKey('memory-details.delete-action'));
 }
 
 Finder removeActionFor(StoryParticipant participant) {
@@ -1244,12 +1649,14 @@ Future<ProviderContainer> pumpApp(
   FakeStoryRepository? storyRepository,
   FakeInviteRepository? inviteRepository,
   FakeStoryParticipantRepository? participantRepository,
+  FakeMemoryRepository? memoryRepository,
 }) async {
   final container = createContainer(
     fakeAuthRepository,
     storyRepository: storyRepository,
     inviteRepository: inviteRepository,
     participantRepository: participantRepository,
+    memoryRepository: memoryRepository,
   );
   addTearDown(container.dispose);
 
@@ -1269,6 +1676,7 @@ ProviderContainer createContainer(
   FakeStoryRepository? storyRepository,
   FakeInviteRepository? inviteRepository,
   FakeStoryParticipantRepository? participantRepository,
+  FakeMemoryRepository? memoryRepository,
 }) {
   return ProviderContainer(
     overrides: [
@@ -1281,6 +1689,12 @@ ProviderContainer createContainer(
       ),
       storyParticipantRepositoryProvider.overrideWithValue(
         participantRepository ?? FakeStoryParticipantRepository(),
+      ),
+      memoryRepositoryProvider.overrideWithValue(
+        memoryRepository ?? FakeMemoryRepository(),
+      ),
+      locationPickerMapBuilderProvider.overrideWithValue(
+        fakeLocationPickerMapBuilder,
       ),
     ],
   );
@@ -1347,6 +1761,49 @@ final UserStory acceptedInviteStory = userStory(
   title: 'Accepted invite story',
   description: 'Joined through an invite',
   role: StoryRole.viewer,
+);
+final MemoryLocation memoryLocationA = MemoryLocation(
+  latitude: 41.7151,
+  longitude: 44.8271,
+);
+final MemoryLocation memoryLocationB = MemoryLocation(
+  latitude: 41.6168,
+  longitude: 41.6367,
+);
+final MemoryDate memoryDateA = MemoryDate(
+  year: 2026,
+  month: 8,
+  day: 9,
+);
+final Memory memoryA = memory(
+  id: 'memory-a',
+  title: 'First picnic',
+  createdBy: 'author-id',
+  eventDate: memoryDateA,
+  location: memoryLocationA,
+);
+final Memory memoryB = memory(
+  id: 'memory-b',
+  title: 'Beach morning',
+  createdBy: session.user.id,
+  eventDate: MemoryDate(year: 2026, month: 8, day: 15),
+  location: memoryLocationB,
+);
+final Memory createdMemory = memory(
+  id: 'created-memory',
+  title: 'Created memory',
+  createdBy: session.user.id,
+  eventDate: MemoryDate(year: 2026, month: 8, day: 10),
+  location: memoryLocationA,
+);
+final Memory updatedMemory = memory(
+  id: memoryA.id,
+  title: 'Updated memory',
+  description: 'Updated description',
+  placeName: 'Updated place',
+  createdBy: memoryA.createdBy,
+  eventDate: memoryA.eventDate,
+  location: memoryA.location,
 );
 const String validInviteToken = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 final Invite invite = Invite(
@@ -1540,6 +1997,127 @@ final class FakeStoryParticipantRepository
   }
 }
 
+final class FakeMemoryRepository implements MemoryRepository {
+  int getMemoriesCalls = 0;
+  int getMemoryCalls = 0;
+  int createMemoryCalls = 0;
+  int updateMemoryCalls = 0;
+  int deleteMemoryCalls = 0;
+
+  List<Memory> memoriesResult = <Memory>[memoryA, memoryB];
+  Memory memoryResult = memoryA;
+  Memory createResult = createdMemory;
+  Memory updateResult = updatedMemory;
+  final List<String> receivedStoryIds = <String>[];
+  final List<String> receivedMemoryIds = <String>[];
+  CreateMemoryInput? receivedCreateInput;
+  UpdateMemoryInput? receivedUpdateInput;
+  DeleteMemoryInput? receivedDeleteInput;
+
+  @override
+  Future<List<Memory>> getMemories(String storyId) async {
+    getMemoriesCalls += 1;
+    receivedStoryIds.add(storyId);
+    return memoriesResult;
+  }
+
+  @override
+  Future<Memory> getMemory(String memoryId) async {
+    getMemoryCalls += 1;
+    receivedMemoryIds.add(memoryId);
+    if (memoryId == memoryB.id) {
+      return memoryB;
+    }
+    if (memoryId == createdMemory.id) {
+      return createdMemory;
+    }
+    if (memoryId == updatedMemory.id && updateMemoryCalls > 0) {
+      return updateResult;
+    }
+
+    return memoryResult;
+  }
+
+  @override
+  Future<Memory> createMemory(CreateMemoryInput input) async {
+    createMemoryCalls += 1;
+    receivedCreateInput = input;
+    return createResult;
+  }
+
+  @override
+  Future<Memory> updateMemory(UpdateMemoryInput input) async {
+    updateMemoryCalls += 1;
+    receivedUpdateInput = input;
+    memoryResult = updateResult;
+    return updateResult;
+  }
+
+  @override
+  Future<void> deleteMemory(DeleteMemoryInput input) async {
+    deleteMemoryCalls += 1;
+    receivedDeleteInput = input;
+  }
+}
+
 final class UnexpectedAuthException implements Exception {
   const UnexpectedAuthException();
+}
+
+Memory memory({
+  required String id,
+  String storyId = 'story-1',
+  String createdBy = 'author-id',
+  String title = 'Memory title',
+  String? description = 'Memory description',
+  String? placeName = 'Memory place',
+  required MemoryLocation location,
+  required MemoryDate eventDate,
+}) {
+  return Memory(
+    id: id,
+    storyId: storyId,
+    createdBy: createdBy,
+    title: title,
+    description: description,
+    placeName: placeName,
+    location: location,
+    eventDate: eventDate,
+    createdAt: DateTime.utc(2026, 8, 9, 10),
+    updatedAt: DateTime.utc(2026, 8, 9, 11),
+  );
+}
+
+Widget fakeLocationPickerMapBuilder(
+  BuildContext context,
+  LocationPickerMapConfiguration configuration,
+  MemoryLocation? selectedLocation,
+  ValueChanged<MemoryLocation> onPointSelected,
+) {
+  return Column(
+    key: const ValueKey('location-picker.fake-map'),
+    children: [
+      Expanded(
+        child: Center(
+          child: Text(
+            selectedLocation == null ? 'Fake map idle' : 'Fake map selected',
+          ),
+        ),
+      ),
+      TextButton(
+        key: const ValueKey('location-picker.fake-map.select-a'),
+        onPressed: () {
+          onPointSelected(memoryLocationA);
+        },
+        child: const Text('Select point A'),
+      ),
+      TextButton(
+        key: const ValueKey('location-picker.fake-map.select-b'),
+        onPressed: () {
+          onPointSelected(memoryLocationB);
+        },
+        child: const Text('Select point B'),
+      ),
+    ],
+  );
 }
