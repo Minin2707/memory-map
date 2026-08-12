@@ -29,9 +29,12 @@ class MemoryDetailsRoute extends ConsumerWidget {
     final detailsValue = ref.watch(memoryDetailsProvider(memoryId));
     final memory = detailsValue.asData?.value.memory;
     final canManage = _canManageMemory(ref, memory);
+    final canMutateMedia = _canMutateMemoryContent(ref, memory);
 
     return MemoryDetailsScreen(
       memoryId: memoryId,
+      canUploadPhoto: canMutateMedia,
+      canDeletePhoto: canMutateMedia,
       onBack: () {
         final currentMemory = ref
             .read(memoryDetailsProvider(memoryId))
@@ -51,6 +54,25 @@ class MemoryDetailsRoute extends ConsumerWidget {
   }
 
   bool _canManageMemory(WidgetRef ref, Memory? memory) {
+    if (memory == null) {
+      return false;
+    }
+
+    if (currentUserId != null && memory.createdBy == currentUserId) {
+      return true;
+    }
+
+    final userStory = ref
+        .watch(storyDetailsProvider(memory.storyId))
+        .asData
+        ?.value
+        .userStory;
+    final role = userStory?.role;
+
+    return role == StoryRole.owner || role == StoryRole.coOwner;
+  }
+
+  bool _canMutateMemoryContent(WidgetRef ref, Memory? memory) {
     if (memory == null) {
       return false;
     }

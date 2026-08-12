@@ -5,6 +5,10 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.domain.MediaType;
 import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.storage.StorageKey;
+import memory_map.backend.media.storage.StorageObjectWrite;
+import memory_map.backend.media.storage.StorageService;
+import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.JdbcMemoryRepository;
 import memory_map.backend.memory.repository.MemoryRepository;
@@ -23,9 +27,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +46,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Import(DeleteMemoryUseCaseIntegrationTest.DeleteMemoryUseCaseTestConfiguration.class)
@@ -55,6 +63,12 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
 
     @Autowired
     private MediaFileRepository mediaFileRepository;
+
+    @Autowired
+    private TestStorageService storageService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Autowired
     private UserRepository userRepository;
@@ -104,6 +118,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         blockingMemoryRepository.reset();
+        storageService.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
@@ -132,6 +147,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 .contains(story);
         assertThat(storyParticipantRepository.find(story.id(), owner.id()))
                 .isPresent();
+        assertThat(storageService.deletedKeys).isEmpty();
     }
 
     @Test
@@ -293,6 +309,90 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 .contains(other);
         assertThat(memoryRepository.findById(untouched.id()))
                 .contains(untouched);
+        assertThat(storageService.deletedKeys).containsExactly(
+                thumbnailKey(first),
+                displayKey(first),
+                thumbnailKey(second),
+                displayKey(second)
+        );
+    }
+
+    @Test
+    void shouldCleanupOneMediaFileAfterMemoryDeleteCommit() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        Memory memory = saveMemory(MEMORY_ID, story.id(), owner.id());
+        MediaFile mediaFile = saveMediaFile(MEDIA_ID, memory.id());
+
+        deleteMemoryUseCase.deleteMemory(command(owner.id(), memory.id()));
+
+        assertThat(memoryRepository.findById(memory.id())).isEmpty();
+        assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
+        assertThat(storageService.deletedKeys).containsExactly(
+                thumbnailKey(mediaFile),
+                displayKey(mediaFile)
+        );
+    }
+
+    @Test
+    void shouldCleanupAllMediaFilesAndContinueAfterStorageFailure() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        Memory memory = saveMemory(MEMORY_ID, story.id(), owner.id());
+        MediaFile first = saveMediaFile(MEDIA_ID, memory.id());
+        MediaFile second = saveMediaFile(SECOND_MEDIA_ID, memory.id());
+        MediaFile third = saveMediaFile(OTHER_MEDIA_ID, memory.id());
+        storageService.failingKeys = List.of(
+                displayKey(first),
+                thumbnailKey(third)
+        );
+
+        deleteMemoryUseCase.deleteMemory(command(owner.id(), memory.id()));
+
+        assertThat(memoryRepository.findById(memory.id())).isEmpty();
+        assertThat(mediaFileRepository.findByMemoryId(memory.id())).isEmpty();
+        assertThat(storageService.deletedKeys).containsExactly(
+                thumbnailKey(first),
+                displayKey(first),
+                thumbnailKey(second),
+                displayKey(second),
+                thumbnailKey(third),
+                displayKey(third)
+        );
+    }
+
+    @Test
+    void shouldNotCleanupStorageWhenOuterTransactionRollsBack() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        Memory memory = saveMemory(MEMORY_ID, story.id(), owner.id());
+        MediaFile mediaFile = saveMediaFile(MEDIA_ID, memory.id());
+
+        assertThatCode(() -> new TransactionTemplate(transactionManager)
+                .executeWithoutResult(status -> {
+                    deleteMemoryUseCase.deleteMemory(command(
+                            owner.id(),
+                            memory.id()
+                    ));
+                    assertThat(memoryRepository.findById(memory.id()))
+                            .isEmpty();
+                    assertThat(mediaFileRepository.findById(mediaFile.id()))
+                            .isEmpty();
+                    assertThat(storageService.deletedKeys).isEmpty();
+                    status.setRollbackOnly();
+                }))
+                .doesNotThrowAnyException();
+
+        assertThat(memoryRepository.findById(memory.id())).contains(memory);
+        assertThat(mediaFileRepository.findById(mediaFile.id()))
+                .contains(mediaFile);
+        assertThat(storageService.deletedKeys).isEmpty();
     }
 
     @Test
@@ -318,6 +418,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 .contains(memory);
         assertThat(mediaFileRepository.findById(mediaFile.id()))
                 .contains(mediaFile);
+        assertThat(storageService.deletedKeys).isEmpty();
     }
 
     @Test
@@ -478,14 +579,24 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 id,
                 memoryId,
                 MediaType.PHOTO,
+                "display-key-" + id,
                 1_024L,
+                "thumbnail-key-" + id,
+                128L,
                 "image/jpeg",
-                "memories/" + memoryId + "/" + id,
                 BASE_TIME
         );
         mediaFileRepository.save(mediaFile);
 
         return mediaFile;
+    }
+
+    private static StorageKey thumbnailKey(MediaFile mediaFile) {
+        return new StorageKey(mediaFile.thumbnailStorageKey());
+    }
+
+    private static StorageKey displayKey(MediaFile mediaFile) {
+        return new StorageKey(mediaFile.displayStorageKey());
     }
 
     private static DeleteMemoryCommand command(UUID userId, UUID memoryId) {
@@ -526,6 +637,41 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                     delegate,
                     mediaFileRepository
             );
+        }
+
+        @Bean
+        @Primary
+        TestStorageService testStorageService() {
+            return new TestStorageService();
+        }
+    }
+
+    static final class TestStorageService implements StorageService {
+
+        private final List<StorageKey> deletedKeys = new ArrayList<>();
+        private List<StorageKey> failingKeys = List.of();
+
+        @Override
+        public void store(StorageObjectWrite object) {
+        }
+
+        @Override
+        public StoredObject read(StorageKey storageKey) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void delete(StorageKey storageKey) {
+            deletedKeys.add(storageKey);
+
+            if (failingKeys.contains(storageKey)) {
+                throw new RuntimeException("storage delete failed");
+            }
+        }
+
+        private void reset() {
+            deletedKeys.clear();
+            failingKeys = List.of();
         }
     }
 

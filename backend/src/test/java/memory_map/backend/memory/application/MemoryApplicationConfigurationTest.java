@@ -1,5 +1,12 @@
 package memory_map.backend.memory.application;
 
+import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.domain.MediaFile;
+import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.storage.StorageKey;
+import memory_map.backend.media.storage.StorageObjectWrite;
+import memory_map.backend.media.storage.StorageService;
+import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryReadRepository;
 import memory_map.backend.memory.repository.MemoryRepository;
@@ -32,6 +39,14 @@ class MemoryApplicationConfigurationTest {
                     .withBean(
                             MemoryReadRepository.class,
                             FakeMemoryReadRepository::new
+                    )
+                    .withBean(
+                            MediaFileRepository.class,
+                            FakeMediaFileRepository::new
+                    )
+                    .withBean(
+                            TransactionCommitCoordinator.class,
+                            FakeTransactionCommitCoordinator::new
                     );
 
     @Test
@@ -81,6 +96,38 @@ class MemoryApplicationConfigurationTest {
             assertThat(context).hasSingleBean(DeleteMemoryUseCase.class);
             assertThat(context.getBean(DeleteMemoryUseCase.class))
                     .isInstanceOf(TransactionalDeleteMemoryService.class);
+            assertThat(context)
+                    .hasSingleBean(MemoryMediaCleanupCoordinator.class);
+            assertThat(context.getBean(MemoryMediaCleanupCoordinator.class))
+                    .isInstanceOf(
+                            StorageUnavailableMemoryMediaCleanupCoordinator.class
+                    );
+        });
+    }
+
+    @Test
+    void shouldUseStorageBackedCleanupWhenStorageServiceIsAvailable() {
+
+        contextRunner
+                .withBean(FakeStorageService.class, FakeStorageService::new)
+                .run(context -> {
+                    assertThat(context)
+                            .hasSingleBean(MemoryMediaCleanupCoordinator.class);
+                    assertThat(context.getBean(
+                            MemoryMediaCleanupCoordinator.class
+                    ))
+                            .isInstanceOf(
+                                    StorageBackedMemoryMediaCleanupCoordinator.class
+                            );
+                });
+    }
+
+    @Test
+    void shouldKeepDeleteMemoryUseCaseAvailableWhenStorageServiceIsMissing() {
+
+        contextRunner.run(context -> {
+            assertThat(context).doesNotHaveBean(StorageService.class);
+            assertThat(context).hasSingleBean(DeleteMemoryUseCase.class);
         });
     }
 
@@ -175,6 +222,52 @@ class MemoryApplicationConfigurationTest {
                 UUID requesterUserId
         ) {
             return Optional.empty();
+        }
+    }
+
+    private static final class FakeMediaFileRepository
+            implements MediaFileRepository {
+
+        @Override
+        public Optional<MediaFile> findById(UUID id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<MediaFile> findByMemoryId(UUID memoryId) {
+            return List.of();
+        }
+
+        @Override
+        public void save(MediaFile mediaFile) {
+        }
+
+        @Override
+        public void delete(UUID id) {
+        }
+    }
+
+    private static final class FakeTransactionCommitCoordinator
+            implements TransactionCommitCoordinator {
+
+        @Override
+        public void onCommit(Runnable action) {
+        }
+    }
+
+    private static final class FakeStorageService implements StorageService {
+
+        @Override
+        public void store(StorageObjectWrite object) {
+        }
+
+        @Override
+        public StoredObject read(StorageKey storageKey) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void delete(StorageKey storageKey) {
         }
     }
 }

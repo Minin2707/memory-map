@@ -7,6 +7,7 @@ import 'package:memory_map/features/memory/application/memory_details_state.dart
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/memory_failure_message.dart';
+import 'package:memory_map/features/media/presentation/widgets/memory_media_gallery.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 class MemoryDetailsScreen extends ConsumerStatefulWidget {
@@ -15,6 +16,8 @@ class MemoryDetailsScreen extends ConsumerStatefulWidget {
     this.onBack,
     this.onEdit,
     this.onDelete,
+    this.canUploadPhoto = false,
+    this.canDeletePhoto = false,
     super.key,
   });
 
@@ -22,6 +25,8 @@ class MemoryDetailsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   final ValueChanged<Memory>? onEdit;
   final ValueChanged<Memory>? onDelete;
+  final bool canUploadPhoto;
+  final bool canDeletePhoto;
 
   @override
   ConsumerState<MemoryDetailsScreen> createState() =>
@@ -250,6 +255,16 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
             ),
           ),
         ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+        sliver: SliverToBoxAdapter(
+          child: MemoryMediaGallery(
+            memoryId: memory.id,
+            canUploadPhoto: widget.canUploadPhoto && !isDeleting,
+            canDeletePhoto: widget.canDeletePhoto && !isDeleting,
+          ),
+        ),
+      ),
     ];
   }
 

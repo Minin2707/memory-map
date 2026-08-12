@@ -14,10 +14,12 @@ public class TransactionalDeleteMemoryService implements DeleteMemoryUseCase {
 
     private final MemoryRepository memoryRepository;
     private final StoryParticipantRepository storyParticipantRepository;
+    private final MemoryMediaCleanupCoordinator mediaCleanupCoordinator;
 
     public TransactionalDeleteMemoryService(
             MemoryRepository memoryRepository,
-            StoryParticipantRepository storyParticipantRepository
+            StoryParticipantRepository storyParticipantRepository,
+            MemoryMediaCleanupCoordinator mediaCleanupCoordinator
     ) {
         this.memoryRepository = Objects.requireNonNull(
                 memoryRepository,
@@ -26,6 +28,10 @@ public class TransactionalDeleteMemoryService implements DeleteMemoryUseCase {
         this.storyParticipantRepository = Objects.requireNonNull(
                 storyParticipantRepository,
                 "storyParticipantRepository must not be null"
+        );
+        this.mediaCleanupCoordinator = Objects.requireNonNull(
+                mediaCleanupCoordinator,
+                "mediaCleanupCoordinator must not be null"
         );
     }
 
@@ -47,6 +53,8 @@ public class TransactionalDeleteMemoryService implements DeleteMemoryUseCase {
         if (!canDelete(participant.role(), memory, requesterUserId)) {
             throw new MemoryDeletionUnavailableException();
         }
+
+        mediaCleanupCoordinator.prepareAfterCommitCleanup(memory.id());
 
         if (!memoryRepository.delete(memory.id())) {
             throw new IllegalStateException(

@@ -16,7 +16,11 @@ import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/memory_details_screen.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
+import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+import '../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('MemoryDetailsScreen rendering', () {
@@ -620,6 +624,10 @@ Future<ProviderContainer> pumpScreen(
   final container = ProviderContainer(
     overrides: [
       memoryRepositoryProvider.overrideWithValue(repository),
+      mediaRepositoryProvider.overrideWithValue(
+        media_fixtures.FakeMediaRepository()
+          ..mediaResult = <Media>[],
+      ),
     ],
   );
   addTearDown(container.dispose);

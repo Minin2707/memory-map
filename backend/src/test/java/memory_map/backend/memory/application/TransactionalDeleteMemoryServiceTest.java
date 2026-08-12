@@ -66,6 +66,7 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.calls()).containsExactly(
                 "find Memory for update",
                 "find StoryParticipant",
+                "prepare media cleanup",
                 "delete Memory"
         );
     }
@@ -117,6 +118,8 @@ class TransactionalDeleteMemoryServiceTest {
                 "find Memory for update",
                 "find StoryParticipant"
         );
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
     }
 
     @Test
@@ -134,6 +137,8 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.storyParticipantRepository().findCallCount())
                 .isZero();
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
         assertThat(context.calls()).containsExactly("find Memory for update");
     }
 
@@ -154,6 +159,8 @@ class TransactionalDeleteMemoryServiceTest {
                 "find Memory for update",
                 "find StoryParticipant"
         );
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
     }
 
     @Test
@@ -169,6 +176,8 @@ class TransactionalDeleteMemoryServiceTest {
         ));
 
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
     }
 
     @Test
@@ -194,6 +203,8 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.storyParticipantRepository().receivedStoryId())
                 .isEqualTo(STORY_ID);
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
     }
 
     @Test
@@ -209,6 +220,8 @@ class TransactionalDeleteMemoryServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Memory delete affected no rows after locked lookup")
                 .isNotInstanceOf(MemoryDeletionUnavailableException.class);
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isEqualTo(1);
     }
 
     @Test
@@ -226,6 +239,8 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.storyParticipantRepository().findCallCount())
                 .isZero();
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
     }
 
     @Test
@@ -241,6 +256,50 @@ class TransactionalDeleteMemoryServiceTest {
         assertThatThrownBy(() -> context.service().deleteMemory(command()))
                 .isSameAs(failure);
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
+    }
+
+    @Test
+    void shouldPrepareMediaCleanupAfterAuthorizationAndBeforeMemoryDelete() {
+
+        TestContext context = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        );
+
+        context.service().deleteMemory(command());
+
+        assertThat(context.mediaCleanupCoordinator().receivedMemoryId())
+                .isEqualTo(MEMORY_ID);
+        assertThat(context.calls()).containsExactly(
+                "find Memory for update",
+                "find StoryParticipant",
+                "prepare media cleanup",
+                "delete Memory"
+        );
+    }
+
+    @Test
+    void shouldAbortMemoryDeleteWhenMediaCleanupPreparationFails() {
+
+        RuntimeException failure = new RuntimeException("media lookup failed");
+        TestContext context = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        );
+        context.mediaCleanupCoordinator().failOnPrepare(failure);
+
+        assertThatThrownBy(() -> context.service().deleteMemory(command()))
+                .isSameAs(failure)
+                .isNotInstanceOf(MemoryDeletionUnavailableException.class);
+
+        assertThat(context.memoryRepository().deleteCallCount()).isZero();
+        assertThat(context.calls()).containsExactly(
+                "find Memory for update",
+                "find StoryParticipant",
+                "prepare media cleanup"
+        );
     }
 
     @Test
@@ -256,6 +315,8 @@ class TransactionalDeleteMemoryServiceTest {
         assertThatThrownBy(() -> context.service().deleteMemory(command()))
                 .isSameAs(failure)
                 .isNotInstanceOf(MemoryDeletionUnavailableException.class);
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isEqualTo(1);
     }
 
     @Test
@@ -265,10 +326,15 @@ class TransactionalDeleteMemoryServiceTest {
                 existingMemory(AUTHOR_ID),
                 participant(StoryRole.OWNER)
         ).storyParticipantRepository();
+        MemoryMediaCleanupCoordinator mediaCleanupCoordinator = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        ).mediaCleanupCoordinator();
 
         assertThatThrownBy(() -> new TransactionalDeleteMemoryService(
                 null,
-                storyParticipantRepository
+                storyParticipantRepository,
+                mediaCleanupCoordinator
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("memoryRepository must not be null");
@@ -284,10 +350,31 @@ class TransactionalDeleteMemoryServiceTest {
 
         assertThatThrownBy(() -> new TransactionalDeleteMemoryService(
                 memoryRepository,
-                null
+                null,
+                testContext(
+                        existingMemory(AUTHOR_ID),
+                        participant(StoryRole.OWNER)
+                ).mediaCleanupCoordinator()
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("storyParticipantRepository must not be null");
+    }
+
+    @Test
+    void shouldRejectNullMediaCleanupCoordinatorDependency() {
+
+        TestContext context = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        );
+
+        assertThatThrownBy(() -> new TransactionalDeleteMemoryService(
+                context.memoryRepository(),
+                context.storyParticipantRepository(),
+                null
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("mediaCleanupCoordinator must not be null");
     }
 
     @Test
@@ -307,6 +394,8 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.storyParticipantRepository().findCallCount())
                 .isZero();
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
     }
 
     @Test
@@ -336,14 +425,18 @@ class TransactionalDeleteMemoryServiceTest {
                 new FakeMemoryRepository(memory, calls);
         FakeStoryParticipantRepository storyParticipantRepository =
                 new FakeStoryParticipantRepository(participant, calls);
+        FakeMediaCleanupCoordinator mediaCleanupCoordinator =
+                new FakeMediaCleanupCoordinator(calls);
 
         return new TestContext(
                 new TransactionalDeleteMemoryService(
                         memoryRepository,
-                        storyParticipantRepository
+                        storyParticipantRepository,
+                        mediaCleanupCoordinator
                 ),
                 memoryRepository,
                 storyParticipantRepository,
+                mediaCleanupCoordinator,
                 calls
         );
     }
@@ -394,9 +487,47 @@ class TransactionalDeleteMemoryServiceTest {
 
             FakeStoryParticipantRepository storyParticipantRepository,
 
+            FakeMediaCleanupCoordinator mediaCleanupCoordinator,
+
             List<String> calls
 
     ) {
+    }
+
+    private static final class FakeMediaCleanupCoordinator
+            implements MemoryMediaCleanupCoordinator {
+
+        private final List<String> calls;
+        private UUID receivedMemoryId;
+        private int prepareCallCount;
+        private RuntimeException failure;
+
+        private FakeMediaCleanupCoordinator(List<String> calls) {
+            this.calls = calls;
+        }
+
+        @Override
+        public void prepareAfterCommitCleanup(UUID memoryId) {
+            calls.add("prepare media cleanup");
+            prepareCallCount++;
+            receivedMemoryId = memoryId;
+
+            if (failure != null) {
+                throw failure;
+            }
+        }
+
+        private UUID receivedMemoryId() {
+            return receivedMemoryId;
+        }
+
+        private int prepareCallCount() {
+            return prepareCallCount;
+        }
+
+        private void failOnPrepare(RuntimeException failure) {
+            this.failure = failure;
+        }
     }
 
     private static final class FakeMemoryRepository

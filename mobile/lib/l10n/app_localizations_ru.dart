@@ -697,6 +697,86 @@ class AppLocalizationsRu extends AppLocalizations {
   String get memoryDetailsNoPlace => 'Подписи места пока нет.';
 
   @override
+  String get memoryMediaTitle => 'Фото';
+
+  @override
+  String get memoryMediaRefreshAction => 'Обновить фото';
+
+  @override
+  String get memoryMediaAddPhotoAction => 'Добавить фото';
+
+  @override
+  String get memoryMediaEmpty => 'Фото пока нет.';
+
+  @override
+  String get memoryMediaSelectingPhoto => 'Выбираем фото...';
+
+  @override
+  String get memoryMediaPreparingPhoto => 'Подготавливаем фото...';
+
+  @override
+  String get memoryMediaUploadingPhoto => 'Загружаем фото...';
+
+  @override
+  String get memoryMediaOpenPhotoLabel => 'Открыть фото';
+
+  @override
+  String get memoryMediaClosePhotoAction => 'Закрыть фото';
+
+  @override
+  String get deletePhotoAction => 'Удалить фото';
+
+  @override
+  String get deletePhotoDialogTitle => 'Удалить фото?';
+
+  @override
+  String get deletePhotoDialogBody =>
+      'Это фото будет удалено без возможности восстановления.';
+
+  @override
+  String get deletePhotoCancel => 'Отмена';
+
+  @override
+  String get deletePhotoConfirm => 'Удалить';
+
+  @override
+  String get deletePhotoFailure =>
+      'Не удалось удалить фото. Попробуйте ещё раз.';
+
+  @override
+  String get mediaFailureValidation =>
+      'Запрос фото содержит ошибку. Попробуйте ещё раз.';
+
+  @override
+  String get mediaFailureUnauthorized =>
+      'Сеанс требует внимания. Попробуйте ещё раз.';
+
+  @override
+  String get mediaFailureUnavailable => 'Фото недоступны.';
+
+  @override
+  String get mediaFailureUploadUnavailable => 'Фото нельзя загрузить отсюда.';
+
+  @override
+  String get mediaFailureNetworkUnavailable =>
+      'Нет подключения к интернету. Проверьте соединение и повторите попытку.';
+
+  @override
+  String get mediaFailureRequestTimedOut =>
+      'Время ожидания истекло. Попробуйте ещё раз.';
+
+  @override
+  String get mediaFailureServerFailure =>
+      'Сервер временно недоступен. Попробуйте ещё раз.';
+
+  @override
+  String get mediaFailurePreprocessing =>
+      'Не удалось подготовить это фото. Выберите другое изображение.';
+
+  @override
+  String get mediaFailureUnknown => 'Что-то пошло не так. Попробуйте ещё раз.';
+
+  @override
   String get deleteMemoryDialogTitle => 'Удалить воспоминание?';
 
   @override

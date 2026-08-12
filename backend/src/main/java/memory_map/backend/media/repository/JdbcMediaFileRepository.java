@@ -17,9 +17,11 @@ public class JdbcMediaFileRepository implements MediaFileRepository {
                 id,
                 memory_id,
                 media_type,
-                file_size,
+                display_storage_key,
+                display_file_size,
+                thumbnail_storage_key,
+                thumbnail_file_size,
                 mime_type,
-                storage_key,
                 created_at
             FROM media_files
             """;
@@ -38,18 +40,22 @@ public class JdbcMediaFileRepository implements MediaFileRepository {
                 id,
                 memory_id,
                 media_type,
-                file_size,
+                display_storage_key,
+                display_file_size,
+                thumbnail_storage_key,
+                thumbnail_file_size,
                 mime_type,
-                storage_key,
                 created_at
             )
             VALUES (
                 :id,
                 :memoryId,
                 :mediaType,
-                :fileSize,
+                :displayStorageKey,
+                :displayFileSize,
+                :thumbnailStorageKey,
+                :thumbnailFileSize,
                 :mimeType,
-                :storageKey,
                 :createdAt
             )
             """;
@@ -92,9 +98,11 @@ public class JdbcMediaFileRepository implements MediaFileRepository {
                 .param("id", mediaFile.id())
                 .param("memoryId", mediaFile.memoryId())
                 .param("mediaType", mediaFile.type().name())
-                .param("fileSize", mediaFile.fileSize())
+                .param("displayStorageKey", mediaFile.displayStorageKey())
+                .param("displayFileSize", mediaFile.displayFileSize())
+                .param("thumbnailStorageKey", mediaFile.thumbnailStorageKey())
+                .param("thumbnailFileSize", mediaFile.thumbnailFileSize())
                 .param("mimeType", mediaFile.mimeType())
-                .param("storageKey", mediaFile.storageKey())
                 .param("createdAt", DatabaseTimestamps.toOffsetDateTime(mediaFile.createdAt()))
                 .update();
     }

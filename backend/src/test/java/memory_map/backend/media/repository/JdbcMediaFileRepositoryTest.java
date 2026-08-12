@@ -136,9 +136,11 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
                 id,
                 memoryId,
                 MediaType.PHOTO,
+                "display-key-" + id,
                 1_024L,
+                "thumbnail-key-" + id,
+                128L,
                 "image/jpeg",
-                storageKey(memoryId, id),
                 BASE_TIME
         );
     }
@@ -147,27 +149,24 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
             UUID id,
             UUID memoryId,
             MediaType type,
-            Long fileSize,
+            String displayStorageKey,
+            long displayFileSize,
+            String thumbnailStorageKey,
+            long thumbnailFileSize,
             String mimeType,
-            String storageKey,
             Instant createdAt
     ) {
         return new MediaFile(
                 id,
                 memoryId,
                 type,
-                fileSize,
+                displayStorageKey,
+                displayFileSize,
+                thumbnailStorageKey,
+                thumbnailFileSize,
                 mimeType,
-                storageKey,
                 createdAt
         );
-    }
-
-    private String storageKey(
-            UUID memoryId,
-            UUID mediaFileId
-    ) {
-        return "memories/" + memoryId + "/" + mediaFileId;
     }
 
     private void assertMediaFileMatches(
@@ -177,9 +176,15 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
         assertThat(actual.id()).isEqualTo(expected.id());
         assertThat(actual.memoryId()).isEqualTo(expected.memoryId());
         assertThat(actual.type()).isEqualTo(expected.type());
-        assertThat(actual.fileSize()).isEqualTo(expected.fileSize());
+        assertThat(actual.displayStorageKey())
+                .isEqualTo(expected.displayStorageKey());
+        assertThat(actual.displayFileSize())
+                .isEqualTo(expected.displayFileSize());
+        assertThat(actual.thumbnailStorageKey())
+                .isEqualTo(expected.thumbnailStorageKey());
+        assertThat(actual.thumbnailFileSize())
+                .isEqualTo(expected.thumbnailFileSize());
         assertThat(actual.mimeType()).isEqualTo(expected.mimeType());
-        assertThat(actual.storageKey()).isEqualTo(expected.storageKey());
         assertThat(actual.createdAt()).isEqualTo(expected.createdAt());
     }
 
@@ -198,7 +203,7 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
     }
 
     @Test
-    void shouldPreserveNullableFileSizeAndMimeType() {
+    void shouldPreserveDisplayAndThumbnailMetadata() {
 
         Memory memory = saveMemory("google-subject-123");
         UUID mediaFileId = UUID.randomUUID();
@@ -206,9 +211,11 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
                 mediaFileId,
                 memory.id(),
                 MediaType.PHOTO,
-                null,
-                null,
-                storageKey(memory.id(), mediaFileId),
+                "display-key",
+                2_048L,
+                "thumbnail-key",
+                256L,
+                "image/jpeg",
                 BASE_TIME
         );
 
@@ -217,31 +224,32 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
         MediaFile loaded = repository.findById(mediaFile.id())
                 .orElseThrow();
 
-        assertThat(loaded.fileSize()).isNull();
-        assertThat(loaded.mimeType()).isNull();
+        assertThat(loaded.displayStorageKey()).isEqualTo("display-key");
+        assertThat(loaded.displayFileSize()).isEqualTo(2_048L);
+        assertThat(loaded.thumbnailStorageKey()).isEqualTo("thumbnail-key");
+        assertThat(loaded.thumbnailFileSize()).isEqualTo(256L);
+        assertThat(loaded.mimeType()).isEqualTo("image/jpeg");
     }
 
     @Test
-    void shouldPreserveZeroFileSize() {
+    void shouldRejectNonPositiveDisplayFileSizeBeforePersistence() {
 
         Memory memory = saveMemory("google-subject-123");
         UUID mediaFileId = UUID.randomUUID();
-        MediaFile mediaFile = createMediaFile(
+
+        assertThatThrownBy(() -> createMediaFile(
                 mediaFileId,
                 memory.id(),
                 MediaType.PHOTO,
+                "display-key",
                 0L,
+                "thumbnail-key",
+                256L,
                 "image/jpeg",
-                storageKey(memory.id(), mediaFileId),
                 BASE_TIME
-        );
-
-        repository.save(mediaFile);
-
-        MediaFile loaded = repository.findById(mediaFile.id())
-                .orElseThrow();
-
-        assertThat(loaded.fileSize()).isZero();
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("displayFileSize must be positive");
     }
 
     @Test
@@ -263,9 +271,11 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
                 UUID.randomUUID(),
                 firstMemory.id(),
                 MediaType.PHOTO,
+                "display-key-second",
                 2_048L,
-                "image/png",
-                "memories/" + firstMemory.id() + "/second",
+                "thumbnail-key-second",
+                256L,
+                "image/jpeg",
                 BASE_TIME.plusSeconds(1)
         );
         MediaFile other = createMediaFile(secondMemory.id());
@@ -289,27 +299,33 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
                 UUID.fromString("00000000-0000-0000-0000-000000000001"),
                 memory.id(),
                 MediaType.PHOTO,
+                "display-key-first",
                 1_024L,
+                "thumbnail-key-first",
+                128L,
                 "image/jpeg",
-                "memories/" + memory.id() + "/first",
                 BASE_TIME.plusSeconds(1)
         );
         MediaFile second = createMediaFile(
                 UUID.fromString("00000000-0000-0000-0000-000000000002"),
                 memory.id(),
                 MediaType.PHOTO,
+                "display-key-second",
                 2_048L,
+                "thumbnail-key-second",
+                256L,
                 "image/jpeg",
-                "memories/" + memory.id() + "/second",
                 BASE_TIME.plusSeconds(2)
         );
         MediaFile third = createMediaFile(
                 UUID.fromString("00000000-0000-0000-0000-000000000003"),
                 memory.id(),
                 MediaType.PHOTO,
+                "display-key-third",
                 3_072L,
+                "thumbnail-key-third",
+                384L,
                 "image/jpeg",
-                "memories/" + memory.id() + "/third",
                 BASE_TIME.plusSeconds(2)
         );
 
@@ -338,9 +354,11 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
                 UUID.randomUUID(),
                 memory.id(),
                 MediaType.PHOTO,
+                "display-key-second",
                 2_048L,
-                "image/png",
-                "memories/" + memory.id() + "/second",
+                "thumbnail-key-second",
+                256L,
+                "image/jpeg",
                 BASE_TIME.plusSeconds(1)
         );
 
@@ -402,27 +420,33 @@ class JdbcMediaFileRepositoryTest extends IntegrationTest {
                 UUID.randomUUID(),
                 memory.id(),
                 MediaType.PHOTO,
+                "display-key-photo",
                 1_024L,
+                "thumbnail-key-photo",
+                128L,
                 "image/jpeg",
-                "memories/" + memory.id() + "/photo",
                 BASE_TIME
         );
         MediaFile voice = createMediaFile(
                 UUID.randomUUID(),
                 memory.id(),
                 MediaType.VOICE,
+                "display-key-voice",
                 2_048L,
+                "thumbnail-key-voice",
+                256L,
                 "audio/mpeg",
-                "memories/" + memory.id() + "/voice",
                 BASE_TIME.plusSeconds(1)
         );
         MediaFile video = createMediaFile(
                 UUID.randomUUID(),
                 memory.id(),
                 MediaType.VIDEO,
+                "display-key-video",
                 3_072L,
+                "thumbnail-key-video",
+                384L,
                 "video/mp4",
-                "memories/" + memory.id() + "/video",
                 BASE_TIME.plusSeconds(2)
         );
 

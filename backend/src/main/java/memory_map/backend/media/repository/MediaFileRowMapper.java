@@ -17,18 +17,22 @@ public class MediaFileRowMapper implements RowMapper<MediaFile> {
         UUID id = rs.getObject("id", UUID.class);
         UUID memoryId = rs.getObject("memory_id", UUID.class);
         MediaType type = MediaType.valueOf(rs.getString("media_type"));
-        Long fileSize = rs.getObject("file_size", Long.class);
+        String displayStorageKey = rs.getString("display_storage_key");
+        long displayFileSize = rs.getLong("display_file_size");
+        String thumbnailStorageKey = rs.getString("thumbnail_storage_key");
+        long thumbnailFileSize = rs.getLong("thumbnail_file_size");
         String mimeType = rs.getString("mime_type");
-        String storageKey = rs.getString("storage_key");
         OffsetDateTime createdAt = rs.getObject("created_at", OffsetDateTime.class);
 
         return new MediaFile(
                 id,
                 memoryId,
                 type,
-                fileSize,
+                displayStorageKey,
+                displayFileSize,
+                thumbnailStorageKey,
+                thumbnailFileSize,
                 mimeType,
-                storageKey,
                 createdAt.toInstant()
         );
     }

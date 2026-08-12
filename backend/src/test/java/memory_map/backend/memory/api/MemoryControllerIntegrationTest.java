@@ -6,6 +6,10 @@ import memory_map.backend.IntegrationTest;
 import memory_map.backend.auth.jwt.AccessTokenService;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.storage.StorageKey;
+import memory_map.backend.media.storage.StorageObjectWrite;
+import memory_map.backend.media.storage.StorageService;
+import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.story.domain.Story;
@@ -34,6 +38,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,6 +68,9 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
 
     @Autowired
     private MediaFileRepository mediaFileRepository;
+
+    @Autowired
+    private TestStorageService storageService;
 
     @Autowired
     private UserRepository userRepository;
@@ -112,6 +121,7 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
+        storageService.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
@@ -1055,6 +1065,12 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
                 .contains(otherMemory);
         assertThat(mediaFileRepository.findById(other.id()))
                 .contains(other);
+        assertThat(storageService.deletedKeys).containsExactly(
+                new StorageKey(first.thumbnailStorageKey()),
+                new StorageKey(first.displayStorageKey()),
+                new StorageKey(second.thumbnailStorageKey()),
+                new StorageKey(second.displayStorageKey())
+        );
     }
 
     @Test
@@ -1946,9 +1962,11 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
                 mediaFileId,
                 memoryId,
                 memory_map.backend.media.domain.MediaType.PHOTO,
+                "display-key-" + mediaFileId,
                 1_024L,
+                "thumbnail-key-" + mediaFileId,
+                128L,
                 "image/jpeg",
-                "memories/" + memoryId + "/" + mediaFileId,
                 BASE_TIME
         );
         mediaFileRepository.save(mediaFile);
@@ -2261,6 +2279,35 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
                     CURRENT_TIME,
                     ZoneOffset.UTC
             );
+        }
+
+        @Bean
+        @Primary
+        TestStorageService testStorageService() {
+            return new TestStorageService();
+        }
+    }
+
+    static final class TestStorageService implements StorageService {
+
+        private final List<StorageKey> deletedKeys = new ArrayList<>();
+
+        @Override
+        public void store(StorageObjectWrite object) {
+        }
+
+        @Override
+        public StoredObject read(StorageKey storageKey) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void delete(StorageKey storageKey) {
+            deletedKeys.add(storageKey);
+        }
+
+        private void reset() {
+            deletedKeys.clear();
         }
     }
 }

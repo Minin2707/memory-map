@@ -22,6 +22,8 @@ import 'package:memory_map/features/invite/domain/create_invite_input.dart';
 import 'package:memory_map/features/invite/domain/invite.dart';
 import 'package:memory_map/features/invite/domain/invite_failure.dart';
 import 'package:memory_map/features/invite/domain/invite_repository.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
+import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/domain/create_memory_input.dart';
 import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
@@ -48,6 +50,8 @@ import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/update_story_input.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
+
+import '../features/media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('Router authentication', () {
@@ -1949,6 +1953,9 @@ ProviderContainer createContainer(
       ),
       memoryRepositoryProvider.overrideWithValue(
         memoryRepository ?? FakeMemoryRepository(),
+      ),
+      mediaRepositoryProvider.overrideWithValue(
+        media_fixtures.FakeMediaRepository()..mediaResult = <Media>[],
       ),
       locationPickerMapBuilderProvider.overrideWithValue(
         fakeLocationPickerMapBuilder,

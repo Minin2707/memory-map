@@ -688,6 +688,86 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryDetailsNoPlace => 'No place name yet.';
 
   @override
+  String get memoryMediaTitle => 'Photos';
+
+  @override
+  String get memoryMediaRefreshAction => 'Refresh photos';
+
+  @override
+  String get memoryMediaAddPhotoAction => 'Add photo';
+
+  @override
+  String get memoryMediaEmpty => 'No photos yet.';
+
+  @override
+  String get memoryMediaSelectingPhoto => 'Choosing photo...';
+
+  @override
+  String get memoryMediaPreparingPhoto => 'Preparing photo...';
+
+  @override
+  String get memoryMediaUploadingPhoto => 'Uploading photo...';
+
+  @override
+  String get memoryMediaOpenPhotoLabel => 'Open photo';
+
+  @override
+  String get memoryMediaClosePhotoAction => 'Close photo';
+
+  @override
+  String get deletePhotoAction => 'Delete photo';
+
+  @override
+  String get deletePhotoDialogTitle => 'Delete photo?';
+
+  @override
+  String get deletePhotoDialogBody => 'This photo will be permanently removed.';
+
+  @override
+  String get deletePhotoCancel => 'Cancel';
+
+  @override
+  String get deletePhotoConfirm => 'Delete';
+
+  @override
+  String get deletePhotoFailure =>
+      'Photo could not be deleted. Please try again.';
+
+  @override
+  String get mediaFailureValidation =>
+      'The photo request was invalid. Please try again.';
+
+  @override
+  String get mediaFailureUnauthorized =>
+      'Your session needs attention. Please try again.';
+
+  @override
+  String get mediaFailureUnavailable => 'Photos are unavailable.';
+
+  @override
+  String get mediaFailureUploadUnavailable =>
+      'Photo cannot be uploaded from here.';
+
+  @override
+  String get mediaFailureNetworkUnavailable =>
+      'No network connection. Check your connection and try again.';
+
+  @override
+  String get mediaFailureRequestTimedOut =>
+      'The request timed out. Please try again.';
+
+  @override
+  String get mediaFailureServerFailure =>
+      'The server is temporarily unavailable. Please try again.';
+
+  @override
+  String get mediaFailurePreprocessing =>
+      'Could not prepare this photo. Choose another image.';
+
+  @override
+  String get mediaFailureUnknown => 'Something went wrong. Please try again.';
+
+  @override
   String get deleteMemoryDialogTitle => 'Delete memory?';
 
   @override

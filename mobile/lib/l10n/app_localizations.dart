@@ -1292,6 +1292,150 @@ abstract class AppLocalizations {
   /// **'No place name yet.'**
   String get memoryDetailsNoPlace;
 
+  /// No description provided for @memoryMediaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos'**
+  String get memoryMediaTitle;
+
+  /// No description provided for @memoryMediaRefreshAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh photos'**
+  String get memoryMediaRefreshAction;
+
+  /// No description provided for @memoryMediaAddPhotoAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add photo'**
+  String get memoryMediaAddPhotoAction;
+
+  /// No description provided for @memoryMediaEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No photos yet.'**
+  String get memoryMediaEmpty;
+
+  /// No description provided for @memoryMediaSelectingPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Choosing photo...'**
+  String get memoryMediaSelectingPhoto;
+
+  /// No description provided for @memoryMediaPreparingPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing photo...'**
+  String get memoryMediaPreparingPhoto;
+
+  /// No description provided for @memoryMediaUploadingPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading photo...'**
+  String get memoryMediaUploadingPhoto;
+
+  /// No description provided for @memoryMediaOpenPhotoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Open photo'**
+  String get memoryMediaOpenPhotoLabel;
+
+  /// No description provided for @memoryMediaClosePhotoAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Close photo'**
+  String get memoryMediaClosePhotoAction;
+
+  /// No description provided for @deletePhotoAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete photo'**
+  String get deletePhotoAction;
+
+  /// No description provided for @deletePhotoDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete photo?'**
+  String get deletePhotoDialogTitle;
+
+  /// No description provided for @deletePhotoDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This photo will be permanently removed.'**
+  String get deletePhotoDialogBody;
+
+  /// No description provided for @deletePhotoCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get deletePhotoCancel;
+
+  /// No description provided for @deletePhotoConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deletePhotoConfirm;
+
+  /// No description provided for @deletePhotoFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo could not be deleted. Please try again.'**
+  String get deletePhotoFailure;
+
+  /// No description provided for @mediaFailureValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'The photo request was invalid. Please try again.'**
+  String get mediaFailureValidation;
+
+  /// No description provided for @mediaFailureUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session needs attention. Please try again.'**
+  String get mediaFailureUnauthorized;
+
+  /// No description provided for @mediaFailureUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos are unavailable.'**
+  String get mediaFailureUnavailable;
+
+  /// No description provided for @mediaFailureUploadUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo cannot be uploaded from here.'**
+  String get mediaFailureUploadUnavailable;
+
+  /// No description provided for @mediaFailureNetworkUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection. Check your connection and try again.'**
+  String get mediaFailureNetworkUnavailable;
+
+  /// No description provided for @mediaFailureRequestTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Please try again.'**
+  String get mediaFailureRequestTimedOut;
+
+  /// No description provided for @mediaFailureServerFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is temporarily unavailable. Please try again.'**
+  String get mediaFailureServerFailure;
+
+  /// No description provided for @mediaFailurePreprocessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not prepare this photo. Choose another image.'**
+  String get mediaFailurePreprocessing;
+
+  /// No description provided for @mediaFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get mediaFailureUnknown;
+
   /// No description provided for @deleteMemoryDialogTitle.
   ///
   /// In en, this message translates to:

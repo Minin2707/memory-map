@@ -4,12 +4,17 @@ spring:
     username: <username>
     password: <password>
 
-minio:
-  endpoint: http://localhost:9000
-  access-key: <access-key>
-  secret-key: <secret-key>
-
 app:
+  storage:
+    minio:
+      # Local backend runs on the host, while MinIO runs in Docker.
+      # Keep these credentials aligned with infrastructure/.env.
+      enabled: true
+      endpoint: http://localhost:9000
+      access-key: minio
+      secret-key: minio_password
+      bucket: memory-map-media
+
   auth:
     google:
       client-id: your-google-oauth-client-id.apps.googleusercontent.com

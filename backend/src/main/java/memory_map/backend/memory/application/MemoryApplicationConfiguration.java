@@ -1,8 +1,12 @@
 package memory_map.backend.memory.application;
 
+import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.memory.repository.MemoryReadRepository;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -48,11 +52,34 @@ public class MemoryApplicationConfiguration {
     @Bean
     public DeleteMemoryUseCase deleteMemoryUseCase(
             MemoryRepository memoryRepository,
-            StoryParticipantRepository storyParticipantRepository
+            StoryParticipantRepository storyParticipantRepository,
+            MemoryMediaCleanupCoordinator mediaCleanupCoordinator
     ) {
         return new TransactionalDeleteMemoryService(
                 memoryRepository,
-                storyParticipantRepository
+                storyParticipantRepository,
+                mediaCleanupCoordinator
+        );
+    }
+
+    @Bean
+    public MemoryMediaCleanupCoordinator memoryMediaCleanupCoordinator(
+            MediaFileRepository mediaFileRepository,
+            ObjectProvider<StorageService> storageServiceProvider,
+            ObjectProvider<TransactionCommitCoordinator> commitCoordinatorProvider
+    ) {
+        StorageService storageService = storageServiceProvider.getIfAvailable();
+
+        if (storageService == null) {
+            return new StorageUnavailableMemoryMediaCleanupCoordinator(
+                    mediaFileRepository
+            );
+        }
+
+        return new StorageBackedMemoryMediaCleanupCoordinator(
+                mediaFileRepository,
+                storageService,
+                commitCoordinatorProvider.getObject()
         );
     }
 }
