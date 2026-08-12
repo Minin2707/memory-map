@@ -1,24 +1,21 @@
+import 'package:memory_map/features/map/config/map_source_configuration.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 
 final class LocationPickerMapConfiguration {
   factory LocationPickerMapConfiguration({
-    required String styleString,
+    MapSourceConfiguration sourceConfiguration = MapSources.openFreeMapLiberty,
     double defaultLatitude = 0,
     double defaultLongitude = 0,
     double defaultZoom = 1.5,
     double selectedZoom = 12,
   }) {
-    if (styleString.trim().isEmpty) {
-      throw ArgumentError('styleString must not be blank');
-    }
-
     _validateLatitude(defaultLatitude);
     _validateLongitude(defaultLongitude);
     _validateZoom(defaultZoom, 'defaultZoom');
     _validateZoom(selectedZoom, 'selectedZoom');
 
     return LocationPickerMapConfiguration._(
-      styleString: styleString,
+      sourceConfiguration: sourceConfiguration,
       defaultLatitude: defaultLatitude,
       defaultLongitude: defaultLongitude,
       defaultZoom: defaultZoom,
@@ -27,14 +24,14 @@ final class LocationPickerMapConfiguration {
   }
 
   const LocationPickerMapConfiguration._({
-    required this.styleString,
+    required this.sourceConfiguration,
     required this.defaultLatitude,
     required this.defaultLongitude,
     required this.defaultZoom,
     required this.selectedZoom,
   });
 
-  final String styleString;
+  final MapSourceConfiguration sourceConfiguration;
   final double defaultLatitude;
   final double defaultLongitude;
   final double defaultZoom;
@@ -51,7 +48,7 @@ final class LocationPickerMapConfiguration {
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is LocationPickerMapConfiguration &&
-            styleString == other.styleString &&
+            sourceConfiguration == other.sourceConfiguration &&
             defaultLatitude == other.defaultLatitude &&
             defaultLongitude == other.defaultLongitude &&
             defaultZoom == other.defaultZoom &&
@@ -60,7 +57,7 @@ final class LocationPickerMapConfiguration {
 
   @override
   int get hashCode => Object.hash(
-        styleString,
+        sourceConfiguration,
         defaultLatitude,
         defaultLongitude,
         defaultZoom,
@@ -69,7 +66,7 @@ final class LocationPickerMapConfiguration {
 
   @override
   String toString() {
-    return 'LocationPickerMapConfiguration(hasStyleString: true, '
+    return 'LocationPickerMapConfiguration(hasSourceConfiguration: true, '
         'defaultZoom: $defaultZoom, selectedZoom: $selectedZoom)';
   }
 
@@ -95,7 +92,7 @@ final class LocationPickerMapConfiguration {
 const LocationPickerMapConfiguration
     openFreeMapLocationPickerMapConfiguration =
     LocationPickerMapConfiguration._(
-  styleString: 'https://tiles.openfreemap.org/styles/liberty',
+  sourceConfiguration: MapSources.openFreeMapLiberty,
   defaultLatitude: 0,
   defaultLongitude: 0,
   defaultZoom: 1.5,

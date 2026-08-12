@@ -45,7 +45,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
       fit: StackFit.expand,
       children: [
         MapLibreMap(
-          styleString: widget.configuration.styleString,
+          styleString: widget.configuration.sourceConfiguration.styleUri,
           initialCameraPosition: CameraPosition(
             target: _toLatLng(cameraTarget),
             zoom: cameraZoom,

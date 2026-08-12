@@ -494,6 +494,31 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось обновить воспоминания';
 
   @override
+  String get storyMapPageTitle => 'Карта';
+
+  @override
+  String get storyMapBackLabel => 'Вернуться к истории';
+
+  @override
+  String get storyMapShowAllAction => 'Показать всё';
+
+  @override
+  String get storyMapRefreshAction => 'Обновить карту';
+
+  @override
+  String get storyMapEmptyTitle => 'На карте пока нет воспоминаний';
+
+  @override
+  String get storyMapEmptyBody =>
+      'Воспоминания с сохранёнными местами появятся здесь.';
+
+  @override
+  String get storyMapLoadFailureTitle => 'Не удалось загрузить карту';
+
+  @override
+  String get storyMapRefreshFailureTitle => 'Не удалось обновить карту';
+
+  @override
   String memoryOpenLabel(String title) {
     return 'Открыть воспоминание $title';
   }

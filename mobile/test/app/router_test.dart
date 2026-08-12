@@ -32,6 +32,8 @@ import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_map_configuration.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_route.dart';
+import 'package:memory_map/features/memory/presentation/story_map_route.dart';
+import 'package:memory_map/features/memory/presentation/story_map_screen.dart';
 import 'package:memory_map/features/participant/application/participant_application_exception.dart';
 import 'package:memory_map/features/participant/application/participant_application_providers.dart';
 import 'package:memory_map/features/participant/domain/leave_story_input.dart';
@@ -193,6 +195,7 @@ void main() {
         '/stories/story-1/edit',
         '/stories/story-1/invite',
         '/stories/story-1/memories',
+        '/stories/story-1/map',
         '/stories/story-1/memories/create',
         '/memories/memory-1',
         '/memories/memory-1/edit',
@@ -944,6 +947,53 @@ void main() {
       expect(find.text('Your stories'), findsOneWidget);
       expect(find.text('Participants'), findsNothing);
     });
+
+    testWidgets('shouldClearLoadedStoryMapMemoryCacheAfterLeavingStory', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+      final fakeParticipantRepository = FakeStoryParticipantRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        participantRepository: fakeParticipantRepository,
+        storyMapBuilder: fakeStoryMapBuilder,
+      );
+      await tester.pumpAndSettle();
+
+      final storiesContext = tester.element(find.text('Your stories'));
+      GoRouter.of(storiesContext).go('/stories/${ownerStory.story.id}/map');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fake story map markers: 2'), findsOneWidget);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
+
+      final mapContext = tester.element(find.text('Map'));
+      GoRouter.of(mapContext).go(
+        '/stories/${ownerStory.story.id}/participants',
+      );
+      await tester.pumpAndSettle();
+      await scrollToLeaveAction(tester);
+      await tapButton(tester, leaveActionFinder());
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('participants.leave.confirm-action')),
+      );
+
+      expect(find.text('Your stories'), findsOneWidget);
+
+      fakeMemoryRepository.memoriesResult = <Memory>[];
+      final postLeaveContext = tester.element(find.text('Your stories'));
+      GoRouter.of(postLeaveContext).go('/stories/${ownerStory.story.id}/map');
+      await tester.pumpAndSettle();
+
+      expect(fakeMemoryRepository.getMemoriesCalls, 2);
+      expect(find.text('Fake story map markers: 0'), findsOneWidget);
+      expect(find.text(memoryA.title), findsNothing);
+    });
   });
 
   group('Router memory navigation', () {
@@ -1010,6 +1060,191 @@ void main() {
       expect(
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
+      );
+    });
+
+    testWidgets('shouldOpenStoryMapFromDetailsAndBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyMapBuilder: fakeStoryMapBuilder,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsMapAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.map-action')),
+      );
+
+      expect(find.text('Map'), findsOneWidget);
+      expect(find.text('Fake story map markers: 2'), findsOneWidget);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-map.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(find.text('Map'), findsWidgets);
+    });
+
+    testWidgets('shouldOpenDirectStoryMapRouteAndFallbackBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+      final fakeStoryRepository = FakeStoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyMapBuilder: fakeStoryMapBuilder,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/map');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Map'), findsOneWidget);
+      expect(find.text('Fake story map markers: 2'), findsOneWidget);
+      expect(fakeMemoryRepository.receivedStoryIds, <String>[
+        ownerStory.story.id,
+      ]);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-map.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(
+        fakeStoryRepository.receivedGetStoryIds,
+        contains(ownerStory.story.id),
+      );
+    });
+
+    testWidgets('shouldOpenMemoryDetailsFromStoryMapAndBackToMap', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyMapBuilder: fakeStoryMapBuilder,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsMapAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.map-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(ValueKey('story-map.fake-marker.${memoryA.id}')),
+      );
+      await tester.tap(find.byKey(const ValueKey('story-map.memory-preview')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Memory'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.back-action')),
+      );
+
+      expect(find.text('Fake story map markers: 2'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
+    });
+
+    testWidgets('shouldKeepStoryMapUrlFreeOfMapAndMemoryData', (
+      WidgetTester tester,
+    ) async {
+      const storyId = 'story-secret';
+      final secretMemory = memory(
+        id: 'memory-secret',
+        storyId: storyId,
+        title: 'private-title',
+        location: MemoryLocation(latitude: 41.715123, longitude: 44.827456),
+        eventDate: memoryDateA,
+      );
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storyResult = userStory(
+          id: storyId,
+          title: 'Secret story',
+        );
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..memoriesResult = <Memory>[secretMemory];
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyMapBuilder: fakeStoryMapBuilder,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/$storyId/map');
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(ValueKey('story-map.fake-marker.${secretMemory.id}')),
+      );
+
+      final location = routerLocation(tester.element(find.text('Map')));
+
+      expect(location, contains(storyId));
+      expect(location, isNot(contains('41.715123')));
+      expect(location, isNot(contains('44.827456')));
+      expect(location, isNot(contains('private-title')));
+      expect(location, isNot(contains(secretMemory.id)));
+      expect(location, isNot(contains('openfreemap')));
+    });
+
+    testWidgets('shouldShowStoryMapActionForViewer', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[userStory(role: StoryRole.viewer)]
+        ..storyResult = userStory(role: StoryRole.viewer);
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        storyMapBuilder: fakeStoryMapBuilder,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsMapAction(tester);
+
+      expect(
+        find.byKey(const ValueKey('story-details.map-action')),
+        findsOneWidget,
       );
     });
 
@@ -1581,6 +1816,10 @@ Future<void> tapButton(
   await tester.pumpAndSettle();
 }
 
+String routerLocation(BuildContext context) {
+  return GoRouter.of(context).routeInformationProvider.value.uri.toString();
+}
+
 Future<void> scrollToLeaveAction(WidgetTester tester) async {
   await tester.scrollUntilVisible(
     leaveActionFinder(),
@@ -1612,6 +1851,17 @@ Future<void> scrollToStoryDetailsMemoriesAction(
   await tester.pumpAndSettle();
 }
 
+Future<void> scrollToStoryDetailsMapAction(
+  WidgetTester tester,
+) async {
+  await tester.scrollUntilVisible(
+    storyDetailsMapActionFinder(),
+    120,
+    scrollable: find.byType(Scrollable),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> scrollToMemoryDetailsDeleteAction(
   WidgetTester tester,
 ) async {
@@ -1635,6 +1885,10 @@ Finder storyDetailsParticipantsActionFinder() {
   return find.byKey(const ValueKey('story-details.participants-action'));
 }
 
+Finder storyDetailsMapActionFinder() {
+  return find.byKey(const ValueKey('story-details.map-action'));
+}
+
 Finder memoryDetailsDeleteActionFinder() {
   return find.byKey(const ValueKey('memory-details.delete-action'));
 }
@@ -1650,6 +1904,7 @@ Future<ProviderContainer> pumpApp(
   FakeInviteRepository? inviteRepository,
   FakeStoryParticipantRepository? participantRepository,
   FakeMemoryRepository? memoryRepository,
+  StoryMapBuilder? storyMapBuilder,
 }) async {
   final container = createContainer(
     fakeAuthRepository,
@@ -1657,6 +1912,7 @@ Future<ProviderContainer> pumpApp(
     inviteRepository: inviteRepository,
     participantRepository: participantRepository,
     memoryRepository: memoryRepository,
+    storyMapBuilder: storyMapBuilder,
   );
   addTearDown(container.dispose);
 
@@ -1677,6 +1933,7 @@ ProviderContainer createContainer(
   FakeInviteRepository? inviteRepository,
   FakeStoryParticipantRepository? participantRepository,
   FakeMemoryRepository? memoryRepository,
+  StoryMapBuilder? storyMapBuilder,
 }) {
   return ProviderContainer(
     overrides: [
@@ -1696,6 +1953,8 @@ ProviderContainer createContainer(
       locationPickerMapBuilderProvider.overrideWithValue(
         fakeLocationPickerMapBuilder,
       ),
+      if (storyMapBuilder != null)
+        storyMapBuilderProvider.overrideWithValue(storyMapBuilder),
     ],
   );
 }
@@ -2118,6 +2377,30 @@ Widget fakeLocationPickerMapBuilder(
         },
         child: const Text('Select point B'),
       ),
+    ],
+  );
+}
+
+Widget fakeStoryMapBuilder(
+  BuildContext context,
+  StoryMapViewConfiguration configuration,
+) {
+  return Column(
+    key: const ValueKey('story-map.fake-map'),
+    children: [
+      Expanded(
+        child: Center(
+          child: Text('Fake story map markers: ${configuration.markers.length}'),
+        ),
+      ),
+      for (final marker in configuration.markers)
+        TextButton(
+          key: ValueKey('story-map.fake-marker.${marker.id}'),
+          onPressed: () {
+            configuration.onMarkerSelected(marker.id);
+          },
+          child: Text('Select marker ${marker.id}'),
+        ),
     ],
   );
 }

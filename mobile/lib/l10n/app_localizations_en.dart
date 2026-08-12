@@ -489,6 +489,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyMemoriesRefreshFailureTitle => 'Could not refresh memories';
 
   @override
+  String get storyMapPageTitle => 'Map';
+
+  @override
+  String get storyMapBackLabel => 'Back to story';
+
+  @override
+  String get storyMapShowAllAction => 'Show all';
+
+  @override
+  String get storyMapRefreshAction => 'Refresh map';
+
+  @override
+  String get storyMapEmptyTitle => 'No memories on the map yet';
+
+  @override
+  String get storyMapEmptyBody =>
+      'Memories with saved places will appear here.';
+
+  @override
+  String get storyMapLoadFailureTitle => 'Could not load map';
+
+  @override
+  String get storyMapRefreshFailureTitle => 'Could not refresh map';
+
+  @override
   String memoryOpenLabel(String title) {
     return 'Open memory $title';
   }

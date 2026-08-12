@@ -15,12 +15,15 @@ import 'package:memory_map/features/invite/application/pending_invite_state.dart
 import 'package:memory_map/features/invite/presentation/accept_invite_screen.dart';
 import 'package:memory_map/features/invite/presentation/invite_screen.dart';
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
+import 'package:memory_map/features/memory/application/story_map_notifier.dart';
+import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/presentation/create_memory_screen.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_route.dart';
 import 'package:memory_map/features/memory/presentation/memory_details_route.dart';
 import 'package:memory_map/features/memory/presentation/memory_edit_route.dart';
+import 'package:memory_map/features/memory/presentation/story_map_route.dart';
 import 'package:memory_map/features/memory/presentation/story_memories_route.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
@@ -44,6 +47,7 @@ const editStoryRoute = '/stories/:storyId/edit';
 const inviteStoryRoute = '/stories/:storyId/invite';
 const storyParticipantsRoute = '/stories/:storyId/participants';
 const storyMemoriesRoute = '/stories/:storyId/memories';
+const storyMapRoute = '/stories/:storyId/map';
 const createMemoryRoute = '/stories/:storyId/memories/create';
 const memoryDetailsRoute = '/memories/:memoryId';
 const editMemoryRoute = '/memories/:memoryId/edit';
@@ -57,6 +61,7 @@ const editStoryRouteName = 'editStory';
 const inviteStoryRouteName = 'inviteStory';
 const storyParticipantsRouteName = 'storyParticipants';
 const storyMemoriesRouteName = 'storyMemories';
+const storyMapRouteName = 'storyMap';
 const createMemoryRouteName = 'createMemory';
 const memoryDetailsRouteName = 'memoryDetails';
 const editMemoryRouteName = 'editMemory';
@@ -234,6 +239,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               context.pushNamed(
                 storyMemoriesRouteName,
                 pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+            onMapSelected: (_) {
+              context.pushNamed(
+                storyMapRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: storyMapRouteName,
+        path: storyMapRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final storyId =
+              state.pathParameters[_storyIdPathParameter] ?? '';
+
+          return StoryMapRoute(
+            storyId: storyId,
+            onBack: () {
+              _popOrGoToStoryDetails(context, storyId);
+            },
+            onMemorySelected: (memory) {
+              context.pushNamed(
+                memoryDetailsRouteName,
+                pathParameters: {_memoryIdPathParameter: memory.id},
               );
             },
           );
@@ -629,6 +661,9 @@ void _completeLeftStory(
   context.goNamed(storiesRouteName);
   ref.invalidate(storyDetailsProvider(storyId));
   ref.invalidate(storyParticipantsProvider(storyId));
+  ref.invalidate(storyMemoriesProvider(storyId));
+  ref.invalidate(storyMapProvider(storyId));
+  ref.invalidate(storyMapSelectionProvider(storyId));
 }
 
 void _completeDeletedMemory(

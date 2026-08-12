@@ -920,6 +920,54 @@ abstract class AppLocalizations {
   /// **'Could not refresh memories'**
   String get storyMemoriesRefreshFailureTitle;
 
+  /// No description provided for @storyMapPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get storyMapPageTitle;
+
+  /// No description provided for @storyMapBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to story'**
+  String get storyMapBackLabel;
+
+  /// No description provided for @storyMapShowAllAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all'**
+  String get storyMapShowAllAction;
+
+  /// No description provided for @storyMapRefreshAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh map'**
+  String get storyMapRefreshAction;
+
+  /// No description provided for @storyMapEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No memories on the map yet'**
+  String get storyMapEmptyTitle;
+
+  /// No description provided for @storyMapEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Memories with saved places will appear here.'**
+  String get storyMapEmptyBody;
+
+  /// No description provided for @storyMapLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load map'**
+  String get storyMapLoadFailureTitle;
+
+  /// No description provided for @storyMapRefreshFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not refresh map'**
+  String get storyMapRefreshFailureTitle;
+
   /// Accessibility label for a tappable memory item
   ///
   /// In en, this message translates to:

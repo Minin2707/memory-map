@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/map/config/map_source_configuration.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_map_configuration.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_screen.dart';
@@ -245,8 +246,11 @@ void main() {
       tester,
     ) async {
       final mapSpy = FakeLocationPickerMapSpy();
+      final sourceConfiguration = MapSourceConfiguration(
+        styleUri: 'https://example.invalid/style.json',
+      );
       final alternateConfiguration = LocationPickerMapConfiguration(
-        styleString: 'https://example.invalid/style.json',
+        sourceConfiguration: sourceConfiguration,
         defaultLatitude: 10,
         defaultLongitude: 20,
         defaultZoom: 2,
