@@ -187,7 +187,7 @@ void main() {
       expect(repository.operations, <String>[
         'getStories',
         'createStory',
-        'getStories',
+        'getStory',
       ]);
       expect(callbackCalls, 1);
       expect(callbackStory, createdStory);
@@ -216,7 +216,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('shouldCallOnCreatedWhenReloadFailsAfterCreateSuccess', (
+    testWidgets('shouldCallOnCreatedWhenProjectionLoadFailsAfterCreateSuccess', (
       WidgetTester tester,
     ) async {
       Story? callbackStory;
@@ -229,7 +229,7 @@ void main() {
           callbackStory = story;
         },
       );
-      repository.getStoriesFailures.add(
+      repository.getStoryFailures.add(
         const StoryApplicationException(StoryNetworkUnavailable()),
       );
 
@@ -570,6 +570,8 @@ final class FakeStoryRepository implements StoryRepository {
   Object? createFailure;
   Completer<Story>? createCompleter;
   List<UserStory> storiesResult = <UserStory>[existingStory];
+  UserStory storyResult = UserStory(story: createdStory, role: StoryRole.owner);
+  final List<Object> getStoryFailures = <Object>[];
   final List<Object> getStoriesFailures = <Object>[];
   final List<String> operations = <String>[];
 
@@ -600,7 +602,13 @@ final class FakeStoryRepository implements StoryRepository {
   @override
   Future<UserStory> getStory(String storyId) async {
     getStoryCalls += 1;
-    throw UnimplementedError();
+    operations.add('getStory');
+
+    if (getStoryFailures.isNotEmpty) {
+      throw getStoryFailures.removeAt(0);
+    }
+
+    return storyResult;
   }
 
   @override

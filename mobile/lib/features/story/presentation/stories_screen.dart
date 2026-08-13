@@ -29,9 +29,10 @@ class StoriesScreen extends ConsumerWidget {
     final effectiveDisplayName = displayName.trim().isEmpty
         ? l10n.fallbackDisplayName
         : displayName.trim();
+    final greetingName = _greetingName(effectiveDisplayName);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: const Color(0xFFFAF8F8),
       body: SafeArea(
         child: RefreshIndicator(
           color: const Color(0xFFFF5D72),
@@ -44,16 +45,17 @@ class StoriesScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
                 sliver: SliverToBoxAdapter(
                   child: _StoriesHeader(
-                    displayName: effectiveDisplayName,
+                    displayName: greetingName,
+                    avatarDisplayName: effectiveDisplayName,
                     avatarUrl: avatarUrl,
                   ),
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+                padding: const EdgeInsets.fromLTRB(24, 21, 24, 0),
                 sliver: SliverToBoxAdapter(
                   child: _StoriesSectionHeader(
                     onCreateStory: onCreateStory,
@@ -81,7 +83,7 @@ class StoriesScreen extends ConsumerWidget {
     if (storiesValue.isLoading) {
       return const [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(24, 18, 24, 0),
+          padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
           sliver: SliverToBoxAdapter(child: _StoriesLoadingView()),
         ),
       ];
@@ -90,7 +92,7 @@ class StoriesScreen extends ConsumerWidget {
     if (storiesValue.hasError) {
       return [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
           sliver: SliverToBoxAdapter(
             child: StoriesErrorView(
               title: l10n.unexpectedErrorTitle,
@@ -178,12 +180,12 @@ class StoriesScreen extends ConsumerWidget {
 
     slivers.add(
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               if (index.isOdd) {
-                return const SizedBox(height: 16);
+                return const SizedBox(height: 12);
               }
 
               final storyIndex = index ~/ 2;
@@ -202,13 +204,24 @@ class StoriesScreen extends ConsumerWidget {
   }
 }
 
+String _greetingName(String displayName) {
+  final trimmed = displayName.trim();
+  if (trimmed.isEmpty) {
+    return trimmed;
+  }
+
+  return trimmed.split(RegExp(r'\s+')).first;
+}
+
 class _StoriesHeader extends StatelessWidget {
   const _StoriesHeader({
     required this.displayName,
+    required this.avatarDisplayName,
     required this.avatarUrl,
   });
 
   final String displayName;
+  final String avatarDisplayName;
   final String? avatarUrl;
 
   @override
@@ -224,21 +237,21 @@ class _StoriesHeader extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Color(0xFF1F2937),
-            fontSize: 32,
-            fontWeight: FontWeight.w900,
-            height: 1.1,
+            fontSize: 25,
+            fontWeight: FontWeight.w800,
+            height: 1.13,
             letterSpacing: 0,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
         Text(
           l10n.storiesSubtitle,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 20,
-            height: 1.35,
+            color: Color(0xFF667085),
+            fontSize: 14.5,
+            height: 1.32,
             fontWeight: FontWeight.w500,
             letterSpacing: 0,
           ),
@@ -248,15 +261,28 @@ class _StoriesHeader extends StatelessWidget {
     final trailingControls = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton.filledTonal(
-          key: const ValueKey('stories.notification.action'),
-          onPressed: null,
-          tooltip: l10n.storiesNotificationUnavailableLabel,
-          icon: const Icon(Icons.notifications_none_rounded),
+        SizedBox.square(
+          dimension: 44,
+          child: IconButton.filledTonal(
+            key: const ValueKey('stories.notification.action'),
+            onPressed: () {},
+            tooltip: l10n.storiesNotificationUnavailableLabel,
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              size: 21,
+            ),
+            style: IconButton.styleFrom(
+              foregroundColor: const Color(0xFF1F2937),
+              backgroundColor: Colors.white,
+              shadowColor: const Color(0x140F172A),
+              elevation: 1,
+              padding: EdgeInsets.zero,
+            ),
+          ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         _StoriesAvatar(
-          displayName: displayName,
+          displayName: avatarDisplayName,
           avatarUrl: avatarUrl,
         ),
       ],
@@ -270,7 +296,7 @@ class _StoriesHeader extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: trailingControls,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           textColumn,
         ],
       );
@@ -310,7 +336,7 @@ class _StoriesAvatar extends StatelessWidget {
       image: true,
       child: CircleAvatar(
         key: const ValueKey('stories.header.avatar'),
-        radius: 32,
+        radius: 26,
         foregroundImage: foregroundImage,
         onForegroundImageError: foregroundImage == null ? null : (_, __) {},
         backgroundColor: const Color(0xFFFFE6EA),
@@ -318,7 +344,7 @@ class _StoriesAvatar extends StatelessWidget {
           _initial(displayName),
           style: const TextStyle(
             color: Color(0xFFFF5D72),
-            fontSize: 22,
+            fontSize: 18,
             fontWeight: FontWeight.w900,
             letterSpacing: 0,
           ),
@@ -356,33 +382,38 @@ class _StoriesSectionHeader extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
         color: Color(0xFF1F2937),
-        fontSize: 26,
-        fontWeight: FontWeight.w900,
+        fontSize: 20.5,
+        fontWeight: FontWeight.w800,
         letterSpacing: 0,
       ),
     );
 
-    final createAction = OutlinedButton.icon(
+    final createAction = FilledButton.tonalIcon(
       key: const ValueKey('stories.create.section-action'),
       onPressed: onCreateStory,
-      icon: const Icon(Icons.add_rounded),
+      icon: const Icon(
+        Icons.add_rounded,
+        size: 20,
+      ),
       label: Text(
         l10n.storiesCreateAction,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      style: OutlinedButton.styleFrom(
+      style: FilledButton.styleFrom(
         foregroundColor: const Color(0xFFFF5D72),
-        side: const BorderSide(color: Color(0xFFFFD6DC)),
         backgroundColor: const Color(0xFFFFF7F8),
-        minimumSize: const Size(0, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        disabledForegroundColor: const Color(0xFFFF5D72),
+        disabledBackgroundColor: const Color(0xFFFFF7F8),
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Color(0xFFFFD6DC)),
         ),
         textStyle: const TextStyle(
           fontWeight: FontWeight.w800,
-          fontSize: 15,
+          fontSize: 14,
           letterSpacing: 0,
         ),
       ),
@@ -404,7 +435,7 @@ class _StoriesSectionHeader extends StatelessWidget {
         Expanded(child: title),
         const SizedBox(width: 12),
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 190),
+          constraints: const BoxConstraints(maxWidth: 166),
           child: createAction,
         ),
       ],
@@ -470,9 +501,9 @@ class _StoriesLoadingView extends StatelessWidget {
       key: const ValueKey('stories.loading.view'),
       children: const [
         _SkeletonCard(widthFactor: 1.0),
-        SizedBox(height: 16),
+        SizedBox(height: 14),
         _SkeletonCard(widthFactor: 0.94),
-        SizedBox(height: 16),
+        SizedBox(height: 14),
         _SkeletonCard(widthFactor: 0.88),
       ],
     );
@@ -492,52 +523,87 @@ class _SkeletonCard extends StatelessWidget {
       widthFactor: widthFactor,
       alignment: Alignment.centerLeft,
       child: Container(
-        height: 120,
+        height: 124,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x100F172A),
-              offset: Offset(0, 10),
-              blurRadius: 24,
+              color: Color(0x120F172A),
+              offset: Offset(0, 8),
+              blurRadius: 20,
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(10),
           child: Row(
             children: [
               Container(
-                width: 92,
-                height: 92,
+                width: 104,
+                height: 104,
                 decoration: BoxDecoration(
                   color: const Color(0xFFECEFF3),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        width: 70,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F3F5),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Container(
-                      width: double.infinity,
+                      width: 180,
                       height: 18,
                       decoration: BoxDecoration(
                         color: const Color(0xFFECEFF3),
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     Container(
-                      width: 150,
+                      width: 140,
                       height: 14,
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F3F5),
                         borderRadius: BorderRadius.circular(8),
                       ),
+                    ),
+                    const Spacer(),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Row(
+                          children: [
+                            Flexible(
+                              flex: 6,
+                              child: _SkeletonLine(
+                                width: constraints.maxWidth * 0.46,
+                                height: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              flex: 5,
+                              child: _SkeletonLine(
+                                width: constraints.maxWidth * 0.38,
+                                height: 14,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -545,6 +611,28 @@ class _SkeletonCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SkeletonLine extends StatelessWidget {
+  const _SkeletonLine({
+    required this.width,
+    required this.height,
+  });
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F3F5),
+        borderRadius: BorderRadius.circular(8),
       ),
     );
   }

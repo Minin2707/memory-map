@@ -5,10 +5,14 @@ import 'package:memory_map/l10n/app_localizations.dart';
 class StoryRoleBadge extends StatelessWidget {
   const StoryRoleBadge({
     required this.role,
+    this.showIcon = true,
+    this.compact = false,
     super.key,
   });
 
   final StoryRole role;
+  final bool showIcon;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -19,21 +23,26 @@ class StoryRoleBadge extends StatelessWidget {
     return Semantics(
       label: label,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 34),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        constraints: BoxConstraints(minHeight: compact ? 28 : 34),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 12,
+          vertical: compact ? 6 : 8,
+        ),
         decoration: BoxDecoration(
           color: colors.background,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(compact ? 12 : 14),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              _icon(role),
-              size: 16,
-              color: colors.foreground,
-            ),
-            const SizedBox(width: 6),
+            if (showIcon) ...[
+              Icon(
+                _icon(role),
+                size: 16,
+                color: colors.foreground,
+              ),
+              const SizedBox(width: 6),
+            ],
             Flexible(
               child: Text(
                 label,
@@ -41,8 +50,8 @@ class StoryRoleBadge extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: colors.foreground,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontSize: compact ? 11.5 : 13,
+                  fontWeight: compact ? FontWeight.w800 : FontWeight.w900,
                   letterSpacing: 0,
                 ),
               ),

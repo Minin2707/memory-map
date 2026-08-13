@@ -53,7 +53,13 @@ public class TransactionalUpdateStoryService
         );
         Story saved = storyRepository.update(updated);
 
-        return new UserStory(saved, current.role());
+        return new UserStory(
+                saved,
+                current.role(),
+                current.memoryCount(),
+                current.participantCount(),
+                current.previewPhoto()
+        );
     }
 
     private static boolean canUpdate(StoryRole role) {

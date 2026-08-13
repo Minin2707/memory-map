@@ -9,6 +9,7 @@ import 'package:memory_map/features/memory/application/memory_application_provid
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
+import 'package:memory_map/features/story/application/story_summary_reconciler.dart';
 
 final deleteMediaProvider = AsyncNotifierProvider.autoDispose
     .family<DeleteMediaNotifier, DeleteMediaState, String>(
@@ -55,7 +56,7 @@ final class DeleteMediaNotifier extends AsyncNotifier<DeleteMediaState> {
       }
 
       _removeFromLoadedMemoryMedia(media);
-      await _synchronizeLoadedMemoryPreview(media.memoryId);
+      await _synchronizeLoadedMemoryAndStoryPreviews(media.memoryId);
       if (!ref.mounted) {
         return false;
       }
@@ -100,7 +101,7 @@ final class DeleteMediaNotifier extends AsyncNotifier<DeleteMediaState> {
     ref.read(provider.notifier).removeMediaById(media.id);
   }
 
-  Future<void> _synchronizeLoadedMemoryPreview(String memoryId) async {
+  Future<void> _synchronizeLoadedMemoryAndStoryPreviews(String memoryId) async {
     if (!_hasLoadedMemoryPreviewTarget(memoryId)) {
       return;
     }
@@ -114,6 +115,9 @@ final class DeleteMediaNotifier extends AsyncNotifier<DeleteMediaState> {
       }
 
       _applyAuthoritativeReadToLoadedProviders(readModel);
+      await ref
+          .read(storySummaryReconcilerProvider)
+          .reconcileAuthoritativeStory(readModel.memory.storyId);
     } on Object {
       return;
     }

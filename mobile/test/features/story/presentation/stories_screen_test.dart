@@ -3,16 +3,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/story/application/story_application_exception.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/domain/story.dart';
 import 'package:memory_map/features/story/domain/story_failure.dart';
+import 'package:memory_map/features/story/domain/story_photo_preview.dart';
 import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/update_story_input.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
 import 'package:memory_map/features/story/presentation/stories_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+import '../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('StoriesScreen header', () {
@@ -22,6 +26,19 @@ void main() {
       expect(find.text('Hi, Anna! 👋'), findsOneWidget);
       expect(find.text('Your shared memories live here'), findsOneWidget);
       expect(find.text('Your stories'), findsOneWidget);
+    });
+
+    testWidgets('shouldUseFirstDisplayNameTokenForFriendlyGreeting', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository(),
+        displayName: 'Anna Petrova',
+      );
+
+      expect(find.text('Hi, Anna! 👋'), findsOneWidget);
+      expect(find.textContaining('Anna Petrova!'), findsNothing);
     });
 
     testWidgets('shouldRenderRussianHeader', (WidgetTester tester) async {
@@ -73,7 +90,7 @@ void main() {
       );
     });
 
-    testWidgets('shouldKeepNotificationActionDisabled', (
+    testWidgets('shouldRenderVisibleNoOpNotificationAction', (
       WidgetTester tester,
     ) async {
       await pumpScreen(tester, FakeStoryRepository());
@@ -82,7 +99,7 @@ void main() {
         find.byKey(const ValueKey('stories.notification.action')),
       );
 
-      expect(button.onPressed, isNull);
+      expect(button.onPressed, isNotNull);
     });
   });
 
@@ -198,19 +215,37 @@ void main() {
       expect(find.text('coOwner'), findsNothing);
     });
 
-    testWidgets('shouldNotRenderUnavailableBackendFields', (
+    testWidgets('shouldRenderCountsAndLoadPreviewWithoutRawBackendFields', (
       WidgetTester tester,
     ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..thumbnailResult = media_fixtures.validPngBytes;
       await pumpScreen(
         tester,
-        FakeStoryRepository()..storiesResult = <UserStory>[ownerStory],
+        FakeStoryRepository()
+          ..storiesResult = <UserStory>[
+            userStory(
+              id: 'private-story-id',
+              title: 'Private visible title',
+              memoryCount: 24,
+              participantCount: 2,
+              previewPhoto: storyPreviewPhoto(mediaId: 'private-media-id'),
+            ),
+          ],
+        mediaRepository: mediaRepository,
       );
 
-      expect(find.textContaining('24 memories'), findsNothing);
-      expect(find.textContaining('2 participants'), findsNothing);
+      expect(find.text('24 memories'), findsOneWidget);
+      expect(find.text('2 participants'), findsOneWidget);
+      expect(mediaRepository.receivedBinaryPaths, <String>[
+        '/api/v1/media/private-media-id/thumbnail',
+      ]);
       expect(find.textContaining('owner-id'), findsNothing);
       expect(find.textContaining('user-id'), findsNothing);
       expect(find.textContaining('story-owner'), findsNothing);
+      expect(find.textContaining('private-story-id'), findsNothing);
+      expect(find.textContaining('/api/v1/media'), findsNothing);
+      expect(find.textContaining('private-media-id'), findsNothing);
     });
 
     testWidgets('shouldCallStorySelectedWithExactStoryId', (
@@ -404,6 +439,7 @@ Future<void> pumpScreen(
   String? avatarUrl,
   VoidCallback? onCreateStory,
   ValueChanged<String>? onStorySelected,
+  media_fixtures.FakeMediaRepository? mediaRepository,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
 }) async {
@@ -411,6 +447,9 @@ Future<void> pumpScreen(
     ProviderScope(
       overrides: [
         storyRepositoryProvider.overrideWithValue(repository),
+        mediaRepositoryProvider.overrideWithValue(
+          mediaRepository ?? media_fixtures.FakeMediaRepository(),
+        ),
       ],
       child: MaterialApp(
         locale: locale,
@@ -451,6 +490,9 @@ UserStory userStory({
   String title = 'First story',
   String? description = 'First description',
   StoryRole role = StoryRole.owner,
+  int memoryCount = 0,
+  int participantCount = 1,
+  StoryPhotoPreview? previewPhoto,
 }) {
   return UserStory(
     story: Story(
@@ -461,6 +503,18 @@ UserStory userStory({
       updatedAt: DateTime.utc(2026, 1, 2),
     ),
     role: role,
+    memoryCount: memoryCount,
+    participantCount: participantCount,
+    previewPhoto: previewPhoto,
+  );
+}
+
+StoryPhotoPreview storyPreviewPhoto({
+  String mediaId = 'media-id',
+}) {
+  return StoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
   );
 }
 

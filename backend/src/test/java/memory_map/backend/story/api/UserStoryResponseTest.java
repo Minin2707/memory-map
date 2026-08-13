@@ -1,5 +1,6 @@
 package memory_map.backend.story.api;
 
+import memory_map.backend.story.application.StoryPhotoPreview;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.storyparticipant.domain.StoryRole;
@@ -17,6 +18,8 @@ class UserStoryResponseTest {
             UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID OWNER_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000002");
+    private static final UUID MEDIA_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000003");
     private static final Instant CREATED_AT =
             Instant.parse("2026-01-01T10:00:00Z");
     private static final Instant UPDATED_AT =
@@ -33,8 +36,32 @@ class UserStoryResponseTest {
         assertThat(response.title()).isEqualTo("Our Story");
         assertThat(response.description()).isEqualTo("The beginning");
         assertThat(response.role()).isEqualTo(StoryRole.OWNER);
+        assertThat(response.memoryCount()).isEqualTo(12);
+        assertThat(response.participantCount()).isEqualTo(3);
+        assertThat(response.previewPhoto()).isNull();
         assertThat(response.createdAt()).isEqualTo(CREATED_AT);
         assertThat(response.updatedAt()).isEqualTo(UPDATED_AT);
+    }
+
+    @Test
+    void shouldMapPreviewPhoto() {
+
+        UserStoryResponse response = UserStoryResponse.from(
+                userStory(
+                        "Our Story",
+                        "The beginning",
+                        StoryRole.OWNER,
+                        12,
+                        3,
+                        new StoryPhotoPreview(MEDIA_ID)
+                )
+        );
+
+        assertThat(response.previewPhoto())
+                .isEqualTo(new StoryPhotoPreviewResponse(
+                        MEDIA_ID,
+                        "/api/v1/media/%s/thumbnail".formatted(MEDIA_ID)
+                ));
     }
 
     @Test
@@ -68,12 +95,16 @@ class UserStoryResponseTest {
     @Test
     void shouldPreserveValueSemantics() {
 
-        UserStoryResponse first = UserStoryResponse.from(
-                userStory("Our Story", "The beginning", StoryRole.OWNER)
-        );
-        UserStoryResponse second = UserStoryResponse.from(
-                userStory("Our Story", "The beginning", StoryRole.OWNER)
-        );
+        UserStoryResponse first = UserStoryResponse.from(userStory(
+                "Our Story",
+                "The beginning",
+                StoryRole.OWNER
+        ));
+        UserStoryResponse second = UserStoryResponse.from(userStory(
+                "Our Story",
+                "The beginning",
+                StoryRole.OWNER
+        ));
         UserStoryResponse different = UserStoryResponse.from(
                 userStory("Another Story", "The beginning", StoryRole.OWNER)
         );
@@ -97,7 +128,34 @@ class UserStoryResponseTest {
                         CREATED_AT,
                         UPDATED_AT
                 ),
-                role
+                role,
+                12,
+                3,
+                null
+        );
+    }
+
+    private static UserStory userStory(
+            String title,
+            String description,
+            StoryRole role,
+            int memoryCount,
+            int participantCount,
+            StoryPhotoPreview previewPhoto
+    ) {
+        return new UserStory(
+                new Story(
+                        STORY_ID,
+                        OWNER_ID,
+                        title,
+                        description,
+                        CREATED_AT,
+                        UPDATED_AT
+                ),
+                role,
+                memoryCount,
+                participantCount,
+                previewPhoto
         );
     }
 }

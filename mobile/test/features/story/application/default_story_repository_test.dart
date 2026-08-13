@@ -7,6 +7,7 @@ import 'package:memory_map/features/story/data/remote/story_remote_exception.dar
 import 'package:memory_map/features/story/data/remote/update_story_remote_request.dart';
 import 'package:memory_map/features/story/domain/story.dart';
 import 'package:memory_map/features/story/domain/story_failure.dart';
+import 'package:memory_map/features/story/domain/story_photo_preview.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/story_update_field.dart';
 import 'package:memory_map/features/story/domain/update_story_input.dart';
@@ -87,9 +88,10 @@ void main() {
     });
 
     test('shouldReturnExactOrderedStoryList', () async {
+      final enrichedStory = userStoryFixtureWithProjection();
       final fakes = StoryRepositoryFakes()
         ..remote.stories = <UserStory>[
-          userStoryFixture,
+          enrichedStory,
           coOwnerUserStoryFixture,
         ];
       final repository = fakes.createRepository();
@@ -97,9 +99,12 @@ void main() {
       final stories = await repository.getStories();
 
       expect(stories, <UserStory>[
-        userStoryFixture,
+        enrichedStory,
         coOwnerUserStoryFixture,
       ]);
+      expect(stories.first.memoryCount, 12);
+      expect(stories.first.participantCount, 2);
+      expect(stories.first.previewPhoto, storyPreviewPhoto);
     });
 
     test('shouldReturnEmptyStoryList', () async {
@@ -123,12 +128,17 @@ void main() {
     });
 
     test('shouldReturnExactUserStory', () async {
+      final enrichedStory = userStoryFixtureWithProjection();
       final fakes = StoryRepositoryFakes();
+      fakes.remote.story = enrichedStory;
       final repository = fakes.createRepository();
 
       final story = await repository.getStory('story-id');
 
-      expect(story, userStoryFixture);
+      expect(story, enrichedStory);
+      expect(story.memoryCount, 12);
+      expect(story.participantCount, 2);
+      expect(story.previewPhoto, storyPreviewPhoto);
     });
 
     test('shouldRejectBlankStoryIdBeforeRemoteCall', () async {
@@ -385,6 +395,21 @@ final UserStory userStoryFixture = UserStory(
   role: StoryRole.owner,
 );
 
+final StoryPhotoPreview storyPreviewPhoto = StoryPhotoPreview(
+  mediaId: 'media-id',
+  thumbnailPath: '/api/v1/media/media-id/thumbnail',
+);
+
+UserStory userStoryFixtureWithProjection() {
+  return UserStory(
+    story: storyFixture,
+    role: StoryRole.owner,
+    memoryCount: 12,
+    participantCount: 2,
+    previewPhoto: storyPreviewPhoto,
+  );
+}
+
 final UserStory coOwnerUserStoryFixture = UserStory(
   story: Story(
     id: 'second-story-id',
@@ -415,6 +440,7 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
   String? receivedUpdateStoryId;
   UpdateStoryRemoteRequest? receivedUpdateRequest;
   List<UserStory> stories = <UserStory>[userStoryFixture];
+  UserStory story = userStoryFixture;
 
   @override
   Future<Story> createStory(CreateStoryRemoteRequest request) async {
@@ -439,7 +465,7 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
     receivedStoryId = storyId;
     _throwIfConfigured();
 
-    return userStoryFixture;
+    return story;
   }
 
   @override

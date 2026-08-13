@@ -154,7 +154,8 @@ void main() {
       await pumpApp(tester, fakeAuthRepository);
       await tester.pumpAndSettle();
 
-      expect(find.text('Hi, Ada Lovelace! 👋'), findsOneWidget);
+      expect(find.text('Hi, Ada! 👋'), findsOneWidget);
+      expect(find.textContaining('Ada Lovelace!'), findsNothing);
       expect(find.text('Your stories'), findsOneWidget);
       expect(find.text('Welcome, Ada Lovelace'), findsNothing);
     });

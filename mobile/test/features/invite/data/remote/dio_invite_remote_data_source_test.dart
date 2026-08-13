@@ -482,6 +482,9 @@ Map<String, Object?> validUserStoryJson({String role = 'OWNER'}) {
   return <String, Object?>{
     ...validStoryJson(),
     'role': role,
+    'memoryCount': 0,
+    'participantCount': 1,
+    'previewPhoto': null,
   };
 }
 

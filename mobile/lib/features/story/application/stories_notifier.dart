@@ -105,7 +105,10 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
     }
 
     try {
-      final stories = await ref.read(storyRepositoryProvider).getStories();
+      final userStory = await ref.read(storyRepositoryProvider).getStory(
+            createdStory.id,
+          );
+      final stories = _upsertStories(creatingState.stories, userStory);
       state = AsyncData<StoriesState>(StoriesState(stories: stories));
     } on StoryApplicationException catch (error) {
       state = AsyncData<StoriesState>(
@@ -125,6 +128,10 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
   }
 
   void applyUpdatedStory(UserStory updatedStory) {
+    applyStoryMetadataMutation(updatedStory);
+  }
+
+  void applyStoryMetadataMutation(UserStory updatedStory) {
     final currentState = _currentState;
     if (currentState == null || currentState.hasLoadFailure) {
       return;
@@ -138,7 +145,27 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
     }
 
     final stories = List<UserStory>.of(currentState.stories);
-    stories[index] = updatedStory;
+    stories[index] = stories[index].withStoryMutation(updatedStory.story);
+    state = AsyncData<StoriesState>(
+      currentState.copyWith(stories: stories),
+    );
+  }
+
+  void applyAuthoritativeRead(UserStory userStory) {
+    final currentState = _currentState;
+    if (currentState == null || currentState.hasLoadFailure) {
+      return;
+    }
+
+    final index = currentState.stories.indexWhere(
+      (existing) => existing.story.id == userStory.story.id,
+    );
+    if (index < 0) {
+      return;
+    }
+
+    final stories = List<UserStory>.of(currentState.stories);
+    stories[index] = userStory;
     state = AsyncData<StoriesState>(
       currentState.copyWith(stories: stories),
     );
@@ -150,18 +177,10 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
       return;
     }
 
-    final stories = List<UserStory>.of(currentState.stories);
-    final index = stories.indexWhere(
-      (existing) => existing.story.id == userStory.story.id,
-    );
-    if (index < 0) {
-      stories.add(userStory);
-    } else {
-      stories[index] = userStory;
-    }
-
     state = AsyncData<StoriesState>(
-      currentState.copyWith(stories: stories),
+      currentState.copyWith(
+        stories: _upsertStories(currentState.stories, userStory),
+      ),
     );
   }
 
@@ -193,6 +212,23 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
   }
 
   bool get _isLoading => state is AsyncLoading<StoriesState>;
+
+  List<UserStory> _upsertStories(
+    List<UserStory> currentStories,
+    UserStory userStory,
+  ) {
+    final stories = List<UserStory>.of(currentStories);
+    final index = stories.indexWhere(
+      (existing) => existing.story.id == userStory.story.id,
+    );
+    if (index < 0) {
+      stories.add(userStory);
+    } else {
+      stories[index] = userStory;
+    }
+
+    return List<UserStory>.unmodifiable(stories);
+  }
 
   StoriesState? get _currentState {
     final currentState = state;

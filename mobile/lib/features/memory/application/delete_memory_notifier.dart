@@ -6,6 +6,7 @@ import 'package:memory_map/features/memory/application/story_memories_notifier.d
 import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
+import 'package:memory_map/features/story/application/story_summary_reconciler.dart';
 
 final deleteMemoryProvider = AsyncNotifierProvider.autoDispose
     .family<DeleteMemoryNotifier, DeleteMemoryState, String>(
@@ -61,6 +62,13 @@ final class DeleteMemoryNotifier extends AsyncNotifier<DeleteMemoryState> {
     try {
       await ref.read(memoryRepositoryProvider).deleteMemory(input);
       _removeFromLoadedStoryMemories(memory);
+      await ref
+          .read(storySummaryReconcilerProvider)
+          .reconcileAuthoritativeStory(memory.storyId);
+      if (!ref.mounted) {
+        return false;
+      }
+
       state = const AsyncData<DeleteMemoryState>(DeleteMemoryState());
       return true;
     } on MemoryApplicationException catch (error) {

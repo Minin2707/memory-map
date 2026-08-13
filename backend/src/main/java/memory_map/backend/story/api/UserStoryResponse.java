@@ -18,6 +18,12 @@ public record UserStoryResponse(
 
         StoryRole role,
 
+        int memoryCount,
+
+        int participantCount,
+
+        StoryPhotoPreviewResponse previewPhoto,
+
         Instant createdAt,
 
         Instant updatedAt
@@ -33,6 +39,13 @@ public record UserStoryResponse(
                 story.title(),
                 story.description(),
                 userStory.role(),
+                userStory.memoryCount(),
+                userStory.participantCount(),
+                userStory.previewPhoto() == null
+                        ? null
+                        : StoryPhotoPreviewResponse.from(
+                                userStory.previewPhoto()
+                        ),
                 story.createdAt(),
                 story.updatedAt()
         );

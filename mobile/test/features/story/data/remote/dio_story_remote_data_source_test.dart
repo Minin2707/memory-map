@@ -84,7 +84,12 @@ void main() {
       final stories = await dataSource.getStories();
 
       expect(stories, <UserStory>[
-        UserStory(story: createStory(), role: StoryRole.owner),
+        UserStory(
+          story: createStory(),
+          role: StoryRole.owner,
+          memoryCount: 12,
+          participantCount: 2,
+        ),
         UserStory(
           story: Story(
             id: 'second-story-id',
@@ -94,6 +99,8 @@ void main() {
             updatedAt: DateTime.parse('2026-01-10T10:00:00.123456Z'),
           ),
           role: StoryRole.editor,
+          memoryCount: 12,
+          participantCount: 2,
         ),
       ]);
     });
@@ -129,7 +136,34 @@ void main() {
 
       expect(
         story,
-        UserStory(story: createStory(), role: StoryRole.viewer),
+        UserStory(
+          story: createStory(),
+          role: StoryRole.viewer,
+          memoryCount: 12,
+          participantCount: 2,
+        ),
+      );
+    });
+
+    test('shouldReturnUserStoryWithPreviewPhoto', () async {
+      final dataSource = createDataSource(
+        FakeHttpClientAdapter(
+          responseData: <String, Object?>{
+            ...validUserStoryJson(),
+            'previewPhoto': <String, Object?>{
+              'mediaId': 'media-id',
+              'thumbnailUrl': '/api/v1/media/media-id/thumbnail',
+            },
+          },
+        ),
+      );
+
+      final story = await dataSource.getStory('story-id');
+
+      expect(story.previewPhoto?.mediaId, 'media-id');
+      expect(
+        story.previewPhoto?.thumbnailPath,
+        '/api/v1/media/media-id/thumbnail',
       );
     });
 
@@ -217,6 +251,8 @@ void main() {
             updatedAt: DateTime.parse('2026-01-10T10:00:00.123456Z'),
           ),
           role: StoryRole.coOwner,
+          memoryCount: 12,
+          participantCount: 2,
         ),
       );
     });
@@ -437,6 +473,9 @@ Map<String, Object?> validUserStoryJson({String role = 'OWNER'}) {
   return <String, Object?>{
     ...validStoryJson(),
     'role': role,
+    'memoryCount': 12,
+    'participantCount': 2,
+    'previewPhoto': null,
   };
 }
 

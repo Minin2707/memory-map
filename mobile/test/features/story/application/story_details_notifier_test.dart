@@ -7,6 +7,7 @@ import 'package:memory_map/features/story/application/story_application_provider
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_state.dart';
 import 'package:memory_map/features/story/domain/story.dart';
+import 'package:memory_map/features/story/domain/story_photo_preview.dart';
 import 'package:memory_map/features/story/domain/story_failure.dart';
 import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
@@ -260,8 +261,14 @@ void main() {
   });
 
   group('StoryDetailsNotifier apply updated story', () {
-    test('shouldReplaceMatchingStoryWithoutNetworkCall', () async {
-      final repository = FakeStoryRepository()..storyResult = ownerStory;
+    test('shouldPreserveProjectionMetadataForStoryMutation', () async {
+      final preview = storyPreviewPhoto(mediaId: 'media-a');
+      final enrichedOwnerStory = userStory(
+        memoryCount: 12,
+        participantCount: 2,
+        previewPhoto: preview,
+      );
+      final repository = FakeStoryRepository()..storyResult = enrichedOwnerStory;
       final container = createContainer(repository);
       addTearDown(container.dispose);
       await container.read(storyDetailsProvider('story-1').future);
@@ -270,7 +277,15 @@ void main() {
           .read(storyDetailsProvider('story-1').notifier)
           .applyUpdatedStory(updatedOwnerStory);
 
-      expect(readState(container, 'story-1').userStory, updatedOwnerStory);
+      final state = readState(container, 'story-1');
+      expect(
+        state.userStory,
+        enrichedOwnerStory.withStoryMutation(updatedOwnerStory.story),
+      );
+      expect(state.userStory?.role, StoryRole.owner);
+      expect(state.userStory?.memoryCount, 12);
+      expect(state.userStory?.participantCount, 2);
+      expect(state.userStory?.previewPhoto, same(preview));
       expect(repository.getStoryCalls, 1);
     });
 
@@ -283,6 +298,59 @@ void main() {
       container
           .read(storyDetailsProvider('story-1').notifier)
           .applyUpdatedStory(userStory(id: 'other-story'));
+
+      expect(readState(container, 'story-1').userStory, ownerStory);
+    });
+  });
+
+  group('StoryDetailsNotifier authoritative read', () {
+    test('shouldReplaceAllProjectionFields', () async {
+      final preview = storyPreviewPhoto(mediaId: 'media-new');
+      final authoritative = userStory(
+        id: ownerStory.story.id,
+        title: 'Authoritative story',
+        role: StoryRole.coOwner,
+        memoryCount: 44,
+        participantCount: 5,
+        previewPhoto: preview,
+      );
+      final repository = FakeStoryRepository()..storyResult = ownerStory;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storyDetailsProvider('story-1').future);
+
+      container
+          .read(storyDetailsProvider('story-1').notifier)
+          .applyAuthoritativeRead(authoritative);
+
+      expect(readState(container, 'story-1').userStory, authoritative);
+    });
+
+    test('shouldClearPreviewWhenAuthoritativeReadHasNullPreview', () async {
+      final oldPreview = storyPreviewPhoto(mediaId: 'media-old');
+      final existing = userStory(previewPhoto: oldPreview);
+      final authoritative = userStory(id: existing.story.id);
+      final repository = FakeStoryRepository()..storyResult = existing;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storyDetailsProvider('story-1').future);
+
+      container
+          .read(storyDetailsProvider('story-1').notifier)
+          .applyAuthoritativeRead(authoritative);
+
+      expect(readState(container, 'story-1').userStory?.previewPhoto, isNull);
+    });
+
+    test('shouldIgnoreMismatchedAuthoritativeRead', () async {
+      final repository = FakeStoryRepository()..storyResult = ownerStory;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storyDetailsProvider('story-1').future);
+
+      container
+          .read(storyDetailsProvider('story-1').notifier)
+          .applyAuthoritativeRead(userStory(id: 'other-story'));
 
       expect(readState(container, 'story-1').userStory, ownerStory);
     });
@@ -329,6 +397,9 @@ UserStory userStory({
   String title = 'First story',
   String? description = 'First description',
   StoryRole role = StoryRole.owner,
+  int memoryCount = 0,
+  int participantCount = 1,
+  StoryPhotoPreview? previewPhoto,
 }) {
   return UserStory(
     story: Story(
@@ -339,6 +410,16 @@ UserStory userStory({
       updatedAt: DateTime.utc(2026, 1, 2),
     ),
     role: role,
+    memoryCount: memoryCount,
+    participantCount: participantCount,
+    previewPhoto: previewPhoto,
+  );
+}
+
+StoryPhotoPreview storyPreviewPhoto({required String mediaId}) {
+  return StoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
   );
 }
 

@@ -17,6 +17,13 @@ import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
+import 'package:memory_map/features/story/application/stories_notifier.dart';
+import 'package:memory_map/features/story/application/story_application_providers.dart';
+import 'package:memory_map/features/story/domain/story.dart';
+import 'package:memory_map/features/story/domain/story_repository.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
+import 'package:memory_map/features/story/domain/update_story_input.dart';
+import 'package:memory_map/features/story/domain/user_story.dart';
 
 void main() {
   group('DeleteMemoryNotifier startup', () {
@@ -245,6 +252,29 @@ void main() {
       expect(repository.getMemoriesCalls, 0);
     });
 
+    test('shouldReconcileLoadedStorySummaryAfterDelete', () async {
+      final memoryRepository = FakeMemoryRepository();
+      final storyRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[userStory(memoryCount: 2)]
+        ..storyResult = userStory(memoryCount: 1);
+      final container = createContainer(
+        memoryRepository,
+        storyRepository: storyRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      await container.read(deleteMemoryProvider(memoryA.id).future);
+
+      final success = await container
+          .read(deleteMemoryProvider(memoryA.id).notifier)
+          .deleteMemory(memoryA);
+
+      expect(success, isTrue);
+      expect(storyRepository.getStoriesCalls, 1);
+      expect(storyRepository.getStoryCalls, 1);
+      expect(readStories(container).single.memoryCount, 1);
+    });
+
     test('shouldNotInvalidateOrReloadLoadedMemoryDetailsAfterDelete', () async {
       final repository = FakeMemoryRepository()..memoryResult = memoryA;
       final container = createContainer(repository);
@@ -295,10 +325,16 @@ void main() {
   });
 }
 
-ProviderContainer createContainer(FakeMemoryRepository repository) {
+ProviderContainer createContainer(
+  FakeMemoryRepository repository, {
+  FakeStoryRepository? storyRepository,
+}) {
   final container = ProviderContainer(
     overrides: [
       memoryRepositoryProvider.overrideWithValue(repository),
+      storyRepositoryProvider.overrideWithValue(
+        storyRepository ?? FakeStoryRepository(),
+      ),
     ],
   );
   container.listen(
@@ -322,6 +358,10 @@ List<Memory> readStoryMemories(ProviderContainer container) {
       .asData!
       .value
       .memories;
+}
+
+List<UserStory> readStories(ProviderContainer container) {
+  return container.read(storiesNotifierProvider).asData!.value.stories;
 }
 
 Memory memory({
@@ -357,6 +397,26 @@ final Memory memoryB = memory(
   title: 'B',
   day: 20,
 );
+
+UserStory userStory({
+  int memoryCount = 0,
+  int participantCount = 1,
+}) {
+  return UserStory(
+    story: Story(
+      id: defaultStoryId,
+      title: 'Story title',
+      description: 'Story description',
+      createdAt: DateTime.utc(2026, 8, 1),
+      updatedAt: DateTime.utc(2026, 8, 2),
+    ),
+    role: StoryRole.owner,
+    memoryCount: memoryCount,
+    participantCount: participantCount,
+  );
+}
+
+final UserStory ownerStory = userStory();
 
 final class FakeMemoryRepository implements MemoryRepository {
   int getMemoriesCalls = 0;
@@ -419,6 +479,38 @@ final class FakeMemoryRepository implements MemoryRepository {
     if (failure != null) {
       throw failure;
     }
+  }
+}
+
+final class FakeStoryRepository implements StoryRepository {
+  int getStoriesCalls = 0;
+  int getStoryCalls = 0;
+  List<UserStory> storiesResult = <UserStory>[];
+  UserStory storyResult = ownerStory;
+
+  @override
+  Future<Story> createStory({
+    required String title,
+    String? description,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> getStory(String storyId) async {
+    getStoryCalls += 1;
+    return storyResult;
+  }
+
+  @override
+  Future<List<UserStory>> getStories() async {
+    getStoriesCalls += 1;
+    return storiesResult;
+  }
+
+  @override
+  Future<UserStory> updateStory(UpdateStoryInput input) async {
+    throw UnimplementedError();
   }
 }
 

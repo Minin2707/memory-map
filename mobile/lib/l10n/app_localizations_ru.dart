@@ -180,6 +180,39 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storyRoleViewer => 'Читатель';
 
   @override
+  String storyMemoryCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count воспоминания',
+      many: '$count воспоминаний',
+      few: '$count воспоминания',
+      one: '$count воспоминание',
+      zero: 'Нет воспоминаний',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String storyParticipantCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count участника',
+      many: '$count участников',
+      few: '$count участника',
+      one: '$count участник',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get storyThumbnailLabel => 'Фото истории';
+
+  @override
+  String get storyThumbnailUnavailableLabel => 'Фото истории недоступно';
+
+  @override
   String get storiesNotificationUnavailableLabel =>
       'Уведомления пока недоступны';
 

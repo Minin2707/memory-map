@@ -71,6 +71,10 @@ final class StoryDetailsNotifier extends AsyncNotifier<StoryDetailsState> {
   }
 
   void applyUpdatedStory(UserStory updatedStory) {
+    applyStoryMetadataMutation(updatedStory);
+  }
+
+  void applyStoryMetadataMutation(UserStory updatedStory) {
     final currentState = _currentState;
     final currentStory = currentState?.userStory;
     if (currentState == null ||
@@ -81,7 +85,24 @@ final class StoryDetailsNotifier extends AsyncNotifier<StoryDetailsState> {
 
     state = AsyncData<StoryDetailsState>(
       currentState.copyWith(
-        userStory: updatedStory,
+        userStory: currentStory.withStoryMutation(updatedStory.story),
+        clearRefreshFailure: true,
+      ),
+    );
+  }
+
+  void applyAuthoritativeRead(UserStory userStory) {
+    final currentState = _currentState;
+    final currentStory = currentState?.userStory;
+    if (currentState == null ||
+        currentStory == null ||
+        currentStory.story.id != userStory.story.id) {
+      return;
+    }
+
+    state = AsyncData<StoryDetailsState>(
+      currentState.copyWith(
+        userStory: userStory,
         clearRefreshFailure: true,
       ),
     );

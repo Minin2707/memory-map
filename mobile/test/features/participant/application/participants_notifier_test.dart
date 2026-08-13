@@ -11,7 +11,13 @@ import 'package:memory_map/features/participant/domain/participant_failure.dart'
 import 'package:memory_map/features/participant/domain/remove_story_participant_input.dart';
 import 'package:memory_map/features/participant/domain/story_participant.dart';
 import 'package:memory_map/features/participant/domain/story_participant_repository.dart';
+import 'package:memory_map/features/story/application/stories_notifier.dart';
+import 'package:memory_map/features/story/application/story_application_providers.dart';
+import 'package:memory_map/features/story/domain/story.dart';
+import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
+import 'package:memory_map/features/story/domain/update_story_input.dart';
+import 'package:memory_map/features/story/domain/user_story.dart';
 
 void main() {
   group('ParticipantsNotifier startup', () {
@@ -336,6 +342,29 @@ void main() {
       expect(readState(container, 'story-1').leaveFailure, isNull);
     });
 
+    test('shouldRemoveStoryFromLoadedStoriesAfterLeaveWithoutRefetch', () async {
+      final participantRepository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[ownerParticipant];
+      final storyRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, otherStory];
+      final container = createContainer(
+        participantRepository,
+        storyRepository: storyRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      await container.read(storyParticipantsProvider('story-1').future);
+
+      final result = await container
+          .read(storyParticipantsProvider('story-1').notifier)
+          .leaveStory();
+
+      expect(result, isTrue);
+      expect(storyRepository.getStoriesCalls, 1);
+      expect(storyRepository.getStoryCalls, 0);
+      expect(readStories(container), <UserStory>[otherStory]);
+    });
+
     test('shouldExposeLeavingWhileLeaveIsPendingAndIgnoreDuplicate', () async {
       final leaveCompleter = Completer<void>();
       final repository = FakeStoryParticipantRepository()
@@ -444,6 +473,61 @@ void main() {
         editorParticipant,
       ]);
       expect(readState(container, 'story-1').removingParticipantUserId, isNull);
+    });
+
+    test('shouldReconcileLoadedStorySummaryAfterParticipantRemoval', () async {
+      final participantRepository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[
+          ownerParticipant,
+          viewerParticipant,
+        ];
+      final storyRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[userStory(participantCount: 2)]
+        ..storyResult = userStory(participantCount: 1);
+      final container = createContainer(
+        participantRepository,
+        storyRepository: storyRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      await container.read(storyParticipantsProvider('story-1').future);
+
+      final result = await container
+          .read(storyParticipantsProvider('story-1').notifier)
+          .removeParticipant('viewer-user-id');
+
+      expect(result, isTrue);
+      expect(storyRepository.getStoriesCalls, 1);
+      expect(storyRepository.getStoryCalls, 1);
+      expect(readStories(container).single.participantCount, 1);
+    });
+
+    test('shouldRemoveParticipantEvenWhenStorySummaryRefreshFails', () async {
+      final participantRepository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[
+          ownerParticipant,
+          viewerParticipant,
+        ];
+      final storyRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[userStory(participantCount: 2)]
+        ..getStoryFailure = const UnexpectedStoryException();
+      final container = createContainer(
+        participantRepository,
+        storyRepository: storyRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      await container.read(storyParticipantsProvider('story-1').future);
+
+      final result = await container
+          .read(storyParticipantsProvider('story-1').notifier)
+          .removeParticipant('viewer-user-id');
+
+      expect(result, isTrue);
+      expect(readState(container, 'story-1').participants, <StoryParticipant>[
+        ownerParticipant,
+      ]);
+      expect(readStories(container).single.participantCount, 2);
     });
 
     test('shouldKeepListWhenMissingLocalTargetSucceeds', () async {
@@ -690,10 +774,16 @@ void main() {
   });
 }
 
-ProviderContainer createContainer(FakeStoryParticipantRepository repository) {
+ProviderContainer createContainer(
+  FakeStoryParticipantRepository repository, {
+  FakeStoryRepository? storyRepository,
+}) {
   return ProviderContainer(
     overrides: [
       storyParticipantRepositoryProvider.overrideWithValue(repository),
+      storyRepositoryProvider.overrideWithValue(
+        storyRepository ?? FakeStoryRepository(),
+      ),
     ],
   );
 }
@@ -701,6 +791,32 @@ ProviderContainer createContainer(FakeStoryParticipantRepository repository) {
 ParticipantsState readState(ProviderContainer container, String storyId) {
   return container.read(storyParticipantsProvider(storyId)).asData!.value;
 }
+
+List<UserStory> readStories(ProviderContainer container) {
+  return container.read(storiesNotifierProvider).asData!.value.stories;
+}
+
+UserStory userStory({
+  String id = 'story-1',
+  int memoryCount = 0,
+  int participantCount = 1,
+}) {
+  return UserStory(
+    story: Story(
+      id: id,
+      title: 'Story title',
+      description: 'Story description',
+      createdAt: DateTime.utc(2026, 8, 1),
+      updatedAt: DateTime.utc(2026, 8, 2),
+    ),
+    role: StoryRole.owner,
+    memoryCount: memoryCount,
+    participantCount: participantCount,
+  );
+}
+
+final UserStory ownerStory = userStory();
+final UserStory otherStory = userStory(id: 'story-2');
 
 final StoryParticipant ownerParticipant = StoryParticipant(
   userId: 'owner-user-id',
@@ -811,6 +927,49 @@ final class FakeStoryParticipantRepository
       throw configuredFailure;
     }
   }
+}
+
+final class FakeStoryRepository implements StoryRepository {
+  int getStoriesCalls = 0;
+  int getStoryCalls = 0;
+  List<UserStory> storiesResult = <UserStory>[];
+  UserStory storyResult = ownerStory;
+  Object? getStoryFailure;
+
+  @override
+  Future<Story> createStory({
+    required String title,
+    String? description,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> getStory(String storyId) async {
+    getStoryCalls += 1;
+
+    final failure = getStoryFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    return storyResult;
+  }
+
+  @override
+  Future<List<UserStory>> getStories() async {
+    getStoriesCalls += 1;
+    return storiesResult;
+  }
+
+  @override
+  Future<UserStory> updateStory(UpdateStoryInput input) async {
+    throw UnimplementedError();
+  }
+}
+
+final class UnexpectedStoryException implements Exception {
+  const UnexpectedStoryException();
 }
 
 final class UnexpectedParticipantException implements Exception {

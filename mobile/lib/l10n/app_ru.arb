@@ -70,6 +70,26 @@
   "storyRoleCoOwner": "Совладелец",
   "storyRoleEditor": "Редактор",
   "storyRoleViewer": "Читатель",
+  "storyMemoryCount": "{count, plural, =0 {Нет воспоминаний} one {{count} воспоминание} few {{count} воспоминания} many {{count} воспоминаний} other {{count} воспоминания}}",
+  "@storyMemoryCount": {
+    "description": "Memory count shown on a Story card",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storyParticipantCount": "{count, plural, one {{count} участник} few {{count} участника} many {{count} участников} other {{count} участника}}",
+  "@storyParticipantCount": {
+    "description": "Participant count shown on a Story card",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storyThumbnailLabel": "Фото истории",
+  "storyThumbnailUnavailableLabel": "Фото истории недоступно",
   "storiesNotificationUnavailableLabel": "Уведомления пока недоступны",
   "storiesAvatarLabel": "Аватар пользователя {displayName}",
   "@storiesAvatarLabel": {

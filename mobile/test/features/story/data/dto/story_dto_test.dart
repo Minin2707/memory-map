@@ -180,6 +180,28 @@ void main() {
 
       expect(userStory.story, StoryDto.fromJson(validStoryJson()));
       expect(userStory.role, StoryRole.owner);
+      expect(userStory.memoryCount, 12);
+      expect(userStory.participantCount, 2);
+      expect(userStory.previewPhoto, isNull);
+    });
+
+    test('shouldParsePreviewPhoto', () {
+      final userStory = UserStoryDto.fromJson(
+        <String, Object?>{
+          ...validUserStoryJson(),
+          'previewPhoto': <String, Object?>{
+            'mediaId': 'media-id',
+            'thumbnailUrl': '/api/v1/media/media-id/thumbnail',
+          },
+        },
+      );
+
+      expect(userStory.previewPhoto?.mediaId, 'media-id');
+      expect(
+        userStory.previewPhoto?.thumbnailPath,
+        '/api/v1/media/media-id/thumbnail',
+      );
+      expect(userStory.toDomain().previewPhoto?.mediaId, 'media-id');
     });
 
     test('shouldParseAllBackendRoles', () {
@@ -228,6 +250,57 @@ void main() {
       );
     });
 
+    test('shouldRejectMalformedCounts', () {
+      expectMalformed(
+        () => UserStoryDto.fromJson(
+          <String, Object?>{
+            ...validUserStoryJson(),
+            'memoryCount': -1,
+          },
+        ),
+      );
+      expectMalformed(
+        () => UserStoryDto.fromJson(
+          <String, Object?>{
+            ...validUserStoryJson(),
+            'participantCount': 0,
+          },
+        ),
+      );
+      expectMalformed(
+        () => UserStoryDto.fromJson(
+          <String, Object?>{
+            ...validUserStoryJson(),
+            'memoryCount': '12',
+          },
+        ),
+      );
+    });
+
+    test('shouldRejectMalformedPreviewPhoto', () {
+      expectMalformed(
+        () => UserStoryDto.fromJson(
+          <String, Object?>{
+            ...validUserStoryJson(),
+            'previewPhoto': <String, Object?>{
+              'thumbnailUrl': '/api/v1/media/media-id/thumbnail',
+            },
+          },
+        ),
+      );
+      expectMalformed(
+        () => UserStoryDto.fromJson(
+          <String, Object?>{
+            ...validUserStoryJson(),
+            'previewPhoto': <String, Object?>{
+              'mediaId': 'media-id',
+              'thumbnailUrl': 'https://cdn.example/media-id',
+            },
+          },
+        ),
+      );
+    });
+
     test('shouldMapUserStoryToDomain', () {
       final userStory = UserStoryDto.fromJson(validUserStoryJson()).toDomain();
 
@@ -242,6 +315,8 @@ void main() {
             updatedAt: DateTime.parse('2026-01-10T10:00:00.123456Z'),
           ),
           role: StoryRole.owner,
+          memoryCount: 12,
+          participantCount: 2,
         ),
       );
     });
@@ -283,5 +358,8 @@ Map<String, Object?> validUserStoryJson() {
   return <String, Object?>{
     ...validStoryJson(),
     'role': 'OWNER',
+    'memoryCount': 12,
+    'participantCount': 2,
+    'previewPhoto': null,
   };
 }

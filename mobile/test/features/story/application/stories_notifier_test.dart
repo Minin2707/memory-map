@@ -7,6 +7,7 @@ import 'package:memory_map/features/story/application/stories_state.dart';
 import 'package:memory_map/features/story/application/story_application_exception.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/domain/story.dart';
+import 'package:memory_map/features/story/domain/story_photo_preview.dart';
 import 'package:memory_map/features/story/domain/story_failure.dart';
 import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
@@ -260,17 +261,20 @@ void main() {
   });
 
   group('StoriesNotifier create', () {
-    test('shouldCreateStoryThenReloadAuthoritativeStories', () async {
+    test('shouldCreateStoryThenLoadAuthoritativeStoryProjection', () async {
+      final authoritativeStory = UserStory(
+        story: createdStory,
+        role: StoryRole.owner,
+        memoryCount: 0,
+        participantCount: 1,
+      );
       final repository = FakeStoryRepository()
         ..storiesResult = <UserStory>[ownerStory]
-        ..createResult = createdStory;
+        ..createResult = createdStory
+        ..storyResult = authoritativeStory;
       final container = createContainer(repository);
       addTearDown(container.dispose);
       await container.read(storiesNotifierProvider.future);
-      repository.storiesResult = <UserStory>[
-        coOwnerStory,
-        UserStory(story: createdStory, role: StoryRole.owner),
-      ];
 
       final result = await container
           .read(storiesNotifierProvider.notifier)
@@ -282,14 +286,11 @@ void main() {
       expect(repository.operations, <String>[
         'getStories',
         'createStory',
-        'getStories',
+        'getStory',
       ]);
       expect(
         readState(container).stories,
-        <UserStory>[
-          coOwnerStory,
-          UserStory(story: createdStory, role: StoryRole.owner),
-        ],
+        <UserStory>[ownerStory, authoritativeStory],
       );
     });
 
@@ -337,14 +338,15 @@ void main() {
       expect(repository.getStoriesCalls, 1);
     });
 
-    test('shouldReturnCreatedStoryWhenPostCreateReloadHasKnownFailure', () async {
+    test('shouldReturnCreatedStoryWhenPostCreateProjectionLoadHasKnownFailure',
+        () async {
       final repository = FakeStoryRepository()
         ..storiesResult = <UserStory>[ownerStory]
         ..createResult = createdStory;
       final container = createContainer(repository);
       addTearDown(container.dispose);
       await container.read(storiesNotifierProvider.future);
-      repository.getStoriesFailures.add(
+      repository.getStoryFailures.add(
         const StoryApplicationException(StoryNetworkUnavailable()),
       );
 
@@ -466,14 +468,20 @@ void main() {
   });
 
   group('StoriesNotifier apply updated story', () {
-    test('shouldReplaceExistingStoryWithoutChangingOrder', () async {
+    test('shouldPreserveProjectionMetadataForStoryMutation', () async {
+      final preview = storyPreviewPhoto(mediaId: 'media-a');
+      final enrichedOwnerStory = userStory(
+        memoryCount: 12,
+        participantCount: 2,
+        previewPhoto: preview,
+      );
       final updatedOwnerStory = userStory(
         id: ownerStory.story.id,
         title: 'Updated title',
         role: StoryRole.coOwner,
       );
       final repository = FakeStoryRepository()
-        ..storiesResult = <UserStory>[ownerStory, coOwnerStory];
+        ..storiesResult = <UserStory>[enrichedOwnerStory, coOwnerStory];
       final container = createContainer(repository);
       addTearDown(container.dispose);
       await container.read(storiesNotifierProvider.future);
@@ -483,9 +491,13 @@ void main() {
           .applyUpdatedStory(updatedOwnerStory);
 
       expect(
-        readState(container).stories,
-        <UserStory>[updatedOwnerStory, coOwnerStory],
+        readState(container).stories.first,
+        enrichedOwnerStory.withStoryMutation(updatedOwnerStory.story),
       );
+      expect(readState(container).stories.first.role, StoryRole.owner);
+      expect(readState(container).stories.first.memoryCount, 12);
+      expect(readState(container).stories.first.participantCount, 2);
+      expect(readState(container).stories.first.previewPhoto, same(preview));
       expect(repository.operations, <String>['getStories']);
     });
 
@@ -518,6 +530,68 @@ void main() {
 
       expect(readState(container).stories, isEmpty);
       expect(readState(container).loadFailure, const StoryUnauthorized());
+    });
+  });
+
+  group('StoriesNotifier authoritative read', () {
+    test('shouldReplaceAllProjectionFieldsWithoutChangingOrder', () async {
+      final preview = storyPreviewPhoto(mediaId: 'media-new');
+      final authoritative = userStory(
+        id: ownerStory.story.id,
+        title: 'Authoritative title',
+        role: StoryRole.coOwner,
+        memoryCount: 44,
+        participantCount: 5,
+        previewPhoto: preview,
+      );
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, coOwnerStory];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .applyAuthoritativeRead(authoritative);
+
+      expect(
+        readState(container).stories,
+        <UserStory>[authoritative, coOwnerStory],
+      );
+    });
+
+    test('shouldClearPreviewWhenAuthoritativeReadHasNullPreview', () async {
+      final oldPreview = storyPreviewPhoto(mediaId: 'media-old');
+      final existing = userStory(previewPhoto: oldPreview);
+      final authoritative = userStory(
+        id: existing.story.id,
+        previewPhoto: null,
+      );
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[existing];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .applyAuthoritativeRead(authoritative);
+
+      expect(readState(container).stories.single.previewPhoto, isNull);
+    });
+
+    test('shouldIgnoreUnknownAuthoritativeRead', () async {
+      final repository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+
+      container
+          .read(storiesNotifierProvider.notifier)
+          .applyAuthoritativeRead(userStory(id: 'unknown-story'));
+
+      expect(readState(container).stories, <UserStory>[ownerStory]);
     });
   });
 
@@ -792,6 +866,9 @@ UserStory userStory({
   String title = 'First story',
   String? description = 'First description',
   StoryRole role = StoryRole.owner,
+  int memoryCount = 0,
+  int participantCount = 1,
+  StoryPhotoPreview? previewPhoto,
 }) {
   return UserStory(
     story: Story(
@@ -802,6 +879,16 @@ UserStory userStory({
       updatedAt: DateTime.utc(2026, 1, 2),
     ),
     role: role,
+    memoryCount: memoryCount,
+    participantCount: participantCount,
+    previewPhoto: previewPhoto,
+  );
+}
+
+StoryPhotoPreview storyPreviewPhoto({required String mediaId}) {
+  return StoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
   );
 }
 
@@ -837,7 +924,10 @@ final class FakeStoryRepository implements StoryRepository {
   String? createdDescription;
   final List<String> operations = <String>[];
   List<UserStory> storiesResult = <UserStory>[];
+  UserStory storyResult = ownerStory;
+  final List<UserStory> storyResults = <UserStory>[];
   final List<List<UserStory>> storiesResults = <List<UserStory>>[];
+  final List<Object> getStoryFailures = <Object>[];
   final List<Object> getStoriesFailures = <Object>[];
   Completer<List<UserStory>>? getStoriesCompleter;
   Story? createResult;
@@ -871,7 +961,17 @@ final class FakeStoryRepository implements StoryRepository {
   @override
   Future<UserStory> getStory(String storyId) async {
     getStoryCalls += 1;
-    throw UnimplementedError();
+    operations.add('getStory');
+
+    if (getStoryFailures.isNotEmpty) {
+      throw getStoryFailures.removeAt(0);
+    }
+
+    if (storyResults.isNotEmpty) {
+      return storyResults.removeAt(0);
+    }
+
+    return storyResult;
   }
 
   @override

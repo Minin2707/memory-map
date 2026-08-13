@@ -9,6 +9,7 @@ import 'package:memory_map/features/memory/application/memory_application_provid
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
+import 'package:memory_map/features/story/application/story_summary_reconciler.dart';
 
 final uploadPhotoProvider =
     AsyncNotifierProvider.autoDispose.family<UploadPhotoNotifier,
@@ -84,7 +85,7 @@ final class UploadPhotoNotifier extends AsyncNotifier<UploadPhotoState> {
       }
 
       _upsertIntoLoadedMemoryMedia(media);
-      await _synchronizeLoadedMemoryPreview();
+      await _synchronizeLoadedMemoryAndStoryPreviews();
       if (!ref.mounted) {
         return null;
       }
@@ -124,7 +125,7 @@ final class UploadPhotoNotifier extends AsyncNotifier<UploadPhotoState> {
     ref.read(provider.notifier).upsertMedia(media);
   }
 
-  Future<void> _synchronizeLoadedMemoryPreview() async {
+  Future<void> _synchronizeLoadedMemoryAndStoryPreviews() async {
     if (!_hasLoadedMemoryPreviewTarget(_memoryId)) {
       return;
     }
@@ -138,6 +139,9 @@ final class UploadPhotoNotifier extends AsyncNotifier<UploadPhotoState> {
       }
 
       _applyAuthoritativeReadToLoadedProviders(readModel);
+      await ref
+          .read(storySummaryReconcilerProvider)
+          .reconcileAuthoritativeStory(readModel.memory.storyId);
     } on Object {
       return;
     }

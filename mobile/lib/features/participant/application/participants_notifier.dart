@@ -7,6 +7,7 @@ import 'package:memory_map/features/participant/domain/participant_failure.dart'
 import 'package:memory_map/features/participant/domain/remove_story_participant_input.dart';
 import 'package:memory_map/features/participant/domain/story_participant.dart';
 import 'package:memory_map/features/participant/domain/story_participant_repository.dart';
+import 'package:memory_map/features/story/application/story_summary_reconciler.dart';
 
 final storyParticipantsProvider = AsyncNotifierProvider.family<
     ParticipantsNotifier, ParticipantsState, String>(
@@ -105,6 +106,7 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
 
     try {
       await ref.read(storyParticipantRepositoryProvider).leaveStory(input);
+      ref.read(storySummaryReconcilerProvider).removeStory(_storyId);
       state = AsyncData<ParticipantsState>(
         leavingState.copyWith(
           isLeaving: false,
@@ -164,6 +166,13 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
       await ref.read(storyParticipantRepositoryProvider).removeParticipant(
             input,
           );
+      await ref
+          .read(storySummaryReconcilerProvider)
+          .reconcileAuthoritativeStory(_storyId);
+      if (!ref.mounted) {
+        return false;
+      }
+
       state = AsyncData<ParticipantsState>(
         removingState.copyWith(
           participants: _withoutParticipant(

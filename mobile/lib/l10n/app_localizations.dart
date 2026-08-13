@@ -404,6 +404,30 @@ abstract class AppLocalizations {
   /// **'Viewer'**
   String get storyRoleViewer;
 
+  /// Memory count shown on a Story card
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0 {No memories} =1 {1 memory} other {{count} memories}}'**
+  String storyMemoryCount(int count);
+
+  /// Participant count shown on a Story card
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1 {1 participant} other {{count} participants}}'**
+  String storyParticipantCount(int count);
+
+  /// No description provided for @storyThumbnailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Story photo'**
+  String get storyThumbnailLabel;
+
+  /// No description provided for @storyThumbnailUnavailableLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Story photo unavailable'**
+  String get storyThumbnailUnavailableLabel;
+
   /// No description provided for @storiesNotificationUnavailableLabel.
   ///
   /// In en, this message translates to:

@@ -182,6 +182,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyRoleViewer => 'Viewer';
 
   @override
+  String storyMemoryCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+      zero: 'No memories',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String storyParticipantCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count participants',
+      one: '1 participant',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get storyThumbnailLabel => 'Story photo';
+
+  @override
+  String get storyThumbnailUnavailableLabel => 'Story photo unavailable';
+
+  @override
   String get storiesNotificationUnavailableLabel =>
       'Notifications are not available yet';
 

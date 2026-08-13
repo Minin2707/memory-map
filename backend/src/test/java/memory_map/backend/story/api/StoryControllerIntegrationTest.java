@@ -4,6 +4,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import memory_map.backend.IntegrationTest;
 import memory_map.backend.auth.jwt.AccessTokenService;
+import memory_map.backend.media.domain.MediaFile;
+import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.memory.domain.Memory;
+import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
@@ -29,6 +33,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
@@ -60,6 +65,12 @@ class StoryControllerIntegrationTest extends IntegrationTest {
     private StoryParticipantRepository storyParticipantRepository;
 
     @Autowired
+    private MemoryRepository memoryRepository;
+
+    @Autowired
+    private MediaFileRepository mediaFileRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -75,6 +86,14 @@ class StoryControllerIntegrationTest extends IntegrationTest {
             UUID.fromString("00000000-0000-0000-0000-000000000012");
     private static final UUID FOREIGN_STORY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000013");
+    private static final UUID MEMORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000021");
+    private static final UUID SECOND_MEMORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000022");
+    private static final UUID MEDIA_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000031");
+    private static final UUID SECOND_MEDIA_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000032");
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
     private static final Instant CURRENT_TIME =
@@ -379,12 +398,22 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 .isEqualTo("The beginning");
         assertThat(response.get(0).at("/role").asText())
                 .isEqualTo("OWNER");
+        assertThat(response.get(0).at("/memoryCount").asInt())
+                .isZero();
+        assertThat(response.get(0).at("/participantCount").asInt())
+                .isEqualTo(1);
+        assertThat(response.get(0).at("/previewPhoto").isNull()).isTrue();
         assertThat(response.get(1).at("/id").asText())
                 .isEqualTo(sharedStory.id().toString());
         assertThat(response.get(1).at("/title").asText())
                 .isEqualTo("Shared Story");
         assertThat(response.get(1).at("/role").asText())
                 .isEqualTo("EDITOR");
+        assertThat(response.get(1).at("/memoryCount").asInt())
+                .isZero();
+        assertThat(response.get(1).at("/participantCount").asInt())
+                .isEqualTo(2);
+        assertThat(response.get(1).at("/previewPhoto").isNull()).isTrue();
         assertThat(response.toString())
                 .doesNotContain(foreignStory.id().toString())
                 .doesNotContain("Foreign Story")
@@ -393,7 +422,73 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 .doesNotContain("googleSubject")
                 .doesNotContain("accessToken")
                 .doesNotContain("refreshToken")
-                .doesNotContain("joinedAt");
+                .doesNotContain("joinedAt")
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("minio");
+    }
+
+    @Test
+    void shouldReturnStorySummaryProjectionThroughHttp() throws Exception {
+
+        User owner = saveUser(USER_ID);
+        User coOwner = saveUser(OTHER_USER_ID);
+        Story story = saveStory(
+                OWNER_STORY_ID,
+                owner.id(),
+                "Projection Story",
+                BASE_TIME
+        );
+        Memory olderMemory = saveMemory(
+                MEMORY_ID,
+                story.id(),
+                owner.id(),
+                LocalDate.parse("2026-01-01"),
+                BASE_TIME
+        );
+        Memory newerMemory = saveMemory(
+                SECOND_MEMORY_ID,
+                story.id(),
+                owner.id(),
+                LocalDate.parse("2026-01-02"),
+                BASE_TIME.plusSeconds(1)
+        );
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                coOwner.id(),
+                StoryRole.CO_OWNER,
+                BASE_TIME.plusSeconds(1)
+        );
+        saveMedia(
+                MEDIA_ID,
+                olderMemory.id(),
+                memory_map.backend.media.domain.MediaType.PHOTO,
+                BASE_TIME.plusSeconds(10)
+        );
+        saveMedia(
+                SECOND_MEDIA_ID,
+                newerMemory.id(),
+                memory_map.backend.media.domain.MediaType.PHOTO,
+                BASE_TIME.plusSeconds(2)
+        );
+
+        JsonNode listResponse = getStories(validAccessToken(owner.id()));
+        JsonNode singleResponse = getStory(
+                validAccessToken(owner.id()),
+                story.id(),
+                200
+        );
+
+        assertThat(listResponse.size()).isEqualTo(1);
+        assertStorySummaryProjection(listResponse.get(0));
+        assertStorySummaryProjection(singleResponse);
+        assertThat(listResponse.get(0)).isEqualTo(singleResponse);
     }
 
     @ParameterizedTest
@@ -437,6 +532,9 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 .isEqualTo("2026-01-01T10:00:00.123456Z");
         assertThat(response.at("/updatedAt").asText())
                 .isEqualTo("2026-01-01T10:00:00.123456Z");
+        assertThat(response.at("/memoryCount").asInt()).isZero();
+        assertThat(response.at("/participantCount").asInt()).isEqualTo(1);
+        assertThat(response.at("/previewPhoto").isNull()).isTrue();
         assertPublicStoryResponseIsConfidential(response);
     }
 
@@ -1395,6 +1493,74 @@ class StoryControllerIntegrationTest extends IntegrationTest {
         );
     }
 
+    private Memory saveMemory(
+            UUID memoryId,
+            UUID storyId,
+            UUID createdBy,
+            LocalDate eventDate,
+            Instant createdAt
+    ) {
+        Memory memory = new Memory(
+                memoryId,
+                storyId,
+                createdBy,
+                "Memory " + memoryId,
+                null,
+                null,
+                55.7558,
+                37.6173,
+                eventDate,
+                createdAt,
+                createdAt
+        );
+        memoryRepository.save(memory);
+        return memory;
+    }
+
+    private void saveMedia(
+            UUID mediaId,
+            UUID memoryId,
+            memory_map.backend.media.domain.MediaType type,
+            Instant createdAt
+    ) {
+        mediaFileRepository.save(
+                new MediaFile(
+                        mediaId,
+                        memoryId,
+                        type,
+                        "display-key-" + mediaId,
+                        1_024L,
+                        "thumbnail-key-" + mediaId,
+                        128L,
+                        type == memory_map.backend.media.domain.MediaType.PHOTO
+                                ? "image/jpeg"
+                                : "audio/mpeg",
+                        createdAt
+                )
+        );
+    }
+
+    private static void assertStorySummaryProjection(JsonNode response) {
+        assertThat(response.at("/id").asText())
+                .isEqualTo(OWNER_STORY_ID.toString());
+        assertThat(response.at("/title").asText())
+                .isEqualTo("Projection Story");
+        assertThat(response.at("/memoryCount").asInt()).isEqualTo(2);
+        assertThat(response.at("/participantCount").asInt()).isEqualTo(2);
+        assertThat(response.at("/previewPhoto/mediaId").asText())
+                .isEqualTo(SECOND_MEDIA_ID.toString());
+        assertThat(response.at("/previewPhoto/thumbnailUrl").asText())
+                .isEqualTo(
+                        "/api/v1/media/%s/thumbnail".formatted(SECOND_MEDIA_ID)
+                );
+        assertPublicStoryResponseIsConfidential(response);
+        assertThat(response.toString())
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("minio")
+                .doesNotContain("displayUrl");
+    }
+
     private String validAccessToken(UUID userId) {
         return accessTokenService.issueAccessToken(
                 userId,
@@ -1430,7 +1596,11 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 .doesNotContain("joinedAt")
                 .doesNotContain("accessToken")
                 .doesNotContain("refreshToken")
-                .doesNotContain("archived");
+                .doesNotContain("archived")
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("minio")
+                .doesNotContain("displayUrl");
     }
 
     private static void assertStoryNotFoundBodyIsSafe(JsonNode response) {

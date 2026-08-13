@@ -24,6 +24,13 @@ import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
+import 'package:memory_map/features/story/application/stories_notifier.dart';
+import 'package:memory_map/features/story/application/story_application_providers.dart';
+import 'package:memory_map/features/story/domain/story.dart';
+import 'package:memory_map/features/story/domain/story_repository.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
+import 'package:memory_map/features/story/domain/update_story_input.dart';
+import 'package:memory_map/features/story/domain/user_story.dart';
 
 import '../media_test_fixtures.dart';
 
@@ -178,6 +185,41 @@ void main() {
             .previewPhoto,
         same(preview),
       );
+    });
+
+    test('shouldReconcileLoadedStorySummaryAfterUploadSuccess', () async {
+      final preview = previewPhoto(mediaId: 'uploaded-media-id');
+      final mediaRepository = FakeMediaRepository()
+        ..uploadResult = media(id: 'uploaded-media-id');
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelResult = MemoryReadModel(
+          memory: memoryA,
+          previewPhoto: preview,
+        );
+      final storyRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory]
+        ..storyResult = userStory(memoryCount: 1);
+      final container = createContainer(
+        repository: mediaRepository,
+        gateway: FakePhotoSelectionGateway(),
+        preprocessor: FakePhotoPreprocessor(),
+        memoryRepository: memoryRepository,
+        storyRepository: storyRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      await container.read(memoryDetailsProvider(defaultMemoryId).future);
+      await container.read(uploadPhotoProvider(defaultMemoryId).future);
+
+      final uploaded = await container
+          .read(uploadPhotoProvider(defaultMemoryId).notifier)
+          .selectPrepareAndUpload();
+
+      expect(uploaded, mediaRepository.uploadResult);
+      expect(memoryRepository.getMemoryCalls, 2);
+      expect(storyRepository.getStoriesCalls, 1);
+      expect(storyRepository.getStoryCalls, 1);
+      expect(readStories(container).single.memoryCount, 1);
     });
 
     test('shouldNotFailUploadWhenPreviewRefreshFails', () async {
@@ -345,12 +387,16 @@ ProviderContainer createContainer({
   required FakePhotoSelectionGateway gateway,
   required FakePhotoPreprocessor preprocessor,
   FakeMemoryRepository? memoryRepository,
+  FakeStoryRepository? storyRepository,
 }) {
   return ProviderContainer(
     overrides: [
       mediaRepositoryProvider.overrideWithValue(repository),
       memoryRepositoryProvider.overrideWithValue(
         memoryRepository ?? FakeMemoryRepository(),
+      ),
+      storyRepositoryProvider.overrideWithValue(
+        storyRepository ?? FakeStoryRepository(),
       ),
       photoSelectionGatewayProvider.overrideWithValue(gateway),
       photoPreprocessorProvider.overrideWithValue(preprocessor),
@@ -437,3 +483,59 @@ MemoryPhotoPreview previewPhoto({
 
 const String defaultStoryId = 'story-id';
 final Memory memoryA = memory();
+
+UserStory userStory({
+  int memoryCount = 0,
+  int participantCount = 1,
+}) {
+  return UserStory(
+    story: Story(
+      id: defaultStoryId,
+      title: 'Story title',
+      description: 'Story description',
+      createdAt: DateTime.utc(2026, 8, 1),
+      updatedAt: DateTime.utc(2026, 8, 2),
+    ),
+    role: StoryRole.owner,
+    memoryCount: memoryCount,
+    participantCount: participantCount,
+  );
+}
+
+List<UserStory> readStories(ProviderContainer container) {
+  return container.read(storiesNotifierProvider).asData!.value.stories;
+}
+
+final UserStory ownerStory = userStory();
+
+final class FakeStoryRepository implements StoryRepository {
+  int getStoriesCalls = 0;
+  int getStoryCalls = 0;
+  List<UserStory> storiesResult = <UserStory>[];
+  UserStory storyResult = ownerStory;
+
+  @override
+  Future<Story> createStory({
+    required String title,
+    String? description,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> getStory(String storyId) async {
+    getStoryCalls += 1;
+    return storyResult;
+  }
+
+  @override
+  Future<List<UserStory>> getStories() async {
+    getStoriesCalls += 1;
+    return storiesResult;
+  }
+
+  @override
+  Future<UserStory> updateStory(UpdateStoryInput input) async {
+    throw UnimplementedError();
+  }
+}

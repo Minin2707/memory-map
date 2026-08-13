@@ -6,6 +6,7 @@ import 'package:memory_map/features/memory/application/story_memories_notifier.d
 import 'package:memory_map/features/memory/domain/create_memory_input.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
+import 'package:memory_map/features/story/application/story_summary_reconciler.dart';
 
 final createMemoryProvider = AsyncNotifierProvider.autoDispose
     .family<CreateMemoryNotifier, CreateMemoryState, String>(
@@ -54,6 +55,13 @@ final class CreateMemoryNotifier extends AsyncNotifier<CreateMemoryState> {
       }
 
       _upsertIntoLoadedStoryMemories(memory);
+      await ref
+          .read(storySummaryReconcilerProvider)
+          .reconcileAuthoritativeStory(_storyId);
+      if (!ref.mounted) {
+        return null;
+      }
+
       state = const AsyncData<CreateMemoryState>(CreateMemoryState());
       return memory;
     } on MemoryApplicationException catch (error) {

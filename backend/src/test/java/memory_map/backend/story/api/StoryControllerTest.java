@@ -7,6 +7,7 @@ import memory_map.backend.story.application.CreateStoryUseCase;
 import memory_map.backend.story.application.GetStoriesUseCase;
 import memory_map.backend.story.application.GetStoryUseCase;
 import memory_map.backend.story.application.StoryNotFoundException;
+import memory_map.backend.story.application.StoryPhotoPreview;
 import memory_map.backend.story.application.UpdateStoryCommand;
 import memory_map.backend.story.application.UpdateStoryUseCase;
 import memory_map.backend.story.application.UserStory;
@@ -74,6 +75,8 @@ class StoryControllerTest {
             UUID.fromString("00000000-0000-0000-0000-000000000011");
     private static final UUID SECOND_STORY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000012");
+    private static final UUID MEDIA_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000031");
     private static final Instant CURRENT_TIME =
             Instant.parse("2026-01-10T10:00:00Z");
     private static final Instant RETURNED_CREATED_AT =
@@ -98,6 +101,9 @@ class StoryControllerTest {
                 "First Story",
                 "First description",
                 StoryRole.OWNER,
+                24,
+                2,
+                new StoryPhotoPreview(MEDIA_ID),
                 RETURNED_CREATED_AT,
                 RETURNED_UPDATED_AT
         );
@@ -106,6 +112,9 @@ class StoryControllerTest {
                 "Second Story",
                 null,
                 StoryRole.EDITOR,
+                0,
+                1,
+                null,
                 CURRENT_TIME,
                 RETURNED_UPDATED_AT
         );
@@ -123,6 +132,15 @@ class StoryControllerTest {
                         .value("First description"))
                 .andExpect(jsonPath("$[0].role")
                         .value("OWNER"))
+                .andExpect(jsonPath("$[0].memoryCount")
+                        .value(24))
+                .andExpect(jsonPath("$[0].participantCount")
+                        .value(2))
+                .andExpect(jsonPath("$[0].previewPhoto.mediaId")
+                        .value(MEDIA_ID.toString()))
+                .andExpect(jsonPath("$[0].previewPhoto.thumbnailUrl")
+                        .value("/api/v1/media/%s/thumbnail"
+                                .formatted(MEDIA_ID)))
                 .andExpect(jsonPath("$[0].createdAt")
                         .value("2026-01-10T10:01:00Z"))
                 .andExpect(jsonPath("$[0].updatedAt")
@@ -135,6 +153,12 @@ class StoryControllerTest {
                         .value((Object) null))
                 .andExpect(jsonPath("$[1].role")
                         .value("EDITOR"))
+                .andExpect(jsonPath("$[1].memoryCount")
+                        .value(0))
+                .andExpect(jsonPath("$[1].participantCount")
+                        .value(1))
+                .andExpect(jsonPath("$[1].previewPhoto")
+                        .value((Object) null))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -151,7 +175,10 @@ class StoryControllerTest {
                 .doesNotContain("googleSubject")
                 .doesNotContain("accessToken")
                 .doesNotContain("refreshToken")
-                .doesNotContain("joinedAt");
+                .doesNotContain("joinedAt")
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("minio");
     }
 
     @Test
@@ -176,6 +203,9 @@ class StoryControllerTest {
                 "First Story",
                 null,
                 StoryRole.EDITOR,
+                8,
+                3,
+                new StoryPhotoPreview(MEDIA_ID),
                 RETURNED_CREATED_AT,
                 RETURNED_UPDATED_AT
         );
@@ -196,6 +226,13 @@ class StoryControllerTest {
                 .andExpect(jsonPath("$.description")
                         .value((Object) null))
                 .andExpect(jsonPath("$.role").value("EDITOR"))
+                .andExpect(jsonPath("$.memoryCount").value(8))
+                .andExpect(jsonPath("$.participantCount").value(3))
+                .andExpect(jsonPath("$.previewPhoto.mediaId")
+                        .value(MEDIA_ID.toString()))
+                .andExpect(jsonPath("$.previewPhoto.thumbnailUrl")
+                        .value("/api/v1/media/%s/thumbnail"
+                                .formatted(MEDIA_ID)))
                 .andExpect(jsonPath("$.createdAt")
                         .value("2026-01-10T10:01:00Z"))
                 .andExpect(jsonPath("$.updatedAt")
@@ -220,7 +257,10 @@ class StoryControllerTest {
                 .doesNotContain("accessToken")
                 .doesNotContain("refreshToken")
                 .doesNotContain("joinedAt")
-                .doesNotContain("archived");
+                .doesNotContain("archived")
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("minio");
     }
 
     @Test
@@ -1053,6 +1093,30 @@ class StoryControllerTest {
             Instant createdAt,
             Instant updatedAt
     ) {
+        return userStory(
+                storyId,
+                title,
+                description,
+                role,
+                0,
+                1,
+                null,
+                createdAt,
+                updatedAt
+        );
+    }
+
+    private static UserStory userStory(
+            UUID storyId,
+            String title,
+            String description,
+            StoryRole role,
+            int memoryCount,
+            int participantCount,
+            StoryPhotoPreview previewPhoto,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
         return new UserStory(
                 new Story(
                         storyId,
@@ -1062,7 +1126,10 @@ class StoryControllerTest {
                         createdAt,
                         updatedAt
                 ),
-                role
+                role,
+                memoryCount,
+                participantCount,
+                previewPhoto
         );
     }
 }

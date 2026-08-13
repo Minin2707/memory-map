@@ -118,7 +118,13 @@ class GetStoriesUseCaseIntegrationTest extends IntegrationTest {
 
         assertThat(userStories)
                 .containsExactly(
-                        new UserStory(editorStory, StoryRole.EDITOR),
+                        new UserStory(
+                                editorStory,
+                                StoryRole.EDITOR,
+                                0,
+                                2,
+                                null
+                        ),
                         new UserStory(ownerStory, StoryRole.OWNER)
                 );
     }
