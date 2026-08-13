@@ -4,6 +4,8 @@ import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 
 void main() {
   group('MemoryDetailsState loaded', () {
@@ -64,6 +66,33 @@ void main() {
       expect(copied.memory, same(memoryB));
       expect(copied.isRefreshing, isFalse);
       expect(copied.refreshFailure, isNull);
+    });
+
+    test('shouldPreservePreviewWhenReplacingMemoryOnly', () {
+      final preview = previewPhoto(mediaId: 'media-a');
+      final state = MemoryDetailsState.loaded(
+        memory: memoryA,
+        previewPhoto: preview,
+      );
+
+      final copied = state.copyWith(memory: memoryB);
+
+      expect(copied.memory, same(memoryB));
+      expect(copied.previewPhoto, same(preview));
+    });
+
+    test('shouldClearPreviewWhenReplacingAuthoritativeReadModelWithNull', () {
+      final state = MemoryDetailsState.loaded(
+        memory: memoryA,
+        previewPhoto: previewPhoto(mediaId: 'media-a'),
+      );
+
+      final copied = state.copyWith(
+        readModel: MemoryReadModel(memory: memoryB),
+      );
+
+      expect(copied.memory, same(memoryB));
+      expect(copied.previewPhoto, isNull);
     });
 
     test('shouldClearLoadFailure', () {
@@ -158,3 +187,12 @@ Memory memory({
 
 final Memory memoryA = memory(id: 'memory-a', title: 'A');
 final Memory memoryB = memory(id: 'memory-b', title: 'B');
+
+MemoryPhotoPreview previewPhoto({
+  required String mediaId,
+}) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}

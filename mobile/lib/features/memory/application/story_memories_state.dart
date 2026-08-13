@@ -1,15 +1,20 @@
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 
 final class StoryMemoriesState {
   factory StoryMemoriesState({
     List<Memory> memories = const <Memory>[],
+    List<MemoryReadModel>? memoryReadModels,
     MemoryFailure? loadFailure,
     bool isRefreshing = false,
     MemoryFailure? refreshFailure,
   }) {
+    final readModels = memoryReadModels ??
+        memories.map(MemoryReadModel.fromMemory).toList(growable: false);
+
     return StoryMemoriesState._(
-      memories: List<Memory>.unmodifiable(memories),
+      memoryReadModels: List<MemoryReadModel>.unmodifiable(readModels),
       loadFailure: loadFailure,
       isRefreshing: isRefreshing,
       refreshFailure: refreshFailure,
@@ -17,18 +22,24 @@ final class StoryMemoriesState {
   }
 
   const StoryMemoriesState._({
-    required this.memories,
+    required this.memoryReadModels,
     required this.loadFailure,
     required this.isRefreshing,
     required this.refreshFailure,
   });
 
-  final List<Memory> memories;
+  final List<MemoryReadModel> memoryReadModels;
   final MemoryFailure? loadFailure;
   final bool isRefreshing;
   final MemoryFailure? refreshFailure;
 
-  bool get hasMemories => memories.isNotEmpty;
+  bool get hasMemories => memoryReadModels.isNotEmpty;
+
+  List<Memory> get memories {
+    return List<Memory>.unmodifiable(
+      memoryReadModels.map((item) => item.memory),
+    );
+  }
 
   bool get hasLoadFailure => loadFailure != null;
 
@@ -36,6 +47,7 @@ final class StoryMemoriesState {
 
   StoryMemoriesState copyWith({
     List<Memory>? memories,
+    List<MemoryReadModel>? memoryReadModels,
     MemoryFailure? loadFailure,
     bool? isRefreshing,
     MemoryFailure? refreshFailure,
@@ -43,7 +55,11 @@ final class StoryMemoriesState {
     bool clearRefreshFailure = false,
   }) {
     return StoryMemoriesState(
-      memories: memories ?? this.memories,
+      memories: memories ?? const <Memory>[],
+      memoryReadModels: memoryReadModels ??
+          (memories == null
+              ? this.memoryReadModels
+              : memories.map(MemoryReadModel.fromMemory).toList()),
       loadFailure: clearLoadFailure ? null : loadFailure ?? this.loadFailure,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       refreshFailure:
@@ -55,7 +71,7 @@ final class StoryMemoriesState {
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is StoryMemoriesState &&
-            _listEquals(memories, other.memories) &&
+            _listEquals(memoryReadModels, other.memoryReadModels) &&
             loadFailure == other.loadFailure &&
             isRefreshing == other.isRefreshing &&
             refreshFailure == other.refreshFailure;
@@ -63,7 +79,7 @@ final class StoryMemoriesState {
 
   @override
   int get hashCode => Object.hash(
-        Object.hashAll(memories),
+        Object.hashAll(memoryReadModels),
         loadFailure,
         isRefreshing,
         refreshFailure,
@@ -71,7 +87,7 @@ final class StoryMemoriesState {
 
   @override
   String toString() {
-    return 'StoryMemoriesState(memoryCount: ${memories.length}, '
+    return 'StoryMemoriesState(memoryCount: ${memoryReadModels.length}, '
         'hasMemories: $hasMemories, isRefreshing: $isRefreshing, '
         'hasLoadFailure: ${loadFailure != null}, '
         'hasRefreshFailure: ${refreshFailure != null})';

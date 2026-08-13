@@ -9,6 +9,7 @@ import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_update_field.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
@@ -39,8 +40,8 @@ void main() {
 
       final result = await repository.getMemories('story-id');
 
-      expect(result, same(memories));
-      expect(result.map((memory) => memory.id), <String>[
+      expect(result.map((item) => item.memory).toList(), memories);
+      expect(result.map((memory) => memory.memory.id), <String>[
         'memory-c',
         'memory-a',
         'memory-b',
@@ -54,7 +55,6 @@ void main() {
 
       final result = await repository.getMemories('story-id');
 
-      expect(result, same(memories));
       expect(result, isEmpty);
     });
   });
@@ -77,7 +77,7 @@ void main() {
 
       final result = await repository.getMemory('memory-id');
 
-      expect(result, same(memory));
+      expect(result.memory, same(memory));
     });
   });
 
@@ -450,21 +450,21 @@ final class FakeMemoryRemoteDataSource implements MemoryRemoteDataSource {
   }
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
     receivedStoryId = storyId;
     _throwIfConfigured();
 
-    return memories;
+    return memories.map(MemoryReadModel.fromMemory).toList();
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     receivedMemoryId = memoryId;
     _throwIfConfigured();
 
-    return memory;
+    return MemoryReadModel.fromMemory(memory);
   }
 
   @override
@@ -510,3 +510,4 @@ final class RemoteFailureCase {
 final class UnexpectedMemoryException implements Exception {
   const UnexpectedMemoryException();
 }
+

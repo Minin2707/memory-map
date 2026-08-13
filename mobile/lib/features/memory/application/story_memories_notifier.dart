@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memory_map/features/memory/application/memory_application_exception.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/application/memory_canonical_order.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/application/story_memories_state.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
@@ -55,7 +56,7 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
           .read(memoryRepositoryProvider)
           .getMemories(_storyId);
       state = AsyncData<StoryMemoriesState>(
-        StoryMemoriesState(memories: memories),
+        StoryMemoriesState(memoryReadModels: memories),
       );
     } on MemoryApplicationException catch (error) {
       state = AsyncData<StoryMemoriesState>(
@@ -80,14 +81,37 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
       return;
     }
 
-    final memories = currentState.memories
-        .where((existing) => existing.id != memory.id)
+    final existing = _readModelByMemoryId(
+      currentState.memoryReadModels,
+      memory.id,
+    );
+    final readModel = existing == null
+        ? MemoryReadModel.fromMemory(memory)
+        : existing.withMemoryMutation(memory);
+
+    _upsertReadModel(readModel);
+  }
+
+  void upsertAuthoritativeRead(MemoryReadModel readModel) {
+    _upsertReadModel(readModel);
+  }
+
+  void _upsertReadModel(MemoryReadModel readModel) {
+    final currentState = _currentState;
+    if (currentState == null ||
+        currentState.hasLoadFailure ||
+        readModel.memory.storyId != _storyId) {
+      return;
+    }
+
+    final memories = currentState.memoryReadModels
+        .where((existing) => existing.memory.id != readModel.memory.id)
         .toList();
-    memories.add(memory);
-    memories.sort(compareMemoriesCanonical);
+    memories.add(readModel);
+    memories.sort(compareMemoryReadModelsCanonical);
 
     state = AsyncData<StoryMemoriesState>(
-      currentState.copyWith(memories: memories),
+      currentState.copyWith(memoryReadModels: memories),
     );
   }
 
@@ -97,16 +121,29 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
       return;
     }
 
-    final memories = currentState.memories
-        .where((memory) => memory.id != memoryId)
+    final memories = currentState.memoryReadModels
+        .where((memory) => memory.memory.id != memoryId)
         .toList();
-    if (memories.length == currentState.memories.length) {
+    if (memories.length == currentState.memoryReadModels.length) {
       return;
     }
 
     state = AsyncData<StoryMemoriesState>(
-      currentState.copyWith(memories: memories),
+      currentState.copyWith(memoryReadModels: memories),
     );
+  }
+
+  MemoryReadModel? _readModelByMemoryId(
+    List<MemoryReadModel> memories,
+    String memoryId,
+  ) {
+    for (final memory in memories) {
+      if (memory.memory.id == memoryId) {
+        return memory;
+      }
+    }
+
+    return null;
   }
 
   Future<StoryMemoriesState> _load(
@@ -121,7 +158,7 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
 
     try {
       final memories = await repository.getMemories(storyId);
-      return StoryMemoriesState(memories: memories);
+      return StoryMemoriesState(memoryReadModels: memories);
     } on MemoryApplicationException catch (error) {
       return StoryMemoriesState(loadFailure: error.failure);
     }

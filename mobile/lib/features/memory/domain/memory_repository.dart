@@ -1,12 +1,13 @@
 import 'package:memory_map/features/memory/domain/create_memory_input.dart';
 import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
 abstract interface class MemoryRepository {
-  Future<List<Memory>> getMemories(String storyId);
+  Future<List<MemoryReadModel>> getMemories(String storyId);
 
-  Future<Memory> getMemory(String memoryId);
+  Future<MemoryReadModel> getMemory(String memoryId);
 
   Future<Memory> createMemory(CreateMemoryInput input);
 

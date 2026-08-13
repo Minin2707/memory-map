@@ -20,6 +20,7 @@ void main() {
       expect(memory.eventDate, MemoryDate(year: 2026, month: 8, day: 9));
       expect(memory.createdAt, DateTime.parse('2026-08-09T10:00:00Z'));
       expect(memory.updatedAt, DateTime.parse('2026-08-09T11:00:00Z'));
+      expect(memory.previewPhoto, isNull);
     });
 
     test('shouldAllowNullNullableFields', () {
@@ -28,11 +29,39 @@ void main() {
           ...validMemoryJson(),
           'description': null,
           'placeName': null,
+          'previewPhoto': null,
         },
       );
 
       expect(memory.description, isNull);
       expect(memory.placeName, isNull);
+      expect(memory.previewPhoto, isNull);
+    });
+
+    test('shouldParsePreviewPhoto', () {
+      final memory = MemoryDto.fromJson(
+        <String, Object?>{
+          ...validMemoryJson(),
+          'previewPhoto': <String, Object?>{
+            'mediaId': 'media-id',
+            'thumbnailUrl': '/api/v1/media/media-id/thumbnail',
+          },
+        },
+      );
+
+      expect(memory.previewPhoto?.mediaId, 'media-id');
+      expect(
+        memory.previewPhoto?.thumbnailPath,
+        '/api/v1/media/media-id/thumbnail',
+      );
+
+      final readModel = memory.toReadModel();
+      expect(readModel.memory, memory.toDomain());
+      expect(readModel.previewPhoto?.mediaId, 'media-id');
+      expect(
+        readModel.previewPhoto?.thumbnailPath,
+        '/api/v1/media/media-id/thumbnail',
+      );
     });
 
     test('shouldAllowBlankNullableFields', () {
@@ -146,6 +175,33 @@ void main() {
       );
     });
 
+    test('shouldRejectMalformedPreviewPhoto', () {
+      expectMalformed(
+        () => MemoryDto.fromJson(
+          <String, Object?>{
+            ...validMemoryJson(),
+            'previewPhoto': <String, Object?>{
+              'mediaId': 'media-id',
+              'thumbnailUrl': 'https://storage.example.test/media-id',
+            },
+          },
+        ),
+      );
+    });
+
+    test('shouldRejectPreviewPhotoWithMissingRequiredField', () {
+      expectMalformed(
+        () => MemoryDto.fromJson(
+          <String, Object?>{
+            ...validMemoryJson(),
+            'previewPhoto': <String, Object?>{
+              'mediaId': 'media-id',
+            },
+          },
+        ),
+      );
+    });
+
     test('shouldIgnoreUnknownFields', () {
       final memory = MemoryDto.fromJson(
         <String, Object?>{
@@ -217,6 +273,7 @@ void main() {
 
       expect(memory.toString(), 'MemoryDto');
       expect(memory.toString(), isNot(contains('memory-id')));
+      expect(memory.toString(), isNot(contains('media-id')));
       expect(memory.toString(), isNot(contains('token')));
     });
   });

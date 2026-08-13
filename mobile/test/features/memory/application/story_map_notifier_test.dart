@@ -14,6 +14,7 @@ import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
 void main() {
@@ -527,7 +528,7 @@ final class FakeMemoryRepository implements MemoryRepository {
   final List<String> operations = <String>[];
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
     receivedStoryIds.add(storyId);
     operations.add('getMemories');
@@ -535,7 +536,7 @@ final class FakeMemoryRepository implements MemoryRepository {
     final configuredCompleter = getCompleter;
     if (configuredCompleter != null) {
       getCompleter = null;
-      return configuredCompleter.future;
+      return configuredCompleter.future.then(_readModelsFromMemories);
     }
 
     if (getFailures.isNotEmpty) {
@@ -543,18 +544,18 @@ final class FakeMemoryRepository implements MemoryRepository {
     }
 
     if (memoriesResults.isNotEmpty) {
-      return memoriesResults.removeAt(0);
+      return _readModelsFromMemories(memoriesResults.removeAt(0));
     }
 
-    return memoriesResult;
+    return _readModelsFromMemories(memoriesResult);
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     operations.add('getMemory');
 
-    return memoryA;
+    return MemoryReadModel.fromMemory(memoryA);
   }
 
   @override
@@ -580,6 +581,12 @@ final class FakeMemoryRepository implements MemoryRepository {
   }
 }
 
+List<MemoryReadModel> _readModelsFromMemories(List<Memory> memories) {
+  return memories.map(MemoryReadModel.fromMemory).toList();
+}
+
 final class UnexpectedMemoryException implements Exception {
   const UnexpectedMemoryException();
 }
+
+

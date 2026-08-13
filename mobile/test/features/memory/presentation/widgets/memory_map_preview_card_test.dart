@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/widgets/memory_map_preview_card.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+import '../../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('MemoryMapPreviewCard', () {
@@ -18,6 +23,27 @@ void main() {
       expect(find.text('9'), findsOneWidget);
       expect(find.text('08'), findsOneWidget);
       expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    });
+
+    testWidgets('shouldLoadPreviewThumbnailThroughBackendPath', (
+      tester,
+    ) async {
+      final repository = media_fixtures.FakeMediaRepository()
+        ..thumbnailResult = media_fixtures.validPngBytes;
+
+      await pumpPreview(
+        tester,
+        memoryA,
+        previewPhoto: previewPhoto(mediaId: 'media-a'),
+        mediaRepository: repository,
+      );
+
+      expect(repository.getThumbnailByPathCalls, 1);
+      expect(repository.receivedBinaryPaths, <String>[
+        '/api/v1/media/media-a/thumbnail',
+      ]);
+      expect(repository.getThumbnailCalls, 0);
+      expect(find.byType(Image), findsOneWidget);
     });
 
     testWidgets('shouldRenderLocalizedDateWithoutTimezoneConversion', (
@@ -149,29 +175,40 @@ Future<void> pumpPreview(
   bool enableTap = true,
   VoidCallback? onClose,
   TextScaler textScaler = TextScaler.noScaling,
+  MemoryPhotoPreview? previewPhoto,
+  media_fixtures.FakeMediaRepository? mediaRepository,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-      home: Scaffold(
-        body: Center(
-          child: MemoryMapPreviewCard(
-            memory: memory,
-            onTap: enableTap ? onTap ?? (_) {} : null,
-            onClose: onClose,
+    ProviderScope(
+      overrides: [
+        mediaRepositoryProvider.overrideWithValue(
+          mediaRepository ?? media_fixtures.FakeMediaRepository(),
+        ),
+      ],
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: Scaffold(
+          body: Center(
+            child: MemoryMapPreviewCard(
+              memory: memory,
+              previewPhoto: previewPhoto,
+              onTap: enableTap ? onTap ?? (_) {} : null,
+              onClose: onClose,
+            ),
           ),
         ),
       ),
     ),
   );
+  await tester.pumpAndSettle();
 }
 
 void setSurface(WidgetTester tester, Size size) {
@@ -208,3 +245,12 @@ Memory memory({
 }
 
 final Memory memoryA = memory(id: 'memory-a');
+
+MemoryPhotoPreview previewPhoto({
+  required String mediaId,
+}) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}

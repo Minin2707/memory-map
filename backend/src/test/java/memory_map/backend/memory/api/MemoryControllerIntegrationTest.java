@@ -168,6 +168,8 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
         assertThat(response.size()).isEqualTo(2);
         assertMemoryResponseMatches(response.get(0), first);
         assertMemoryResponseMatches(response.get(1), second);
+        assertThat(response.get(0).at("/previewPhoto").isNull()).isTrue();
+        assertThat(response.get(1).at("/previewPhoto").isNull()).isTrue();
     }
 
     @ParameterizedTest
@@ -188,6 +190,69 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
         );
 
         assertMemoryResponseMatches(response, memory);
+        assertThat(response.at("/previewPhoto").isNull()).isTrue();
+    }
+
+    @Test
+    void shouldListMemoriesWithPreviewPhoto() throws Exception {
+
+        Fixture fixture = authorizedFixture(StoryRole.VIEWER);
+        Memory memory = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        saveMediaFile(MEDIA_ID, memory.id());
+
+        JsonNode response = getStoryMemories(
+                validAccessToken(fixture.requester().id()),
+                fixture.story().id(),
+                200
+        );
+
+        assertThat(response.get(0).at("/previewPhoto/mediaId").asText())
+                .isEqualTo(MEDIA_ID.toString());
+        assertThat(response.get(0).at("/previewPhoto/thumbnailUrl").asText())
+                .isEqualTo("/api/v1/media/%s/thumbnail".formatted(MEDIA_ID));
+        assertThat(response.toString())
+                .doesNotContain("displayStorageKey")
+                .doesNotContain("thumbnailStorageKey")
+                .doesNotContain("storageKey")
+                .doesNotContain("display-key")
+                .doesNotContain("thumbnail-key")
+                .doesNotContain("bucket")
+                .doesNotContain("MinIO")
+                .doesNotContain("displayUrl");
+    }
+
+    @Test
+    void shouldGetMemoryWithPreviewPhoto() throws Exception {
+
+        Fixture fixture = authorizedFixture(StoryRole.EDITOR);
+        Memory memory = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        saveMediaFile(MEDIA_ID, memory.id());
+
+        JsonNode response = getMemory(
+                validAccessToken(fixture.requester().id()),
+                memory.id(),
+                200
+        );
+
+        assertThat(response.at("/previewPhoto/mediaId").asText())
+                .isEqualTo(MEDIA_ID.toString());
+        assertThat(response.at("/previewPhoto/thumbnailUrl").asText())
+                .isEqualTo("/api/v1/media/%s/thumbnail".formatted(MEDIA_ID));
+        assertThat(response.toString())
+                .doesNotContain("displayStorageKey")
+                .doesNotContain("thumbnailStorageKey")
+                .doesNotContain("storageKey")
+                .doesNotContain("display-key")
+                .doesNotContain("thumbnail-key")
+                .doesNotContain("bucket")
+                .doesNotContain("MinIO")
+                .doesNotContain("displayUrl");
     }
 
     @Test

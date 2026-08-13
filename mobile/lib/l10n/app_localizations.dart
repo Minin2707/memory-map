@@ -632,6 +632,12 @@ abstract class AppLocalizations {
   /// **'Map'**
   String get storyDetailsMapAction;
 
+  /// No description provided for @storyDetailsTimelineAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get storyDetailsTimelineAction;
+
   /// No description provided for @participantsPageTitle.
   ///
   /// In en, this message translates to:
@@ -919,6 +925,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not refresh memories'**
   String get storyMemoriesRefreshFailureTitle;
+
+  /// No description provided for @storyTimelinePageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get storyTimelinePageTitle;
+
+  /// No description provided for @storyTimelineBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to story'**
+  String get storyTimelineBackLabel;
+
+  /// No description provided for @storyTimelineRefreshAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh timeline'**
+  String get storyTimelineRefreshAction;
+
+  /// No description provided for @storyTimelineTabTimeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get storyTimelineTabTimeline;
+
+  /// No description provided for @storyTimelineTabMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get storyTimelineTabMap;
+
+  /// No description provided for @storyTimelineTabStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Stats'**
+  String get storyTimelineTabStats;
+
+  /// No description provided for @storyTimelineCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Add memory'**
+  String get storyTimelineCreate;
+
+  /// No description provided for @storyTimelineEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No timeline yet'**
+  String get storyTimelineEmptyTitle;
+
+  /// No description provided for @storyTimelineEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add memories to build this story timeline.'**
+  String get storyTimelineEmptyBody;
+
+  /// No description provided for @storyTimelineLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load timeline'**
+  String get storyTimelineLoadFailureTitle;
+
+  /// No description provided for @storyTimelineRefreshFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not refresh timeline'**
+  String get storyTimelineRefreshFailureTitle;
 
   /// No description provided for @storyMapPageTitle.
   ///

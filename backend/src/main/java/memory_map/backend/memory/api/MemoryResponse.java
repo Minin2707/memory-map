@@ -1,5 +1,6 @@
 package memory_map.backend.memory.api;
 
+import memory_map.backend.memory.application.MemoryReadModel;
 import memory_map.backend.memory.domain.Memory;
 
 import java.time.Instant;
@@ -29,7 +30,9 @@ public record MemoryResponse(
 
         Instant createdAt,
 
-        Instant updatedAt
+        Instant updatedAt,
+
+        MemoryPreviewPhotoResponse previewPhoto
 
 ) {
     public static MemoryResponse from(Memory memory) {
@@ -46,7 +49,36 @@ public record MemoryResponse(
                 memory.longitude(),
                 memory.eventDate(),
                 memory.createdAt(),
-                memory.updatedAt()
+                memory.updatedAt(),
+                null
+        );
+    }
+
+    public static MemoryResponse from(MemoryReadModel memoryReadModel) {
+        Objects.requireNonNull(
+                memoryReadModel,
+                "memoryReadModel must not be null"
+        );
+
+        Memory memory = memoryReadModel.memory();
+
+        return new MemoryResponse(
+                memory.id(),
+                memory.storyId(),
+                memory.createdBy(),
+                memory.title(),
+                memory.description(),
+                memory.placeName(),
+                memory.latitude(),
+                memory.longitude(),
+                memory.eventDate(),
+                memory.createdAt(),
+                memory.updatedAt(),
+                memoryReadModel.previewPhoto() == null
+                        ? null
+                        : MemoryPreviewPhotoResponse.from(
+                                memoryReadModel.previewPhoto()
+                        )
         );
     }
 }

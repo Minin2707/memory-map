@@ -163,6 +163,7 @@ void main() {
       UserStory? memoriesStory;
       UserStory? participantsStory;
       UserStory? mapStory;
+      UserStory? timelineStory;
       var inviteCalls = 0;
       await pumpScreen(
         tester,
@@ -178,6 +179,9 @@ void main() {
         },
         onMapSelected: (userStory) {
           mapStory = userStory;
+        },
+        onTimelineSelected: (userStory) {
+          timelineStory = userStory;
         },
       );
 
@@ -198,10 +202,15 @@ void main() {
         tester,
         find.byKey(const ValueKey('story-details.map-action')),
       );
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.timeline-action')),
+      );
 
       expect(memoriesStory, ownerStory);
       expect(participantsStory, ownerStory);
       expect(mapStory, ownerStory);
+      expect(timelineStory, ownerStory);
       expect(inviteCalls, 1);
     });
 
@@ -466,6 +475,7 @@ Future<ProviderContainer> pumpScreen(
   ValueChanged<UserStory>? onMemoriesSelected,
   ValueChanged<UserStory>? onParticipantsSelected,
   ValueChanged<UserStory>? onMapSelected,
+  ValueChanged<UserStory>? onTimelineSelected,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
 }) async {
@@ -497,6 +507,7 @@ Future<ProviderContainer> pumpScreen(
           onMemoriesSelected: onMemoriesSelected,
           onParticipantsSelected: onParticipantsSelected,
           onMapSelected: onMapSelected,
+          onTimelineSelected: onTimelineSelected,
         ),
       ),
     ),

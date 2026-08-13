@@ -25,6 +25,7 @@ import 'package:memory_map/features/memory/presentation/memory_details_route.dar
 import 'package:memory_map/features/memory/presentation/memory_edit_route.dart';
 import 'package:memory_map/features/memory/presentation/story_map_route.dart';
 import 'package:memory_map/features/memory/presentation/story_memories_route.dart';
+import 'package:memory_map/features/memory/presentation/story_timeline_route.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
@@ -48,6 +49,7 @@ const inviteStoryRoute = '/stories/:storyId/invite';
 const storyParticipantsRoute = '/stories/:storyId/participants';
 const storyMemoriesRoute = '/stories/:storyId/memories';
 const storyMapRoute = '/stories/:storyId/map';
+const storyTimelineRoute = '/stories/:storyId/timeline';
 const createMemoryRoute = '/stories/:storyId/memories/create';
 const memoryDetailsRoute = '/memories/:memoryId';
 const editMemoryRoute = '/memories/:memoryId/edit';
@@ -62,6 +64,7 @@ const inviteStoryRouteName = 'inviteStory';
 const storyParticipantsRouteName = 'storyParticipants';
 const storyMemoriesRouteName = 'storyMemories';
 const storyMapRouteName = 'storyMap';
+const storyTimelineRouteName = 'storyTimeline';
 const createMemoryRouteName = 'createMemory';
 const memoryDetailsRouteName = 'memoryDetails';
 const editMemoryRouteName = 'editMemory';
@@ -71,6 +74,9 @@ const acceptInviteRouteName = 'acceptInvite';
 const _storyIdPathParameter = 'storyId';
 const _memoryIdPathParameter = 'memoryId';
 const _inviteTokenPathParameter = 'token';
+const _memoryDetailsOriginQueryParameter = 'origin';
+const _memoryDetailsMapOrigin = 'map';
+const _memoryDetailsTimelineOrigin = 'timeline';
 const _inviteDeepLinkParser = InviteDeepLinkParser();
 
 final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
@@ -247,6 +253,45 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pathParameters: {_storyIdPathParameter: storyId},
               );
             },
+            onTimelineSelected: (_) {
+              context.pushNamed(
+                storyTimelineRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: storyTimelineRouteName,
+        path: storyTimelineRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final storyId =
+              state.pathParameters[_storyIdPathParameter] ?? '';
+
+          return StoryTimelineRoute(
+            storyId: storyId,
+            onBack: () {
+              _popOrGoToStoryDetails(context, storyId);
+            },
+            onCreateMemory: () {
+              context.pushNamed(
+                createMemoryRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+                extra: _MemoryDetailsOrigin.timeline,
+              );
+            },
+            onMemorySelected: (memory) {
+              context.pushNamed(
+                memoryDetailsRouteName,
+                pathParameters: {_memoryIdPathParameter: memory.id},
+                extra: _MemoryDetailsOrigin.timeline,
+                queryParameters: {
+                  _memoryDetailsOriginQueryParameter:
+                      _memoryDetailsTimelineOrigin,
+                },
+              );
+            },
           );
         },
       ),
@@ -266,6 +311,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               context.pushNamed(
                 memoryDetailsRouteName,
                 pathParameters: {_memoryIdPathParameter: memory.id},
+                extra: _MemoryDetailsOrigin.map,
+                queryParameters: {
+                  _memoryDetailsOriginQueryParameter: _memoryDetailsMapOrigin,
+                },
               );
             },
           );
@@ -308,6 +357,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return CreateMemoryScreen(
             storyId: storyId,
             onBack: () {
+              if (state.extra == _MemoryDetailsOrigin.timeline) {
+                _popOrGoToStoryTimeline(context, storyId);
+                return;
+              }
+
               _popOrGoToStoryMemories(context, storyId);
             },
             onPickLocation: (initialLocation) {
@@ -317,6 +371,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               context.pushReplacementNamed(
                 memoryDetailsRouteName,
                 pathParameters: {_memoryIdPathParameter: memory.id},
+                extra: state.extra,
+                queryParameters: _memoryDetailsOriginQueryParameters(
+                  state.extra,
+                ),
               );
             },
           );
@@ -331,6 +389,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final session = _sessionForAuthenticatedRoute(
             ref.read(authNotifierProvider),
           );
+          final origin = _memoryDetailsOriginFor(state);
 
           return MemoryDetailsRoute(
             memoryId: memoryId,
@@ -339,6 +398,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               _popOrGoToStories(context);
             },
             onBack: (memory) {
+              if (origin == _MemoryDetailsOrigin.timeline) {
+                _popOrGoToStoryTimeline(context, memory.storyId);
+                return;
+              }
+
+              if (origin == _MemoryDetailsOrigin.map) {
+                _popOrGoToStoryMap(context, memory.storyId);
+                return;
+              }
+
               _popOrGoToStoryMemories(context, memory.storyId);
             },
             onEdit: (memory) {
@@ -348,7 +417,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               );
             },
             onDelete: (memory) {
-              _completeDeletedMemory(ref, context, memory);
+              _completeDeletedMemory(ref, context, memory, origin);
             },
           );
         },
@@ -608,6 +677,32 @@ void _popOrGoToStoryMemories(BuildContext context, String storyId) {
   );
 }
 
+void _popOrGoToStoryTimeline(BuildContext context, String storyId) {
+  final router = GoRouter.of(context);
+  if (router.canPop()) {
+    router.pop();
+    return;
+  }
+
+  context.goNamed(
+    storyTimelineRouteName,
+    pathParameters: {_storyIdPathParameter: storyId},
+  );
+}
+
+void _popOrGoToStoryMap(BuildContext context, String storyId) {
+  final router = GoRouter.of(context);
+  if (router.canPop()) {
+    router.pop();
+    return;
+  }
+
+  context.goNamed(
+    storyMapRouteName,
+    pathParameters: {_storyIdPathParameter: storyId},
+  );
+}
+
 void _popOrGoToMemoryDetails(BuildContext context, String memoryId) {
   final router = GoRouter.of(context);
   if (router.canPop()) {
@@ -619,6 +714,35 @@ void _popOrGoToMemoryDetails(BuildContext context, String memoryId) {
     memoryDetailsRouteName,
     pathParameters: {_memoryIdPathParameter: memoryId},
   );
+}
+
+Object? _memoryDetailsOriginFor(GoRouterState state) {
+  final extra = state.extra;
+  if (extra == _MemoryDetailsOrigin.timeline ||
+      extra == _MemoryDetailsOrigin.map) {
+    return extra;
+  }
+
+  return switch (state.uri.queryParameters[_memoryDetailsOriginQueryParameter]) {
+    _memoryDetailsTimelineOrigin => _MemoryDetailsOrigin.timeline,
+    _memoryDetailsMapOrigin => _MemoryDetailsOrigin.map,
+    _ => null,
+  };
+}
+
+Map<String, String> _memoryDetailsOriginQueryParameters(Object? origin) {
+  if (origin == _MemoryDetailsOrigin.timeline) {
+    return {
+      _memoryDetailsOriginQueryParameter: _memoryDetailsTimelineOrigin,
+    };
+  }
+  if (origin == _MemoryDetailsOrigin.map) {
+    return {
+      _memoryDetailsOriginQueryParameter: _memoryDetailsMapOrigin,
+    };
+  }
+
+  return const <String, String>{};
 }
 
 Future<MemoryLocation?> _pickMemoryLocation(
@@ -670,12 +794,33 @@ void _completeDeletedMemory(
   Ref ref,
   BuildContext context,
   Memory memory,
+  Object? origin,
 ) {
-  context.goNamed(
-    storyMemoriesRouteName,
-    pathParameters: {_storyIdPathParameter: memory.storyId},
-  );
+  if (origin == _MemoryDetailsOrigin.timeline) {
+    context.go(_storyTimelinePath(memory.storyId));
+  } else if (origin == _MemoryDetailsOrigin.map) {
+    context.go(_storyMapPath(memory.storyId));
+  } else {
+    context.go(_storyMemoriesPath(memory.storyId));
+  }
   ref.invalidate(memoryDetailsProvider(memory.id));
+}
+
+String _storyMemoriesPath(String storyId) {
+  return '/stories/${Uri.encodeComponent(storyId)}/memories';
+}
+
+String _storyMapPath(String storyId) {
+  return '/stories/${Uri.encodeComponent(storyId)}/map';
+}
+
+String _storyTimelinePath(String storyId) {
+  return '/stories/${Uri.encodeComponent(storyId)}/timeline';
+}
+
+enum _MemoryDetailsOrigin {
+  timeline,
+  map,
 }
 
 AuthSession? _sessionForAuthenticatedRoute(AsyncValue<AuthState> authState) {

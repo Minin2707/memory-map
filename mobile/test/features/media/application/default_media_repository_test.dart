@@ -24,6 +24,10 @@ void main() {
       );
       await repository.deleteMedia(defaultMediaId);
       expect(await repository.getThumbnail(media()), <int>[7, 8, 9]);
+      expect(
+        await repository.getThumbnailByPath('/api/v1/media/media-id/thumbnail'),
+        <int>[7, 8, 9],
+      );
       expect(await repository.getDisplay(media()), <int>[10, 11, 12]);
 
       expect(remote.receivedMemoryIds, <String>[
@@ -33,6 +37,7 @@ void main() {
       expect(remote.receivedDeleteMediaIds, <String>[defaultMediaId]);
       expect(remote.receivedUploads, <PreparedPhotoUpload>[remote.upload]);
       expect(remote.receivedRepresentationPaths, <String>[
+        '/api/v1/media/media-id/thumbnail',
         '/api/v1/media/media-id/thumbnail',
         '/api/v1/media/media-id/display',
       ]);

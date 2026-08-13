@@ -45,7 +45,7 @@ void main() {
 
       final memories = await dataSource.getMemories('story-id');
 
-      expect(memories, <Memory>[
+      expect(memories.map((item) => item.memory).toList(), <Memory>[
         createMemory(),
         createMemory(id: 'second-memory-id', title: 'Second picnic'),
       ]);
@@ -93,7 +93,46 @@ void main() {
 
       final memory = await dataSource.getMemory('memory-id');
 
-      expect(memory, createMemory());
+      expect(memory.memory, createMemory());
+    });
+
+    test('shouldReturnMemoryWithPreviewPhoto', () async {
+      final dataSource = createDataSource(
+        FakeHttpClientAdapter(
+          responseData: <String, Object?>{
+            ...validMemoryJson(),
+            'previewPhoto': <String, Object?>{
+              'mediaId': 'media-id',
+              'thumbnailUrl': '/api/v1/media/media-id/thumbnail',
+            },
+          },
+        ),
+      );
+
+      final memory = await dataSource.getMemory('memory-id');
+
+      expect(memory.memory, createMemory());
+      expect(memory.previewPhoto?.mediaId, 'media-id');
+      expect(
+        memory.previewPhoto?.thumbnailPath,
+        '/api/v1/media/media-id/thumbnail',
+      );
+    });
+
+    test('shouldReturnMemoryWithoutPreviewPhotoWhenNull', () async {
+      final dataSource = createDataSource(
+        FakeHttpClientAdapter(
+          responseData: <String, Object?>{
+            ...validMemoryJson(),
+            'previewPhoto': null,
+          },
+        ),
+      );
+
+      final memory = await dataSource.getMemory('memory-id');
+
+      expect(memory.memory, createMemory());
+      expect(memory.previewPhoto, isNull);
     });
 
     test('shouldRejectBlankMemoryIdWithoutNetworkCall', () async {

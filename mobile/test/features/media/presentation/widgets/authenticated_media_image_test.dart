@@ -52,6 +52,24 @@ void main() {
       expect(find.textContaining('/api/v1/media'), findsNothing);
       expect(find.textContaining('accessToken'), findsNothing);
     });
+
+    testWidgets('shouldLoadThumbnailByTrustedBackendPath', (tester) async {
+      final repository = FakeMediaRepository()..thumbnailResult = validPngBytes;
+
+      await pumpPathImage(
+        tester,
+        repository,
+        '/api/v1/media/media-id/thumbnail',
+      );
+
+      expect(repository.getThumbnailByPathCalls, 1);
+      expect(repository.receivedBinaryPaths, <String>[
+        '/api/v1/media/media-id/thumbnail',
+      ]);
+      expect(repository.getThumbnailCalls, 0);
+      expect(repository.getDisplayCalls, 0);
+      expect(find.byType(Image), findsOneWidget);
+    });
   });
 }
 
@@ -69,6 +87,29 @@ Future<void> pumpImage(
         home: AuthenticatedMediaImage(
           media: media(),
           representation: representation,
+          fit: BoxFit.cover,
+          placeholder: const Text('Loading image'),
+          errorBuilder: (_) => const Text('Image failed'),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> pumpPathImage(
+  WidgetTester tester,
+  FakeMediaRepository repository,
+  String thumbnailPath,
+) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        mediaRepositoryProvider.overrideWithValue(repository),
+      ],
+      child: MaterialApp(
+        home: AuthenticatedMediaPathImage(
+          thumbnailPath: thumbnailPath,
           fit: BoxFit.cover,
           placeholder: const Text('Loading image'),
           errorBuilder: (_) => const Text('Image failed'),

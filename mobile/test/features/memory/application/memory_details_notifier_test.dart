@@ -12,6 +12,8 @@ import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
@@ -364,6 +366,50 @@ void main() {
 
       expect(readState(container, memoryA.id).memory, same(serverUpdated));
     });
+
+    test('shouldPreservePreviewWhenApplyingMutationMemory', () async {
+      final preview = previewPhoto(mediaId: 'media-a');
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelResult = MemoryReadModel(
+          memory: memoryA,
+          previewPhoto: preview,
+        );
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(memoryDetailsProvider(memoryA.id).future);
+
+      final updated = memory(id: memoryA.id, title: 'Updated');
+      container
+          .read(memoryDetailsProvider(memoryA.id).notifier)
+          .applyUpdatedMemory(updated);
+
+      final state = readState(container, memoryA.id);
+      expect(state.memory, same(updated));
+      expect(state.previewPhoto, same(preview));
+    });
+
+    test('shouldReplacePreviewWhenApplyingAuthoritativeReadModel', () async {
+      final oldPreview = previewPhoto(mediaId: 'media-old');
+      final newPreview = previewPhoto(mediaId: 'media-new');
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelResult = MemoryReadModel(
+          memory: memoryA,
+          previewPhoto: oldPreview,
+        );
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(memoryDetailsProvider(memoryA.id).future);
+
+      final updated = memory(id: memoryA.id, title: 'Updated');
+      container.read(memoryDetailsProvider(memoryA.id).notifier)
+          .applyAuthoritativeRead(
+            MemoryReadModel(memory: updated, previewPhoto: newPreview),
+          );
+
+      final state = readState(container, memoryA.id);
+      expect(state.memory, same(updated));
+      expect(state.previewPhoto, same(newPreview));
+    });
   });
 
   group('MemoryDetailsNotifier provider lifecycle', () {
@@ -480,21 +526,22 @@ final class FakeMemoryRepository implements MemoryRepository {
   int deleteMemoryCalls = 0;
   Completer<Memory>? getMemoryCompleter;
   Memory memoryResult = memoryA;
+  MemoryReadModel? memoryReadModelResult;
   final List<Memory> memoryResults = <Memory>[];
   final List<Object> getMemoryFailures = <Object>[];
   final List<String> receivedMemoryIds = <String>[];
   final List<String> operations = <String>[];
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
     operations.add('getMemories');
 
-    return <Memory>[];
+    return <MemoryReadModel>[];
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     receivedMemoryIds.add(memoryId);
     operations.add('getMemory');
@@ -502,7 +549,7 @@ final class FakeMemoryRepository implements MemoryRepository {
     final configuredCompleter = getMemoryCompleter;
     if (configuredCompleter != null) {
       getMemoryCompleter = null;
-      return configuredCompleter.future;
+      return configuredCompleter.future.then(MemoryReadModel.fromMemory);
     }
 
     if (getMemoryFailures.isNotEmpty) {
@@ -510,10 +557,15 @@ final class FakeMemoryRepository implements MemoryRepository {
     }
 
     if (memoryResults.isNotEmpty) {
-      return memoryResults.removeAt(0);
+      return MemoryReadModel.fromMemory(memoryResults.removeAt(0));
     }
 
-    return memoryResult;
+    final configuredReadModel = memoryReadModelResult;
+    if (configuredReadModel != null) {
+      return configuredReadModel;
+    }
+
+    return MemoryReadModel.fromMemory(memoryResult);
   }
 
   @override
@@ -541,4 +593,13 @@ final class FakeMemoryRepository implements MemoryRepository {
 
 final class UnexpectedMemoryException implements Exception {
   const UnexpectedMemoryException();
+}
+
+MemoryPhotoPreview previewPhoto({
+  required String mediaId,
+}) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
 }

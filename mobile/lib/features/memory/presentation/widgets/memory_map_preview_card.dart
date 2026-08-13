@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 class MemoryMapPreviewCard extends StatelessWidget {
   const MemoryMapPreviewCard({
     required this.memory,
+    this.previewPhoto,
     this.onTap,
     this.onClose,
     super.key,
   });
 
   final Memory memory;
+  final MemoryPhotoPreview? previewPhoto;
   final ValueChanged<Memory>? onTap;
   final VoidCallback? onClose;
 
@@ -45,7 +49,7 @@ class MemoryMapPreviewCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _PreviewIcon(memory: memory),
+                _PreviewVisual(memory: memory, previewPhoto: previewPhoto),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -105,6 +109,40 @@ class MemoryMapPreviewCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviewVisual extends StatelessWidget {
+  const _PreviewVisual({
+    required this.memory,
+    required this.previewPhoto,
+  });
+
+  final Memory memory;
+  final MemoryPhotoPreview? previewPhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = previewPhoto;
+    if (preview == null) {
+      return _PreviewIcon(memory: memory);
+    }
+
+    return ExcludeSemantics(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          width: 58,
+          height: 64,
+          child: AuthenticatedMediaPathImage(
+            thumbnailPath: preview.thumbnailPath,
+            fit: BoxFit.cover,
+            placeholder: _PreviewIcon(memory: memory),
+            errorBuilder: (_) => _PreviewIcon(memory: memory),
           ),
         ),
       ),

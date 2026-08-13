@@ -12,6 +12,7 @@ import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/edit_memory_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
@@ -617,17 +618,17 @@ final class FakeMemoryRepository implements MemoryRepository {
   Object? updateFailure;
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
 
-    return <Memory>[];
+    return <MemoryReadModel>[];
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
 
-    return updateResult;
+    return MemoryReadModel.fromMemory(updateResult);
   }
 
   @override
@@ -665,3 +666,5 @@ final class FakeMemoryRepository implements MemoryRepository {
 final class UnexpectedMemoryException implements Exception {
   const UnexpectedMemoryException();
 }
+
+

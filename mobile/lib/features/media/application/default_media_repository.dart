@@ -57,6 +57,15 @@ final class DefaultMediaRepository implements MediaRepository {
   }
 
   @override
+  Future<Uint8List> getThumbnailByPath(String thumbnailPath) async {
+    try {
+      return await _mediaRemoteDataSource.getRepresentation(thumbnailPath);
+    } on MediaRemoteException catch (exception) {
+      throw MediaApplicationException(_mapFailure(exception));
+    }
+  }
+
+  @override
   Future<Uint8List> getDisplay(Media media) async {
     try {
       return await _mediaRemoteDataSource.getRepresentation(media.displayPath);

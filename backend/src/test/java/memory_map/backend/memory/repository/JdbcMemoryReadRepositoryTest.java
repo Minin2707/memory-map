@@ -1,6 +1,11 @@
 package memory_map.backend.memory.repository;
 
 import memory_map.backend.IntegrationTest;
+import memory_map.backend.media.domain.MediaFile;
+import memory_map.backend.media.domain.MediaType;
+import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.memory.application.MemoryPreviewPhoto;
+import memory_map.backend.memory.application.MemoryReadModel;
 import memory_map.backend.memory.application.StoryMemoriesView;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.story.domain.Story;
@@ -17,6 +22,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+import java.lang.reflect.Constructor;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,6 +40,9 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
 
     @Autowired
     private MemoryRepository memoryRepository;
+
+    @Autowired
+    private MediaFileRepository mediaFileRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -59,6 +68,12 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
             UUID.fromString("00000000-0000-0000-0000-000000000012");
     private static final UUID MEMORY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000021");
+    private static final UUID SECOND_MEMORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000022");
+    private static final UUID MEDIA_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000031");
+    private static final UUID SECOND_MEDIA_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000032");
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
     private static final String CLEAN_DATABASE_SQL = """
@@ -97,7 +112,9 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
                 );
 
         assertThat(result).isPresent();
-        assertThat(result.orElseThrow().memories()).containsExactly(memory);
+        assertThat(result.orElseThrow().memories())
+                .extracting(MemoryReadModel::memory)
+                .containsExactly(memory);
     }
 
     @Test
@@ -248,14 +265,245 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
         saveMemory(c);
         saveMemory(d);
 
-        List<Memory> memories = repository.findByStoryIdAndRequesterUserId(
-                fixture.story().id(),
-                fixture.requester().id()
-        ).orElseThrow().memories();
+        List<MemoryReadModel> memories = repository
+                .findByStoryIdAndRequesterUserId(
+                        fixture.story().id(),
+                        fixture.requester().id()
+                )
+                .orElseThrow()
+                .memories();
 
         assertThat(memories)
-                .extracting(Memory::id)
+                .extracting(memory -> memory.memory().id())
                 .containsExactly(d.id(), c.id(), b.id(), a.id());
+    }
+
+    @Test
+    void shouldReturnNullPreviewWhenMemoryHasNoPhoto() {
+
+        Fixture fixture = authorizedFixture(StoryRole.VIEWER);
+        Memory memory = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+
+        MemoryReadModel result = repository.findByIdAndRequesterUserId(
+                memory.id(),
+                fixture.requester().id()
+        ).orElseThrow();
+
+        assertThat(result.memory()).isEqualTo(memory);
+        assertThat(result.previewPhoto()).isNull();
+    }
+
+    @Test
+    void shouldSelectSinglePhotoPreviewForListAndGet() {
+
+        Fixture fixture = authorizedFixture(StoryRole.EDITOR);
+        Memory memory = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        saveMediaFile(MEDIA_ID, memory.id(), BASE_TIME, MediaType.PHOTO);
+
+        List<MemoryReadModel> list = repository
+                .findByStoryIdAndRequesterUserId(
+                        fixture.story().id(),
+                        fixture.requester().id()
+                )
+                .orElseThrow()
+                .memories();
+        MemoryReadModel single = repository.findByIdAndRequesterUserId(
+                memory.id(),
+                fixture.requester().id()
+        ).orElseThrow();
+
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).previewPhoto())
+                .isEqualTo(new MemoryPreviewPhoto(MEDIA_ID));
+        assertThat(single.previewPhoto())
+                .isEqualTo(new MemoryPreviewPhoto(MEDIA_ID));
+    }
+
+    @Test
+    void shouldSelectEarliestPhotoByCreatedAt() {
+
+        Fixture fixture = authorizedFixture(StoryRole.OWNER);
+        Memory memory = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        saveMediaFile(
+                MEDIA_ID,
+                memory.id(),
+                BASE_TIME.plusSeconds(5),
+                MediaType.PHOTO
+        );
+        saveMediaFile(
+                SECOND_MEDIA_ID,
+                memory.id(),
+                BASE_TIME,
+                MediaType.PHOTO
+        );
+
+        MemoryReadModel result = repository.findByIdAndRequesterUserId(
+                memory.id(),
+                fixture.requester().id()
+        ).orElseThrow();
+
+        assertThat(result.previewPhoto())
+                .isEqualTo(new MemoryPreviewPhoto(SECOND_MEDIA_ID));
+    }
+
+    @Test
+    void shouldBreakPreviewTieByLowestMediaId() {
+
+        Fixture fixture = authorizedFixture(StoryRole.OWNER);
+        Memory memory = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        saveMediaFile(
+                SECOND_MEDIA_ID,
+                memory.id(),
+                BASE_TIME,
+                MediaType.PHOTO
+        );
+        saveMediaFile(MEDIA_ID, memory.id(), BASE_TIME, MediaType.PHOTO);
+
+        MemoryReadModel result = repository.findByIdAndRequesterUserId(
+                memory.id(),
+                fixture.requester().id()
+        ).orElseThrow();
+
+        assertThat(result.previewPhoto())
+                .isEqualTo(new MemoryPreviewPhoto(MEDIA_ID));
+    }
+
+    @Test
+    void shouldNotSelectMediaBelongingToAnotherMemory() {
+
+        Fixture fixture = authorizedFixture(StoryRole.VIEWER);
+        Memory target = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        Memory other = saveMemory(memory(
+                SECOND_MEMORY_ID,
+                fixture.story().id(),
+                fixture.owner().id(),
+                "Other",
+                null,
+                null,
+                52.520008,
+                13.404954,
+                LocalDate.of(2024, 2, 14),
+                BASE_TIME,
+                BASE_TIME
+        ));
+        saveMediaFile(MEDIA_ID, other.id(), BASE_TIME, MediaType.PHOTO);
+
+        MemoryReadModel result = repository.findByIdAndRequesterUserId(
+                target.id(),
+                fixture.requester().id()
+        ).orElseThrow();
+
+        assertThat(result.previewPhoto()).isNull();
+    }
+
+    @Test
+    void shouldAssignOwnPreviewsForMultipleMemories() {
+
+        Fixture fixture = authorizedFixture(StoryRole.CO_OWNER);
+        Memory first = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        Memory second = saveMemory(memory(
+                SECOND_MEMORY_ID,
+                fixture.story().id(),
+                fixture.owner().id(),
+                "Second",
+                null,
+                null,
+                52.520008,
+                13.404954,
+                LocalDate.of(2024, 5, 19),
+                BASE_TIME.plusSeconds(1),
+                BASE_TIME.plusSeconds(1)
+        ));
+        saveMediaFile(MEDIA_ID, first.id(), BASE_TIME, MediaType.PHOTO);
+        saveMediaFile(SECOND_MEDIA_ID, second.id(), BASE_TIME, MediaType.PHOTO);
+
+        List<MemoryReadModel> result = repository
+                .findByStoryIdAndRequesterUserId(
+                        fixture.story().id(),
+                        fixture.requester().id()
+                )
+                .orElseThrow()
+                .memories();
+
+        assertThat(result)
+                .extracting(memory -> memory.memory().id())
+                .containsExactlyInAnyOrder(first.id(), second.id());
+        assertThat(previewFor(result, first.id()))
+                .isEqualTo(new MemoryPreviewPhoto(MEDIA_ID));
+        assertThat(previewFor(result, second.id()))
+                .isEqualTo(new MemoryPreviewPhoto(SECOND_MEDIA_ID));
+    }
+
+    @Test
+    void shouldIgnoreNonPhotoMediaForPreview() {
+
+        Fixture fixture = authorizedFixture(StoryRole.VIEWER);
+        Memory memory = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        saveMediaFile(MEDIA_ID, memory.id(), BASE_TIME, MediaType.VIDEO);
+        saveMediaFile(SECOND_MEDIA_ID, memory.id(), BASE_TIME, MediaType.PHOTO);
+
+        MemoryReadModel result = repository.findByIdAndRequesterUserId(
+                memory.id(),
+                fixture.requester().id()
+        ).orElseThrow();
+
+        assertThat(result.previewPhoto())
+                .isEqualTo(new MemoryPreviewPhoto(SECOND_MEDIA_ID));
+    }
+
+    @Test
+    void shouldNotExposeStorageProviderDataInReadModel() {
+
+        Fixture fixture = authorizedFixture(StoryRole.OWNER);
+        Memory memory = saveMemory(defaultMemory(
+                fixture.story().id(),
+                fixture.owner().id()
+        ));
+        saveMediaFile(MEDIA_ID, memory.id(), BASE_TIME, MediaType.PHOTO);
+
+        String value = repository.findByIdAndRequesterUserId(
+                memory.id(),
+                fixture.requester().id()
+        ).orElseThrow().toString();
+
+        assertThat(value)
+                .doesNotContain("display-key")
+                .doesNotContain("thumbnail-key")
+                .doesNotContain("storage")
+                .doesNotContain("MinIO")
+                .doesNotContain(MEDIA_ID.toString());
+    }
+
+    @Test
+    void shouldNotDependOnMediaFileRepositoryForPreviewLookup() {
+
+        Constructor<?>[] constructors =
+                JdbcMemoryReadRepository.class.getDeclaredConstructors();
+
+        assertThat(constructors).hasSize(1);
+        assertThat(constructors[0].getParameterTypes())
+                .containsExactly(JdbcClient.class);
     }
 
     @Test
@@ -276,15 +524,17 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
                 BASE_TIME.plusSeconds(1)
         ));
 
-        Optional<Memory> result = repository.findByIdAndRequesterUserId(
-                memory.id(),
-                fixture.requester().id()
-        );
+        Optional<MemoryReadModel> result = repository
+                .findByIdAndRequesterUserId(
+                        memory.id(),
+                        fixture.requester().id()
+                );
 
         assertThat(result).isPresent();
-        assertMemoryMatches(result.orElseThrow(), memory);
-        assertThat(result.orElseThrow().description()).isNull();
-        assertThat(result.orElseThrow().placeName()).isNull();
+        assertMemoryMatches(result.orElseThrow().memory(), memory);
+        assertThat(result.orElseThrow().previewPhoto()).isNull();
+        assertThat(result.orElseThrow().memory().description()).isNull();
+        assertThat(result.orElseThrow().memory().placeName()).isNull();
     }
 
     @ParameterizedTest
@@ -297,12 +547,14 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
                 fixture.owner().id()
         ));
 
-        Optional<Memory> result = repository.findByIdAndRequesterUserId(
-                memory.id(),
-                fixture.requester().id()
-        );
+        Optional<MemoryReadModel> result = repository
+                .findByIdAndRequesterUserId(
+                        memory.id(),
+                        fixture.requester().id()
+                );
 
-        assertThat(result).contains(memory);
+        assertThat(result).isPresent();
+        assertThat(result.orElseThrow().memory()).isEqualTo(memory);
     }
 
     @Test
@@ -330,10 +582,11 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
         Story story = saveStory(STORY_ID, owner.id());
         Memory memory = saveMemory(defaultMemory(story.id(), owner.id()));
 
-        Optional<Memory> result = repository.findByIdAndRequesterUserId(
-                memory.id(),
-                owner.id()
-        );
+        Optional<MemoryReadModel> result = repository
+                .findByIdAndRequesterUserId(
+                        memory.id(),
+                        owner.id()
+                );
 
         assertThat(result).isEmpty();
     }
@@ -350,10 +603,11 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
                 formerAuthor.id()
         ));
 
-        Optional<Memory> result = repository.findByIdAndRequesterUserId(
-                memory.id(),
-                formerAuthor.id()
-        );
+        Optional<MemoryReadModel> result = repository
+                .findByIdAndRequesterUserId(
+                        memory.id(),
+                        formerAuthor.id()
+                );
 
         assertThat(result).isEmpty();
     }
@@ -436,6 +690,39 @@ class JdbcMemoryReadRepositoryTest extends IntegrationTest {
     private Memory saveMemory(Memory memory) {
         memoryRepository.save(memory);
         return memory;
+    }
+
+    private MediaFile saveMediaFile(
+            UUID id,
+            UUID memoryId,
+            Instant createdAt,
+            MediaType type
+    ) {
+        MediaFile mediaFile = new MediaFile(
+                id,
+                memoryId,
+                type,
+                "display-key-" + id,
+                1_024L,
+                "thumbnail-key-" + id,
+                128L,
+                "image/jpeg",
+                createdAt
+        );
+        mediaFileRepository.save(mediaFile);
+
+        return mediaFile;
+    }
+
+    private static MemoryPreviewPhoto previewFor(
+            List<MemoryReadModel> memories,
+            UUID memoryId
+    ) {
+        return memories.stream()
+                .filter(memory -> memory.memory().id().equals(memoryId))
+                .findFirst()
+                .orElseThrow()
+                .previewPhoto();
     }
 
     private static Memory defaultMemory(UUID storyId, UUID createdBy) {

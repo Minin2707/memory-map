@@ -1,5 +1,7 @@
 package memory_map.backend.memory.api;
 
+import memory_map.backend.memory.application.MemoryPreviewPhoto;
+import memory_map.backend.memory.application.MemoryReadModel;
 import memory_map.backend.memory.domain.Memory;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +20,8 @@ class MemoryResponseTest {
             UUID.fromString("00000000-0000-0000-0000-000000000011");
     private static final UUID CREATED_BY =
             UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID MEDIA_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000031");
     private static final LocalDate EVENT_DATE =
             LocalDate.of(2024, 5, 18);
     private static final Instant CREATED_AT =
@@ -47,6 +51,7 @@ class MemoryResponseTest {
         assertThat(response.eventDate()).isEqualTo(EVENT_DATE);
         assertThat(response.createdAt()).isEqualTo(CREATED_AT);
         assertThat(response.updatedAt()).isEqualTo(UPDATED_AT);
+        assertThat(response.previewPhoto()).isNull();
     }
 
     @Test
@@ -65,9 +70,43 @@ class MemoryResponseTest {
     @Test
     void shouldRejectNullMemory() {
 
-        assertThatThrownBy(() -> MemoryResponse.from(null))
+        assertThatThrownBy(() -> MemoryResponse.from((Memory) null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("memory must not be null");
+    }
+
+    @Test
+    void shouldMapPreviewPhotoFromReadModel() {
+
+        MemoryResponse response = MemoryResponse.from(new MemoryReadModel(
+                memory("First day in Tbilisi", null, null),
+                new MemoryPreviewPhoto(MEDIA_ID)
+        ));
+
+        assertThat(response.previewPhoto()).isNotNull();
+        assertThat(response.previewPhoto().mediaId()).isEqualTo(MEDIA_ID);
+        assertThat(response.previewPhoto().thumbnailUrl())
+                .isEqualTo("/api/v1/media/%s/thumbnail".formatted(MEDIA_ID));
+    }
+
+    @Test
+    void shouldPreserveNullPreviewPhotoFromReadModel() {
+
+        MemoryResponse response = MemoryResponse.from(
+                MemoryReadModel.withoutPreview(
+                        memory("First day in Tbilisi", null, null)
+                )
+        );
+
+        assertThat(response.previewPhoto()).isNull();
+    }
+
+    @Test
+    void shouldRejectNullReadModel() {
+
+        assertThatThrownBy(() -> MemoryResponse.from((MemoryReadModel) null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("memoryReadModel must not be null");
     }
 
     private static Memory memory(

@@ -304,6 +304,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyDetailsMapAction => 'Map';
 
   @override
+  String get storyDetailsTimelineAction => 'Timeline';
+
+  @override
   String get participantsPageTitle => 'Participants';
 
   @override
@@ -487,6 +490,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get storyMemoriesRefreshFailureTitle => 'Could not refresh memories';
+
+  @override
+  String get storyTimelinePageTitle => 'Timeline';
+
+  @override
+  String get storyTimelineBackLabel => 'Back to story';
+
+  @override
+  String get storyTimelineRefreshAction => 'Refresh timeline';
+
+  @override
+  String get storyTimelineTabTimeline => 'Timeline';
+
+  @override
+  String get storyTimelineTabMap => 'Map';
+
+  @override
+  String get storyTimelineTabStats => 'Stats';
+
+  @override
+  String get storyTimelineCreate => 'Add memory';
+
+  @override
+  String get storyTimelineEmptyTitle => 'No timeline yet';
+
+  @override
+  String get storyTimelineEmptyBody =>
+      'Add memories to build this story timeline.';
+
+  @override
+  String get storyTimelineLoadFailureTitle => 'Could not load timeline';
+
+  @override
+  String get storyTimelineRefreshFailureTitle => 'Could not refresh timeline';
 
   @override
   String get storyMapPageTitle => 'Map';

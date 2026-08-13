@@ -5,6 +5,10 @@ import 'package:memory_map/features/media/application/media_application_provider
 import 'package:memory_map/features/media/application/memory_media_notifier.dart';
 import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/media/domain/media_failure.dart';
+import 'package:memory_map/features/memory/application/memory_application_providers.dart';
+import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
+import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 
 final deleteMediaProvider = AsyncNotifierProvider.autoDispose
     .family<DeleteMediaNotifier, DeleteMediaState, String>(
@@ -51,6 +55,11 @@ final class DeleteMediaNotifier extends AsyncNotifier<DeleteMediaState> {
       }
 
       _removeFromLoadedMemoryMedia(media);
+      await _synchronizeLoadedMemoryPreview(media.memoryId);
+      if (!ref.mounted) {
+        return false;
+      }
+
       state = const AsyncData<DeleteMediaState>(DeleteMediaState());
       return true;
     } on MediaApplicationException catch (error) {
@@ -89,6 +98,41 @@ final class DeleteMediaNotifier extends AsyncNotifier<DeleteMediaState> {
     }
 
     ref.read(provider.notifier).removeMediaById(media.id);
+  }
+
+  Future<void> _synchronizeLoadedMemoryPreview(String memoryId) async {
+    if (!_hasLoadedMemoryPreviewTarget(memoryId)) {
+      return;
+    }
+
+    try {
+      final readModel = await ref.read(memoryRepositoryProvider).getMemory(
+            memoryId,
+          );
+      if (!ref.mounted) {
+        return;
+      }
+
+      _applyAuthoritativeReadToLoadedProviders(readModel);
+    } on Object {
+      return;
+    }
+  }
+
+  bool _hasLoadedMemoryPreviewTarget(String memoryId) {
+    return ref.exists(memoryDetailsProvider(memoryId));
+  }
+
+  void _applyAuthoritativeReadToLoadedProviders(MemoryReadModel readModel) {
+    final details = memoryDetailsProvider(readModel.memory.id);
+    if (ref.exists(details)) {
+      ref.read(details.notifier).applyAuthoritativeRead(readModel);
+    }
+
+    final storyMemories = storyMemoriesProvider(readModel.memory.storyId);
+    if (ref.exists(storyMemories)) {
+      ref.read(storyMemories.notifier).upsertAuthoritativeRead(readModel);
+    }
   }
 
   bool get _isLoading => state is AsyncLoading<DeleteMediaState>;

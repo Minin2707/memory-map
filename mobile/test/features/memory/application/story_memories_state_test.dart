@@ -4,6 +4,8 @@ import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 
 void main() {
   group('StoryMemoriesState', () {
@@ -28,6 +30,41 @@ void main() {
         () => state.memories.add(memory(id: 'memory-3')),
         throwsA(isA<UnsupportedError>()),
       );
+    });
+
+    test('shouldExposePreviewAwareReadModelsWithoutPollutingMemoryList', () {
+      final preview = previewPhoto(mediaId: 'media-a');
+      final readModel = MemoryReadModel(
+        memory: memory(id: 'memory-1'),
+        previewPhoto: preview,
+      );
+
+      final state = StoryMemoriesState(
+        memoryReadModels: <MemoryReadModel>[readModel],
+      );
+
+      expect(state.memoryReadModels, <MemoryReadModel>[readModel]);
+      expect(state.memoryReadModels.single.previewPhoto, same(preview));
+      expect(state.memories, <Memory>[readModel.memory]);
+    });
+
+    test('shouldCopyWithAuthoritativeNullPreview', () {
+      final initial = StoryMemoriesState(
+        memoryReadModels: <MemoryReadModel>[
+          MemoryReadModel(
+            memory: memory(id: 'memory-1'),
+            previewPhoto: previewPhoto(mediaId: 'media-a'),
+          ),
+        ],
+      );
+      final authoritative = MemoryReadModel(memory: memory(id: 'memory-1'));
+
+      final copied = initial.copyWith(
+        memoryReadModels: <MemoryReadModel>[authoritative],
+      );
+
+      expect(copied.memoryReadModels.single, authoritative);
+      expect(copied.memoryReadModels.single.previewPhoto, isNull);
     });
 
     test('shouldExposeFailuresAndFlags', () {
@@ -142,6 +179,15 @@ void main() {
       expect(text, isNot(contains('token')));
     });
   });
+}
+
+MemoryPhotoPreview previewPhoto({
+  required String mediaId,
+}) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
 }
 
 Memory memory({

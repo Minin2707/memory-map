@@ -1,3 +1,4 @@
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 
 int compareMemoriesCanonical(Memory left, Memory right) {
@@ -12,4 +13,11 @@ int compareMemoriesCanonical(Memory left, Memory right) {
   }
 
   return left.id.compareTo(right.id);
+}
+
+int compareMemoryReadModelsCanonical(
+  MemoryReadModel left,
+  MemoryReadModel right,
+) {
+  return compareMemoriesCanonical(left.memory, right.memory);
 }

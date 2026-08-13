@@ -1,13 +1,11 @@
 package memory_map.backend.memory.application;
 
-import memory_map.backend.memory.domain.Memory;
-
 import java.util.List;
 import java.util.Objects;
 
 public record StoryMemoriesView(
 
-        List<Memory> memories
+        List<MemoryReadModel> memories
 
 ) {
     public StoryMemoriesView {

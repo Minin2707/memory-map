@@ -32,23 +32,28 @@ class DefaultGetStoryMemoriesServiceTest {
     void shouldReturnAccessibleMemories() {
 
         Memory memory = memory(MEMORY_ID, "First");
+        MemoryReadModel readModel = MemoryReadModel.withoutPreview(memory);
         TestContext context = testContext(Optional.of(
-                new StoryMemoriesView(List.of(memory))
+                new StoryMemoriesView(List.of(readModel))
         ));
 
-        List<Memory> result = context.service().getMemories(
+        List<MemoryReadModel> result = context.service().getMemories(
                 AUTHENTICATED_USER,
                 STORY_ID
         );
 
-        assertThat(result).containsExactly(memory);
+        assertThat(result).containsExactly(readModel);
     }
 
     @Test
     void shouldPassStoryIdAndAuthenticatedUserId() {
 
         TestContext context = testContext(Optional.of(
-                new StoryMemoriesView(List.of(memory(MEMORY_ID, "First")))
+                new StoryMemoriesView(List.of(
+                        MemoryReadModel.withoutPreview(
+                                memory(MEMORY_ID, "First")
+                        )
+                ))
         ));
 
         context.service().getMemories(AUTHENTICATED_USER, STORY_ID);
@@ -70,15 +75,19 @@ class DefaultGetStoryMemoriesServiceTest {
         );
         Memory first = memory(MEMORY_ID, "First");
         TestContext context = testContext(Optional.of(
-                new StoryMemoriesView(List.of(second, first))
+                new StoryMemoriesView(List.of(
+                        MemoryReadModel.withoutPreview(second),
+                        MemoryReadModel.withoutPreview(first)
+                ))
         ));
 
-        List<Memory> result = context.service().getMemories(
+        List<MemoryReadModel> result = context.service().getMemories(
                 AUTHENTICATED_USER,
                 STORY_ID
         );
 
-        assertThat(result).containsExactly(second, first);
+        assertThat(result).extracting(MemoryReadModel::memory)
+                .containsExactly(second, first);
     }
 
     @Test
@@ -88,7 +97,7 @@ class DefaultGetStoryMemoriesServiceTest {
                 new StoryMemoriesView(List.of())
         ));
 
-        List<Memory> result = context.service().getMemories(
+        List<MemoryReadModel> result = context.service().getMemories(
                 AUTHENTICATED_USER,
                 STORY_ID
         );
@@ -100,15 +109,21 @@ class DefaultGetStoryMemoriesServiceTest {
     void shouldReturnImmutableListFromView() {
 
         TestContext context = testContext(Optional.of(
-                new StoryMemoriesView(List.of(memory(MEMORY_ID, "First")))
+                new StoryMemoriesView(List.of(
+                        MemoryReadModel.withoutPreview(
+                                memory(MEMORY_ID, "First")
+                        )
+                ))
         ));
 
-        List<Memory> result = context.service().getMemories(
+        List<MemoryReadModel> result = context.service().getMemories(
                 AUTHENTICATED_USER,
                 STORY_ID
         );
 
-        assertThatThrownBy(() -> result.add(memory(MEMORY_ID, "First")))
+        assertThatThrownBy(() -> result.add(MemoryReadModel.withoutPreview(
+                memory(MEMORY_ID, "First")
+        )))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
@@ -237,7 +252,7 @@ class DefaultGetStoryMemoriesServiceTest {
         }
 
         @Override
-        public Optional<Memory> findByIdAndRequesterUserId(
+        public Optional<MemoryReadModel> findByIdAndRequesterUserId(
                 UUID memoryId,
                 UUID requesterUserId
         ) {

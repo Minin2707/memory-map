@@ -13,6 +13,7 @@ import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/memory_details_screen.dart';
@@ -749,28 +750,28 @@ final class FakeMemoryRepository implements MemoryRepository {
   Object? deleteFailure;
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
 
-    return <Memory>[];
+    return <MemoryReadModel>[];
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     receivedMemoryIds.add(memoryId);
 
     final configuredCompleter = getMemoryCompleter;
     if (configuredCompleter != null) {
       getMemoryCompleter = null;
-      return configuredCompleter.future;
+      return configuredCompleter.future.then(MemoryReadModel.fromMemory);
     }
 
     if (getMemoryFailures.isNotEmpty) {
       throw getMemoryFailures.removeAt(0);
     }
 
-    return memoryResult;
+    return MemoryReadModel.fromMemory(memoryResult);
   }
 
   @override
@@ -808,3 +809,5 @@ final class FakeMemoryRepository implements MemoryRepository {
 final class UnexpectedMemoryException implements Exception {
   const UnexpectedMemoryException();
 }
+
+

@@ -25,12 +25,15 @@ import 'package:memory_map/features/invite/domain/invite_repository.dart';
 import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
+import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 import 'package:memory_map/features/memory/domain/create_memory_input.dart';
 import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_map_configuration.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_route.dart';
@@ -1139,6 +1142,260 @@ void main() {
       );
     });
 
+    testWidgets('shouldOpenStoryTimelineFromDetailsAndBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsTimelineAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.timeline-action')),
+      );
+
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
+      expect(fakeMemoryRepository.getMemoryCalls, 0);
+      expect(
+        find.byKey(const ValueKey('story-timeline.tabs')),
+        findsOneWidget,
+      );
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-timeline.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenDirectStoryTimelineRouteAndFallbackBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-timeline.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(
+        fakeStoryRepository.receivedGetStoryIds,
+        contains(ownerStory.story.id),
+      );
+    });
+
+    testWidgets('shouldRouteUnauthenticatedTimelineToLogin', (
+      WidgetTester tester,
+    ) async {
+      await pumpApp(tester, FakeAuthRepository());
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Continue with Google'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Timeline'), findsNothing);
+    });
+
+    testWidgets('shouldOpenMemoryDetailsFromTimelineAndBackToTimeline', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(memoryA.title));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Memory'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.back-action')),
+      );
+
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderTimelineThumbnailWithoutMediaMetadataRequests', (
+      WidgetTester tester,
+    ) async {
+      final preview = previewPhoto('media-a');
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..readModelsResult = <MemoryReadModel>[
+          MemoryReadModel(memory: memoryA, previewPhoto: preview),
+          MemoryReadModel.fromMemory(memoryB),
+        ];
+      final fakeMediaRepository = media_fixtures.FakeMediaRepository()
+        ..thumbnailResult = media_fixtures.validPngBytes
+        ..mediaResult = <Media>[];
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        mediaRepository: fakeMediaRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+      await tester.pumpAndSettle();
+
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
+      expect(fakeMemoryRepository.getMemoryCalls, 0);
+      expect(fakeMediaRepository.getThumbnailByPathCalls, 1);
+      expect(fakeMediaRepository.receivedBinaryPaths, <String>[
+        preview.thumbnailPath,
+      ]);
+      expect(fakeMediaRepository.getMediaCalls, 0);
+      expect(fakeMediaRepository.getDisplayCalls, 0);
+    });
+
+    testWidgets('shouldReflectPhotoPreviewAuthoritativeUpdatesOnTimeline', (
+      WidgetTester tester,
+    ) async {
+      final previewA = previewPhoto('media-a');
+      final previewB = previewPhoto('media-b');
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..readModelsResult = <MemoryReadModel>[
+          MemoryReadModel(memory: memoryA, previewPhoto: previewA),
+        ];
+      final fakeMediaRepository = media_fixtures.FakeMediaRepository()
+        ..thumbnailResult = media_fixtures.validPngBytes
+        ..mediaResult = <Media>[];
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        mediaRepository: fakeMediaRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+      await tester.pumpAndSettle();
+      expect(fakeMediaRepository.receivedBinaryPaths, <String>[
+        previewA.thumbnailPath,
+      ]);
+
+      container
+          .read(storyMemoriesProvider(ownerStory.story.id).notifier)
+          .upsertAuthoritativeRead(
+            MemoryReadModel(memory: memoryA, previewPhoto: previewB),
+          );
+      await tester.pumpAndSettle();
+
+      expect(fakeMediaRepository.receivedBinaryPaths, <String>[
+        previewA.thumbnailPath,
+        previewB.thumbnailPath,
+      ]);
+
+      container
+          .read(storyMemoriesProvider(ownerStory.story.id).notifier)
+          .upsertAuthoritativeRead(MemoryReadModel.fromMemory(memoryA));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('story-timeline.no-photo-visual')),
+        findsOneWidget,
+      );
+      expect(fakeMediaRepository.getMediaCalls, 0);
+      expect(fakeMediaRepository.getDisplayCalls, 0);
+    });
+
+    testWidgets('shouldRefreshTimelineAuthoritativePreviewReplacementAndNull', (
+      WidgetTester tester,
+    ) async {
+      final previewA = previewPhoto('media-a');
+      final previewB = previewPhoto('media-b');
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..readModelsResult = <MemoryReadModel>[
+          MemoryReadModel(memory: memoryA, previewPhoto: previewA),
+        ];
+      final fakeMediaRepository = media_fixtures.FakeMediaRepository()
+        ..thumbnailResult = media_fixtures.validPngBytes
+        ..mediaResult = <Media>[];
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        mediaRepository: fakeMediaRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+      await tester.pumpAndSettle();
+
+      fakeMemoryRepository.readModelsResult = <MemoryReadModel>[
+        MemoryReadModel(memory: memoryA, previewPhoto: previewB),
+      ];
+      await container
+          .read(storyMemoriesProvider(ownerStory.story.id).notifier)
+          .refreshMemories();
+      await tester.pumpAndSettle();
+
+      expect(fakeMediaRepository.receivedBinaryPaths, contains(previewB.thumbnailPath));
+
+      fakeMemoryRepository.readModelsResult = <MemoryReadModel>[
+        MemoryReadModel.fromMemory(memoryA),
+      ];
+      await container
+          .read(storyMemoriesProvider(ownerStory.story.id).notifier)
+          .refreshMemories();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('story-timeline.no-photo-visual')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('shouldOpenMemoryDetailsFromStoryMapAndBackToMap', (
       WidgetTester tester,
     ) async {
@@ -1250,6 +1507,73 @@ void main() {
         find.byKey(const ValueKey('story-details.map-action')),
         findsOneWidget,
       );
+    });
+
+    testWidgets('shouldShowTimelineForViewerAndHideCreateMemory', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[userStory(role: StoryRole.viewer)]
+        ..storyResult = userStory(role: StoryRole.viewer);
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsTimelineAction(tester);
+
+      expect(
+        find.byKey(const ValueKey('story-details.timeline-action')),
+        findsOneWidget,
+      );
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.timeline-action')),
+      );
+
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-timeline.create-action')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldExposeTimelineCreateForOwnerCoOwnerAndEditor', (
+      WidgetTester tester,
+    ) async {
+      for (final role in <StoryRole>[
+        StoryRole.owner,
+        StoryRole.coOwner,
+        StoryRole.editor,
+      ]) {
+        final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+        final fakeStoryRepository = FakeStoryRepository()
+          ..storiesResult = <UserStory>[userStory(role: role)]
+          ..storyResult = userStory(role: role);
+
+        await pumpApp(
+          tester,
+          fakeAuthRepository,
+          storyRepository: fakeStoryRepository,
+        );
+        await tester.pumpAndSettle();
+
+        final context = tester.element(find.text('Your stories'));
+        GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('story-timeline.create-action')),
+          findsOneWidget,
+        );
+      }
     });
 
     testWidgets('shouldOpenMemoryDetailsFromStoryMemoriesAndBackToMemories', (
@@ -1399,6 +1723,74 @@ void main() {
       );
     });
 
+    testWidgets('shouldCreateMemoryFromTimelineAndReflectNewYear', (
+      WidgetTester tester,
+    ) async {
+      final newYearMemory = memory(
+        id: 'timeline-created-memory',
+        title: 'Timeline created',
+        createdBy: session.user.id,
+        eventDate: MemoryDate(year: 2027, month: 1, day: 2),
+        location: memoryLocationA,
+      );
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..createResult = newYearMemory;
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-timeline.create-action')),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('create-memory.title-field')),
+        newYearMemory.title,
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('create-memory.date-action')),
+      );
+      await tapVisibleText(tester, 'OK');
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('create-memory.location-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('location-picker.fake-map.select-a')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('location-picker.confirm-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('create-memory.submit-action')),
+      );
+
+      expect(fakeMemoryRepository.createMemoryCalls, 1);
+      expect(find.text('Memory'), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.back-action')),
+      );
+
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text(newYearMemory.title), findsOneWidget);
+      expect(find.text('2027'), findsOneWidget);
+    });
+
     testWidgets('shouldHideCreateMemoryForViewer', (
       WidgetTester tester,
     ) async {
@@ -1464,6 +1856,73 @@ void main() {
       expect(find.text('Edit memory'), findsNothing);
     });
 
+    testWidgets('shouldReflectTimelineEditAndPreservePreview', (
+      WidgetTester tester,
+    ) async {
+      final preview = previewPhoto('preview-a');
+      final editedIntoNewYear = memory(
+        id: memoryA.id,
+        title: 'Timeline edited',
+        description: 'Timeline edited description',
+        placeName: 'Timeline edited place',
+        createdBy: memoryA.createdBy,
+        eventDate: MemoryDate(year: 2027, month: 3, day: 4),
+        location: memoryA.location,
+      );
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..readModelsResult = <MemoryReadModel>[
+          MemoryReadModel(memory: memoryA, previewPhoto: preview),
+          MemoryReadModel.fromMemory(memoryB),
+        ]
+        ..memoryReadResult = MemoryReadModel(
+          memory: memoryA,
+          previewPhoto: preview,
+        )
+        ..updateResult = editedIntoNewYear;
+
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(memoryA.title));
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.edit-action')),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-memory.title-field')),
+        editedIntoNewYear.title,
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('edit-memory.save-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.back-action')),
+      );
+
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text(editedIntoNewYear.title), findsOneWidget);
+      expect(find.text('2027'), findsOneWidget);
+      final storyMemories = container
+          .read(storyMemoriesProvider(ownerStory.story.id))
+          .asData!
+          .value;
+      final editedReadModel = storyMemories.memoryReadModels.singleWhere(
+        (readModel) => readModel.memory.id == editedIntoNewYear.id,
+      );
+      expect(editedReadModel.previewPhoto, preview);
+    });
+
     testWidgets('shouldNavigateAfterDeleteAndRemoveStaleDetailsFromStack', (
       WidgetTester tester,
     ) async {
@@ -1509,6 +1968,61 @@ void main() {
 
       expect(find.text('About this story'), findsOneWidget);
       expect(find.text(memoryA.title), findsNothing);
+    });
+
+    testWidgets('shouldDeleteMemoryFromTimelineAndRemoveEmptyYear', (
+      WidgetTester tester,
+    ) async {
+      final only2025 = memory(
+        id: 'only-2025',
+        title: 'Only 2025 memory',
+        eventDate: MemoryDate(year: 2025, month: 1, day: 1),
+        location: memoryLocationA,
+      );
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..memoriesResult = <Memory>[only2025, memoryA]
+        ..memoryResult = only2025;
+
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/memories/${only2025.id}?origin=timeline');
+      await tester.pumpAndSettle();
+      expect(
+        routerLocation(tester.element(find.text('Memory'))),
+        '/memories/${only2025.id}?origin=timeline',
+      );
+      await scrollToMemoryDetailsDeleteAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.delete-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.delete.confirm-action')),
+      );
+
+      expect(fakeMemoryRepository.deleteMemoryCalls, 1);
+      expect(
+        find.byKey(const ValueKey('story-timeline.tabs')),
+        findsOneWidget,
+      );
+      expect(find.text(only2025.title), findsNothing);
+      expect(find.text(memoryA.title), findsOneWidget);
+      final storyMemories = container
+          .read(storyMemoriesProvider(ownerStory.story.id))
+          .asData!
+          .value;
+      expect(
+        storyMemories.memoryReadModels.map((readModel) => readModel.memory.id),
+        <String>[memoryA.id],
+      );
     });
 
     testWidgets('shouldHideMemoryMutationsWhenViewerIsNotAuthor', (
@@ -1866,6 +2380,36 @@ Future<void> scrollToStoryDetailsMapAction(
   await tester.pumpAndSettle();
 }
 
+Future<void> scrollToStoryDetailsTimelineAction(
+  WidgetTester tester,
+) async {
+  await tester.scrollUntilVisible(
+    storyDetailsTimelineActionFinder(),
+    120,
+    scrollable: find.byType(Scrollable),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> scrollDownUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int maxScrolls = 8,
+}) async {
+  for (var index = 0; index < maxScrolls; index += 1) {
+    if (finder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      return;
+    }
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -320));
+    await tester.pumpAndSettle();
+  }
+
+  fail('Expected finder to become visible after scrolling: $finder');
+}
+
 Future<void> scrollToMemoryDetailsDeleteAction(
   WidgetTester tester,
 ) async {
@@ -1893,6 +2437,10 @@ Finder storyDetailsMapActionFinder() {
   return find.byKey(const ValueKey('story-details.map-action'));
 }
 
+Finder storyDetailsTimelineActionFinder() {
+  return find.byKey(const ValueKey('story-details.timeline-action'));
+}
+
 Finder memoryDetailsDeleteActionFinder() {
   return find.byKey(const ValueKey('memory-details.delete-action'));
 }
@@ -1908,6 +2456,7 @@ Future<ProviderContainer> pumpApp(
   FakeInviteRepository? inviteRepository,
   FakeStoryParticipantRepository? participantRepository,
   FakeMemoryRepository? memoryRepository,
+  media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
 }) async {
   final container = createContainer(
@@ -1916,6 +2465,7 @@ Future<ProviderContainer> pumpApp(
     inviteRepository: inviteRepository,
     participantRepository: participantRepository,
     memoryRepository: memoryRepository,
+    mediaRepository: mediaRepository,
     storyMapBuilder: storyMapBuilder,
   );
   addTearDown(container.dispose);
@@ -1937,6 +2487,7 @@ ProviderContainer createContainer(
   FakeInviteRepository? inviteRepository,
   FakeStoryParticipantRepository? participantRepository,
   FakeMemoryRepository? memoryRepository,
+  media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
 }) {
   return ProviderContainer(
@@ -1955,7 +2506,8 @@ ProviderContainer createContainer(
         memoryRepository ?? FakeMemoryRepository(),
       ),
       mediaRepositoryProvider.overrideWithValue(
-        media_fixtures.FakeMediaRepository()..mediaResult = <Media>[],
+        mediaRepository ??
+            (media_fixtures.FakeMediaRepository()..mediaResult = <Media>[]),
       ),
       locationPickerMapBuilderProvider.overrideWithValue(
         fakeLocationPickerMapBuilder,
@@ -2071,6 +2623,13 @@ final Memory updatedMemory = memory(
   eventDate: memoryA.eventDate,
   location: memoryA.location,
 );
+MemoryPhotoPreview previewPhoto(String mediaId) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}
+
 const String validInviteToken = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 final Invite invite = Invite(
   inviteLink: Uri.parse('https://app.memorymap.app/invite/$validInviteToken'),
@@ -2271,7 +2830,9 @@ final class FakeMemoryRepository implements MemoryRepository {
   int deleteMemoryCalls = 0;
 
   List<Memory> memoriesResult = <Memory>[memoryA, memoryB];
+  List<MemoryReadModel>? readModelsResult;
   Memory memoryResult = memoryA;
+  MemoryReadModel? memoryReadResult;
   Memory createResult = createdMemory;
   Memory updateResult = updatedMemory;
   final List<String> receivedStoryIds = <String>[];
@@ -2281,27 +2842,37 @@ final class FakeMemoryRepository implements MemoryRepository {
   DeleteMemoryInput? receivedDeleteInput;
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
     receivedStoryIds.add(storyId);
-    return memoriesResult;
+    final readModels = readModelsResult;
+    if (readModels != null) {
+      return readModels;
+    }
+
+    return memoriesResult.map(MemoryReadModel.fromMemory).toList();
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     receivedMemoryIds.add(memoryId);
-    if (memoryId == memoryB.id) {
-      return memoryB;
-    }
-    if (memoryId == createdMemory.id) {
-      return createdMemory;
-    }
-    if (memoryId == updatedMemory.id && updateMemoryCalls > 0) {
-      return updateResult;
+    final readModel = memoryReadResult;
+    if (readModel != null && readModel.memory.id == memoryId) {
+      return readModel;
     }
 
-    return memoryResult;
+    if (memoryId == memoryB.id) {
+      return MemoryReadModel.fromMemory(memoryB);
+    }
+    if (memoryId == createResult.id) {
+      return MemoryReadModel.fromMemory(createResult);
+    }
+    if (memoryId == updateResult.id && updateMemoryCalls > 0) {
+      return MemoryReadModel.fromMemory(updateResult);
+    }
+
+    return MemoryReadModel.fromMemory(memoryResult);
   }
 
   @override
@@ -2323,6 +2894,12 @@ final class FakeMemoryRepository implements MemoryRepository {
   Future<void> deleteMemory(DeleteMemoryInput input) async {
     deleteMemoryCalls += 1;
     receivedDeleteInput = input;
+    memoriesResult = memoriesResult
+        .where((memory) => memory.id != input.memoryId)
+        .toList();
+    readModelsResult = readModelsResult
+        ?.where((readModel) => readModel.memory.id != input.memoryId)
+        .toList();
   }
 }
 

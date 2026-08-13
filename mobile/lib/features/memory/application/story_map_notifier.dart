@@ -103,7 +103,9 @@ StoryMapState _storyMapStateFrom(
     );
   }
 
-  final markers = mapMarkersFromMemories(memoriesState.memories);
+  final markers = mapMarkersFromMemoryReadModels(
+    memoriesState.memoryReadModels,
+  );
   final reconciledSelection = markers.any(
     (marker) => marker.id == selectedMarkerId,
   )
@@ -126,5 +128,7 @@ bool _containsSelectableMarker(
     return false;
   }
 
-  return memoriesState.memories.any((memory) => memory.id == markerId);
+  return memoriesState.memoryReadModels.any(
+    (memory) => memory.memory.id == markerId,
+  );
 }

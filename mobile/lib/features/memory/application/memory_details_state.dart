@@ -1,14 +1,33 @@
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 
 final class MemoryDetailsState {
   factory MemoryDetailsState.loaded({
     required Memory memory,
+    MemoryPhotoPreview? previewPhoto,
     bool isRefreshing = false,
     MemoryFailure? refreshFailure,
   }) {
     return MemoryDetailsState._(
-      memory: memory,
+      readModel: MemoryReadModel(
+        memory: memory,
+        previewPhoto: previewPhoto,
+      ),
+      isRefreshing: isRefreshing,
+      loadFailure: null,
+      refreshFailure: refreshFailure,
+    );
+  }
+
+  factory MemoryDetailsState.loadedRead({
+    required MemoryReadModel readModel,
+    bool isRefreshing = false,
+    MemoryFailure? refreshFailure,
+  }) {
+    return MemoryDetailsState._(
+      readModel: readModel,
       isRefreshing: isRefreshing,
       loadFailure: null,
       refreshFailure: refreshFailure,
@@ -17,7 +36,7 @@ final class MemoryDetailsState {
 
   factory MemoryDetailsState.loadFailure(MemoryFailure failure) {
     return MemoryDetailsState._(
-      memory: null,
+      readModel: null,
       isRefreshing: false,
       loadFailure: failure,
       refreshFailure: null,
@@ -25,16 +44,20 @@ final class MemoryDetailsState {
   }
 
   const MemoryDetailsState._({
-    required this.memory,
+    required this.readModel,
     required this.isRefreshing,
     required this.loadFailure,
     required this.refreshFailure,
   });
 
-  final Memory? memory;
+  final MemoryReadModel? readModel;
   final bool isRefreshing;
   final MemoryFailure? loadFailure;
   final MemoryFailure? refreshFailure;
+
+  Memory? get memory => readModel?.memory;
+
+  MemoryPhotoPreview? get previewPhoto => readModel?.previewPhoto;
 
   bool get hasMemory => memory != null;
 
@@ -44,6 +67,8 @@ final class MemoryDetailsState {
 
   MemoryDetailsState copyWith({
     Memory? memory,
+    MemoryReadModel? readModel,
+    MemoryPhotoPreview? previewPhoto,
     bool? isRefreshing,
     MemoryFailure? loadFailure,
     MemoryFailure? refreshFailure,
@@ -51,7 +76,11 @@ final class MemoryDetailsState {
     bool clearRefreshFailure = false,
   }) {
     return MemoryDetailsState._(
-      memory: memory ?? this.memory,
+      readModel: readModel ??
+          _updatedReadModel(
+            memory: memory,
+            previewPhoto: previewPhoto,
+          ),
       isRefreshing: isRefreshing ?? this.isRefreshing,
       loadFailure: clearLoadFailure ? null : loadFailure ?? this.loadFailure,
       refreshFailure:
@@ -64,6 +93,7 @@ final class MemoryDetailsState {
     return identical(this, other) ||
         other is MemoryDetailsState &&
             memory == other.memory &&
+            previewPhoto == other.previewPhoto &&
             isRefreshing == other.isRefreshing &&
             loadFailure == other.loadFailure &&
             refreshFailure == other.refreshFailure;
@@ -72,6 +102,7 @@ final class MemoryDetailsState {
   @override
   int get hashCode => Object.hash(
         memory,
+        previewPhoto,
         isRefreshing,
         loadFailure,
         refreshFailure,
@@ -83,5 +114,21 @@ final class MemoryDetailsState {
         'isRefreshing: $isRefreshing, '
         'hasLoadFailure: ${loadFailure != null}, '
         'hasRefreshFailure: ${refreshFailure != null})';
+  }
+
+  MemoryReadModel? _updatedReadModel({
+    Memory? memory,
+    MemoryPhotoPreview? previewPhoto,
+  }) {
+    final current = readModel;
+    final nextMemory = memory ?? current?.memory;
+    if (nextMemory == null) {
+      return null;
+    }
+
+    return MemoryReadModel(
+      memory: nextMemory,
+      previewPhoto: previewPhoto ?? current?.previewPhoto,
+    );
   }
 }

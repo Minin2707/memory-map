@@ -1,7 +1,6 @@
 package memory_map.backend.memory.application;
 
 import memory_map.backend.auth.domain.AuthenticatedUser;
-import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryReadRepository;
 import memory_map.backend.story.application.StoryNotFoundException;
 
@@ -24,7 +23,7 @@ public class DefaultGetStoryMemoriesService
     }
 
     @Override
-    public List<Memory> getMemories(
+    public List<MemoryReadModel> getMemories(
             AuthenticatedUser authenticatedUser,
             UUID storyId
     ) {

@@ -146,6 +146,14 @@ void main() {
           ),
         ),
       );
+      await expectLater(
+        dataSource.getRepresentation('/api/v1/media/media-id/thumbnail?x=1'),
+        throwsA(
+          argumentErrorWithMessage(
+            'backendPath must be a backend API path',
+          ),
+        ),
+      );
       expect(adapter.fetchCalls, 0);
     });
   });

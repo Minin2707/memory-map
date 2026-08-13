@@ -105,14 +105,16 @@ class GetStoryMemoriesUseCaseIntegrationTest extends IntegrationTest {
                 BASE_TIME
         ));
 
-        List<Memory> result = getStoryMemoriesUseCase.getMemories(
+        List<MemoryReadModel> result = getStoryMemoriesUseCase.getMemories(
                 new AuthenticatedUser(fixture.requester().id()),
                 fixture.story().id()
         );
 
         assertThat(result).hasSize(2);
-        assertMemoryMatches(result.get(0), first);
-        assertMemoryMatches(result.get(1), second);
+        assertMemoryMatches(result.get(0).memory(), first);
+        assertMemoryMatches(result.get(1).memory(), second);
+        assertThat(result).extracting(MemoryReadModel::previewPhoto)
+                .containsExactly(null, null);
         assertMemoryMatches(
                 memoryRepository.findById(first.id()).orElseThrow(),
                 first
@@ -124,7 +126,7 @@ class GetStoryMemoriesUseCaseIntegrationTest extends IntegrationTest {
 
         Fixture fixture = authorizedFixture(StoryRole.VIEWER);
 
-        List<Memory> result = getStoryMemoriesUseCase.getMemories(
+        List<MemoryReadModel> result = getStoryMemoriesUseCase.getMemories(
                 new AuthenticatedUser(fixture.requester().id()),
                 fixture.story().id()
         );

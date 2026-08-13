@@ -16,6 +16,7 @@ import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_update_field.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/story_map_screen.dart';
@@ -523,7 +524,7 @@ final class FakeMemoryRepository implements MemoryRepository {
   final List<String> operations = <String>[];
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
     operations.add('getMemories');
 
@@ -531,14 +532,14 @@ final class FakeMemoryRepository implements MemoryRepository {
       throw getFailures.removeAt(0);
     }
 
-    return memoriesResult;
+    return memoriesResult.map(MemoryReadModel.fromMemory).toList();
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     operations.add('getMemory');
-    return memoryResult;
+    return MemoryReadModel.fromMemory(memoryResult);
   }
 
   @override
@@ -584,3 +585,5 @@ extension on MemoryLocation {
     return MapCoordinate(latitude: latitude, longitude: longitude);
   }
 }
+
+

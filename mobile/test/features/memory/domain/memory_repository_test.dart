@@ -5,6 +5,7 @@ import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_update_field.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
@@ -16,7 +17,7 @@ void main() {
       final memories = await repository.getMemories('story-id');
 
       expect(repository.receivedGetMemoriesStoryId, 'story-id');
-      expect(memories, [createTestMemory()]);
+      expect(memories, [MemoryReadModel.fromMemory(createTestMemory())]);
     });
 
     test('shouldExposeGetMemoryContract', () async {
@@ -25,7 +26,7 @@ void main() {
       final memory = await repository.getMemory('memory-id');
 
       expect(repository.receivedGetMemoryId, 'memory-id');
-      expect(memory, createTestMemory());
+      expect(memory, MemoryReadModel.fromMemory(createTestMemory()));
     });
 
     test('shouldExposeCreateMemoryContract', () async {
@@ -70,17 +71,17 @@ final class FakeMemoryRepository implements MemoryRepository {
   DeleteMemoryInput? receivedDeleteInput;
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     receivedGetMemoriesStoryId = storyId;
 
-    return [createTestMemory()];
+    return [MemoryReadModel.fromMemory(createTestMemory())];
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     receivedGetMemoryId = memoryId;
 
-    return createTestMemory();
+    return MemoryReadModel.fromMemory(createTestMemory());
   }
 
   @override
@@ -140,3 +141,5 @@ MemoryLocation createLocation() {
 MemoryDate createDate() {
   return MemoryDate(year: 2024, month: 5, day: 18);
 }
+
+

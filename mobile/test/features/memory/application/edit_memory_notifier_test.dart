@@ -7,6 +7,7 @@ import 'package:memory_map/features/memory/application/edit_memory_state.dart';
 import 'package:memory_map/features/memory/application/memory_application_exception.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 import 'package:memory_map/features/memory/domain/create_memory_input.dart';
 import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
@@ -371,19 +372,19 @@ final class FakeMemoryRepository implements MemoryRepository {
   final List<String> operations = <String>[];
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
     operations.add('getMemories');
 
-    return memoriesResult;
+    return memoriesResult.map(MemoryReadModel.fromMemory).toList();
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     operations.add('getMemory');
 
-    return memoryResult;
+    return MemoryReadModel.fromMemory(memoryResult);
   }
 
   @override

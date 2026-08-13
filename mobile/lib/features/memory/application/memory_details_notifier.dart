@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memory_map/features/memory/application/memory_application_exception.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/application/memory_details_state.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
@@ -53,7 +54,7 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
             _memoryId,
           );
       state = AsyncData<MemoryDetailsState>(
-        MemoryDetailsState.loaded(memory: memory),
+        MemoryDetailsState.loadedRead(readModel: memory),
       );
     } on MemoryApplicationException catch (error) {
       state = AsyncData<MemoryDetailsState>(
@@ -81,7 +82,24 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
 
     state = AsyncData<MemoryDetailsState>(
       currentState.copyWith(
-        memory: updatedMemory,
+        readModel: currentState.readModel!.withMemoryMutation(updatedMemory),
+        clearRefreshFailure: true,
+      ),
+    );
+  }
+
+  void applyAuthoritativeRead(MemoryReadModel readModel) {
+    final currentState = _currentState;
+    final currentMemory = currentState?.memory;
+    if (currentState == null ||
+        currentMemory == null ||
+        currentMemory.id != readModel.memory.id) {
+      return;
+    }
+
+    state = AsyncData<MemoryDetailsState>(
+      currentState.copyWith(
+        readModel: readModel,
         clearRefreshFailure: true,
       ),
     );
@@ -96,8 +114,8 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
     }
 
     try {
-      return MemoryDetailsState.loaded(
-        memory: await repository.getMemory(memoryId),
+      return MemoryDetailsState.loadedRead(
+        readModel: await repository.getMemory(memoryId),
       );
     } on MemoryApplicationException catch (error) {
       return MemoryDetailsState.loadFailure(error.failure);

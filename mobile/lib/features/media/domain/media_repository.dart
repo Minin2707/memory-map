@@ -12,5 +12,7 @@ abstract interface class MediaRepository {
 
   Future<Uint8List> getThumbnail(Media media);
 
+  Future<Uint8List> getThumbnailByPath(String thumbnailPath);
+
   Future<Uint8List> getDisplay(Media media);
 }

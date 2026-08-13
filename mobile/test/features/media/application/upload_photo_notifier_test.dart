@@ -10,6 +10,20 @@ import 'package:memory_map/features/media/application/upload_photo_state.dart';
 import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/media/domain/media_failure.dart';
 import 'package:memory_map/features/media/domain/selected_photo.dart';
+import 'package:memory_map/features/memory/application/memory_application_exception.dart';
+import 'package:memory_map/features/memory/application/memory_application_providers.dart';
+import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
+import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
+import 'package:memory_map/features/memory/domain/create_memory_input.dart';
+import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
+import 'package:memory_map/features/memory/domain/memory.dart';
+import 'package:memory_map/features/memory/domain/memory_date.dart';
+import 'package:memory_map/features/memory/domain/memory_failure.dart';
+import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
+import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
 import '../media_test_fixtures.dart';
 
@@ -117,6 +131,94 @@ void main() {
         const MediaApplicationException(MediaUnavailable()),
       );
       await first;
+    });
+
+    test('shouldRefreshLoadedMemoryPreviewAfterUploadSuccess', () async {
+      final preview = previewPhoto(mediaId: 'uploaded-media-id');
+      final mediaRepository = FakeMediaRepository()
+        ..uploadResult = media(id: 'uploaded-media-id');
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelResult = MemoryReadModel(
+          memory: memoryA,
+          previewPhoto: preview,
+        )
+        ..memoriesResult = <Memory>[memoryA];
+      final container = createContainer(
+        repository: mediaRepository,
+        gateway: FakePhotoSelectionGateway(),
+        preprocessor: FakePhotoPreprocessor(),
+        memoryRepository: memoryRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(memoryDetailsProvider(defaultMemoryId).future);
+      await container.read(storyMemoriesProvider(defaultStoryId).future);
+      await container.read(uploadPhotoProvider(defaultMemoryId).future);
+
+      final uploaded = await container
+          .read(uploadPhotoProvider(defaultMemoryId).notifier)
+          .selectPrepareAndUpload();
+
+      expect(uploaded, mediaRepository.uploadResult);
+      expect(memoryRepository.getMemoryCalls, 2);
+      expect(
+        container
+            .read(memoryDetailsProvider(defaultMemoryId))
+            .asData!
+            .value
+            .previewPhoto,
+        same(preview),
+      );
+      expect(
+        container
+            .read(storyMemoriesProvider(defaultStoryId))
+            .asData!
+            .value
+            .memoryReadModels
+            .single
+            .previewPhoto,
+        same(preview),
+      );
+    });
+
+    test('shouldNotFailUploadWhenPreviewRefreshFails', () async {
+      final oldPreview = previewPhoto(mediaId: 'old-media-id');
+      final mediaRepository = FakeMediaRepository()
+        ..uploadResult = media(id: 'uploaded-media-id');
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelResult = MemoryReadModel(
+          memory: memoryA,
+          previewPhoto: oldPreview,
+        );
+      final container = createContainer(
+        repository: mediaRepository,
+        gateway: FakePhotoSelectionGateway(),
+        preprocessor: FakePhotoPreprocessor(),
+        memoryRepository: memoryRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(memoryDetailsProvider(defaultMemoryId).future);
+      await container.read(uploadPhotoProvider(defaultMemoryId).future);
+      memoryRepository.getMemoryFailure = const MemoryApplicationException(
+        MemoryNetworkUnavailable(),
+      );
+
+      final uploaded = await container
+          .read(uploadPhotoProvider(defaultMemoryId).notifier)
+          .selectPrepareAndUpload();
+
+      expect(uploaded, mediaRepository.uploadResult);
+      expect(
+        container
+            .read(memoryDetailsProvider(defaultMemoryId))
+            .asData!
+            .value
+            .previewPhoto,
+        same(oldPreview),
+      );
+      expect(
+        container.read(uploadPhotoProvider(defaultMemoryId)).asData!.value,
+        const UploadPhotoState(),
+      );
     });
   });
 
@@ -242,10 +344,14 @@ ProviderContainer createContainer({
   required FakeMediaRepository repository,
   required FakePhotoSelectionGateway gateway,
   required FakePhotoPreprocessor preprocessor,
+  FakeMemoryRepository? memoryRepository,
 }) {
   return ProviderContainer(
     overrides: [
       mediaRepositoryProvider.overrideWithValue(repository),
+      memoryRepositoryProvider.overrideWithValue(
+        memoryRepository ?? FakeMemoryRepository(),
+      ),
       photoSelectionGatewayProvider.overrideWithValue(gateway),
       photoPreprocessorProvider.overrideWithValue(preprocessor),
     ],
@@ -264,3 +370,70 @@ void keepMemoryMediaAlive(ProviderContainer container) {
 final class UnexpectedPickerException implements Exception {
   const UnexpectedPickerException();
 }
+
+final class FakeMemoryRepository implements MemoryRepository {
+  int getMemoryCalls = 0;
+  List<Memory> memoriesResult = <Memory>[];
+  MemoryReadModel memoryReadModelResult = MemoryReadModel.fromMemory(memoryA);
+  Object? getMemoryFailure;
+
+  @override
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
+    return memoriesResult.map(MemoryReadModel.fromMemory).toList();
+  }
+
+  @override
+  Future<MemoryReadModel> getMemory(String memoryId) async {
+    getMemoryCalls += 1;
+
+    final failure = getMemoryFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    return memoryReadModelResult;
+  }
+
+  @override
+  Future<Memory> createMemory(CreateMemoryInput input) async {
+    return memoryA;
+  }
+
+  @override
+  Future<Memory> updateMemory(UpdateMemoryInput input) async {
+    return memoryA;
+  }
+
+  @override
+  Future<void> deleteMemory(DeleteMemoryInput input) async {}
+}
+
+Memory memory({
+  String id = defaultMemoryId,
+  String storyId = defaultStoryId,
+}) {
+  return Memory(
+    id: id,
+    storyId: storyId,
+    createdBy: 'author-id',
+    title: 'First picnic',
+    description: 'Near the river',
+    placeName: 'Riverside Park',
+    location: MemoryLocation(latitude: 55.751244, longitude: 37.618423),
+    eventDate: MemoryDate(year: 2026, month: 8, day: 9),
+    createdAt: DateTime.utc(2026, 8, 9, 10),
+    updatedAt: DateTime.utc(2026, 8, 9, 11),
+  );
+}
+
+MemoryPhotoPreview previewPhoto({
+  required String mediaId,
+}) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}
+
+const String defaultStoryId = 'story-id';
+final Memory memoryA = memory();

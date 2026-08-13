@@ -26,15 +26,16 @@ class StoryMemoriesViewTest {
     @Test
     void shouldExposeImmutableMemories() {
 
-        List<Memory> memories = new ArrayList<>();
+        List<MemoryReadModel> memories = new ArrayList<>();
         Memory memory = memory();
-        memories.add(memory);
+        MemoryReadModel readModel = MemoryReadModel.withoutPreview(memory);
+        memories.add(readModel);
 
         StoryMemoriesView view = new StoryMemoriesView(memories);
         memories.clear();
 
-        assertThat(view.memories()).containsExactly(memory);
-        assertThatThrownBy(() -> view.memories().add(memory))
+        assertThat(view.memories()).containsExactly(readModel);
+        assertThatThrownBy(() -> view.memories().add(readModel))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
@@ -57,7 +58,9 @@ class StoryMemoriesViewTest {
     @Test
     void shouldHaveSafeToString() {
 
-        String value = new StoryMemoriesView(List.of(memory())).toString();
+        String value = new StoryMemoriesView(List.of(
+                MemoryReadModel.withoutPreview(memory())
+        )).toString();
 
         assertThat(value)
                 .isEqualTo("StoryMemoriesView[memoryCount=1]")

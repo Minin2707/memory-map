@@ -13,6 +13,7 @@ import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/story_memories_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
@@ -489,27 +490,27 @@ final class FakeMemoryRepository implements MemoryRepository {
   final List<String> receivedStoryIds = <String>[];
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
     receivedStoryIds.add(storyId);
 
     final configuredCompleter = getCompleter;
     if (configuredCompleter != null) {
       getCompleter = null;
-      return configuredCompleter.future;
+      return configuredCompleter.future.then(_readModelsFromMemories);
     }
 
     if (getFailures.isNotEmpty) {
       throw getFailures.removeAt(0);
     }
 
-    return memoriesResult;
+    return _readModelsFromMemories(memoriesResult);
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
-    return memoryA;
+    return MemoryReadModel.fromMemory(memoryA);
   }
 
   @override
@@ -530,6 +531,12 @@ final class FakeMemoryRepository implements MemoryRepository {
   }
 }
 
+List<MemoryReadModel> _readModelsFromMemories(List<Memory> memories) {
+  return memories.map(MemoryReadModel.fromMemory).toList();
+}
+
 final class UnexpectedMemoryException implements Exception {
   const UnexpectedMemoryException();
 }
+
+

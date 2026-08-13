@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/widgets/memory_tile.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+import '../../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('MemoryTile', () {
@@ -19,6 +24,27 @@ void main() {
       expect(find.text('Aug 9, 2026'), findsOneWidget);
       expect(find.text('9'), findsOneWidget);
       expect(find.text('08'), findsOneWidget);
+    });
+
+    testWidgets('shouldLoadPreviewThumbnailThroughBackendPath', (
+      tester,
+    ) async {
+      final repository = media_fixtures.FakeMediaRepository()
+        ..thumbnailResult = media_fixtures.validPngBytes;
+
+      await pumpTile(
+        tester,
+        memoryA,
+        previewPhoto: previewPhoto(mediaId: 'media-a'),
+        mediaRepository: repository,
+      );
+
+      expect(repository.getThumbnailByPathCalls, 1);
+      expect(repository.receivedBinaryPaths, <String>[
+        '/api/v1/media/media-a/thumbnail',
+      ]);
+      expect(repository.getThumbnailCalls, 0);
+      expect(find.byType(Image), findsOneWidget);
     });
 
     testWidgets('shouldRenderRussianDateWithoutTimezoneConversion', (
@@ -113,21 +139,32 @@ Future<void> pumpTile(
   WidgetTester tester,
   Memory memory, {
   Locale locale = const Locale('en'),
+  MemoryPhotoPreview? previewPhoto,
   ValueChanged<Memory>? onSelected,
+  media_fixtures.FakeMediaRepository? mediaRepository,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(
-        body: MemoryTile(
-          memory: memory,
-          onSelected: onSelected,
+    ProviderScope(
+      overrides: [
+        mediaRepositoryProvider.overrideWithValue(
+          mediaRepository ?? media_fixtures.FakeMediaRepository(),
+        ),
+      ],
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: MemoryTile(
+            memory: memory,
+            previewPhoto: previewPhoto,
+            onSelected: onSelected,
+          ),
         ),
       ),
     ),
   );
+  await tester.pumpAndSettle();
 }
 
 Memory memory({
@@ -153,3 +190,12 @@ Memory memory({
 }
 
 final Memory memoryA = memory(id: 'memory-a');
+
+MemoryPhotoPreview previewPhoto({
+  required String mediaId,
+}) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}

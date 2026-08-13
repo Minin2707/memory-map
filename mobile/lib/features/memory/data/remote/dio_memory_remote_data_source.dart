@@ -9,6 +9,7 @@ import 'package:memory_map/features/memory/data/remote/update_memory_remote_requ
 import 'package:memory_map/features/memory/domain/create_memory_input.dart';
 import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
 final memoryRemoteDataSourceProvider = Provider<MemoryRemoteDataSource>((ref) {
@@ -24,7 +25,7 @@ final class DioMemoryRemoteDataSource implements MemoryRemoteDataSource {
   final Dio _dio;
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     final response = await _get(
       _storyMemoriesPath(storyId),
       _MemoryRemoteOperation.getMemories,
@@ -38,12 +39,14 @@ final class DioMemoryRemoteDataSource implements MemoryRemoteDataSource {
         throw const FormatException('Malformed memory response');
       }
 
-      return data.map((item) => MemoryDto.fromJson(item).toDomain()).toList();
+      return data
+          .map((item) => MemoryDto.fromJson(item).toReadModel())
+          .toList();
     });
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     final response = await _get(
       _memoryPath(memoryId),
       _MemoryRemoteOperation.getMemory,
@@ -52,7 +55,7 @@ final class DioMemoryRemoteDataSource implements MemoryRemoteDataSource {
     _ensureExpectedStatus(response, 200, _MemoryRemoteOperation.getMemory);
 
     return _mapResponse(
-      () => MemoryDto.fromJson(response.data).toDomain(),
+      () => MemoryDto.fromJson(response.data).toReadModel(),
     );
   }
 

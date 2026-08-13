@@ -13,6 +13,8 @@ import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
 void main() {
@@ -405,6 +407,50 @@ void main() {
       expect(memories.first, same(memoryA));
       expect(memories[1], same(updatedB));
       expect(memories.last, same(memoryC));
+    });
+
+    test('shouldPreservePreviewWhenUpsertingMutationMemory', () async {
+      final preview = previewPhoto(mediaId: 'media-a');
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[
+          MemoryReadModel(memory: memoryA, previewPhoto: preview),
+        ];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storyMemoriesProvider('story-1').future);
+
+      final updated = memory(id: memoryA.id, title: 'Updated');
+      container
+          .read(storyMemoriesProvider('story-1').notifier)
+          .upsertMemory(updated);
+
+      final state = readState(container, 'story-1');
+      expect(state.memories, <Memory>[updated]);
+      expect(state.memoryReadModels.single.previewPhoto, same(preview));
+    });
+
+    test('shouldReplacePreviewWhenUpsertingAuthoritativeReadModel', () async {
+      final oldPreview = previewPhoto(mediaId: 'media-old');
+      final newPreview = previewPhoto(mediaId: 'media-new');
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[
+          MemoryReadModel(memory: memoryA, previewPhoto: oldPreview),
+        ];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storyMemoriesProvider('story-1').future);
+
+      container.read(storyMemoriesProvider('story-1').notifier)
+          .upsertAuthoritativeRead(
+            MemoryReadModel(
+              memory: memory(id: memoryA.id, title: 'Updated'),
+              previewPhoto: newPreview,
+            ),
+          );
+
+      final readModel = readState(container, 'story-1').memoryReadModels.single;
+      expect(readModel.memory.title, 'Updated');
+      expect(readModel.previewPhoto, same(newPreview));
     });
 
     test('shouldAppendOnceThenReplaceRepeatedMemory', () async {
@@ -830,13 +876,14 @@ final class FakeMemoryRepository implements MemoryRepository {
   int deleteMemoryCalls = 0;
   Completer<List<Memory>>? getCompleter;
   List<Memory> memoriesResult = <Memory>[];
+  List<MemoryReadModel> memoryReadModelsResult = <MemoryReadModel>[];
   final List<List<Memory>> memoriesResults = <List<Memory>>[];
   final List<Object> getFailures = <Object>[];
   final List<String> receivedStoryIds = <String>[];
   final List<String> operations = <String>[];
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
     receivedStoryIds.add(storyId);
     operations.add('getMemories');
@@ -844,7 +891,7 @@ final class FakeMemoryRepository implements MemoryRepository {
     final configuredCompleter = getCompleter;
     if (configuredCompleter != null) {
       getCompleter = null;
-      return configuredCompleter.future;
+      return configuredCompleter.future.then(_readModelsFromMemories);
     }
 
     if (getFailures.isNotEmpty) {
@@ -852,18 +899,22 @@ final class FakeMemoryRepository implements MemoryRepository {
     }
 
     if (memoriesResults.isNotEmpty) {
-      return memoriesResults.removeAt(0);
+      return _readModelsFromMemories(memoriesResults.removeAt(0));
     }
 
-    return memoriesResult;
+    if (memoryReadModelsResult.isNotEmpty) {
+      return memoryReadModelsResult;
+    }
+
+    return _readModelsFromMemories(memoriesResult);
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     operations.add('getMemory');
 
-    return memoryA;
+    return MemoryReadModel.fromMemory(memoryA);
   }
 
   @override
@@ -889,6 +940,21 @@ final class FakeMemoryRepository implements MemoryRepository {
   }
 }
 
+List<MemoryReadModel> _readModelsFromMemories(List<Memory> memories) {
+  return memories.map(MemoryReadModel.fromMemory).toList();
+}
+
 final class UnexpectedMemoryException implements Exception {
   const UnexpectedMemoryException();
 }
+
+MemoryPhotoPreview previewPhoto({
+  required String mediaId,
+}) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}
+
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 import 'package:memory_map/features/memory/application/story_memories_state.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
@@ -194,7 +195,7 @@ class StoryMemoriesScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
           sliver: SliverToBoxAdapter(
             child: _StoryMemoriesListCard(
-              memories: state.memories,
+              memories: state.memoryReadModels,
               onMemorySelected: onMemorySelected,
             ),
           ),
@@ -326,7 +327,7 @@ class _StoryMemoriesListCard extends StatelessWidget {
     required this.onMemorySelected,
   });
 
-  final List<Memory> memories;
+  final List<MemoryReadModel> memories;
   final ValueChanged<Memory>? onMemorySelected;
 
   @override
@@ -339,7 +340,8 @@ class _StoryMemoriesListCard extends StatelessWidget {
           for (var index = 0; index < memories.length; index += 1) ...[
             if (index > 0) const Divider(height: 1, color: Color(0xFFE8EBEF)),
             MemoryTile(
-              memory: memories[index],
+              memory: memories[index].memory,
+              previewPhoto: memories[index].previewPhoto,
               onSelected: onMemorySelected,
             ),
           ],

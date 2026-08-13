@@ -303,6 +303,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storyDetailsMapAction => 'Карта';
 
   @override
+  String get storyDetailsTimelineAction => 'Хронология';
+
+  @override
   String get participantsPageTitle => 'Участники';
 
   @override
@@ -492,6 +495,41 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get storyMemoriesRefreshFailureTitle =>
       'Не удалось обновить воспоминания';
+
+  @override
+  String get storyTimelinePageTitle => 'Хронология';
+
+  @override
+  String get storyTimelineBackLabel => 'Вернуться к истории';
+
+  @override
+  String get storyTimelineRefreshAction => 'Обновить хронологию';
+
+  @override
+  String get storyTimelineTabTimeline => 'Хронология';
+
+  @override
+  String get storyTimelineTabMap => 'Карта';
+
+  @override
+  String get storyTimelineTabStats => 'Статистика';
+
+  @override
+  String get storyTimelineCreate => 'Добавить воспоминание';
+
+  @override
+  String get storyTimelineEmptyTitle => 'Хронология пока пуста';
+
+  @override
+  String get storyTimelineEmptyBody =>
+      'Добавьте воспоминания, чтобы собрать хронологию этой истории.';
+
+  @override
+  String get storyTimelineLoadFailureTitle => 'Не удалось загрузить хронологию';
+
+  @override
+  String get storyTimelineRefreshFailureTitle =>
+      'Не удалось обновить хронологию';
 
   @override
   String get storyMapPageTitle => 'Карта';

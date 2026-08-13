@@ -18,6 +18,7 @@ class StoryDetailsScreen extends ConsumerWidget {
     this.onMemoriesSelected,
     this.onParticipantsSelected,
     this.onMapSelected,
+    this.onTimelineSelected,
     super.key,
   });
 
@@ -28,6 +29,7 @@ class StoryDetailsScreen extends ConsumerWidget {
   final ValueChanged<UserStory>? onMemoriesSelected;
   final ValueChanged<UserStory>? onParticipantsSelected;
   final ValueChanged<UserStory>? onMapSelected;
+  final ValueChanged<UserStory>? onTimelineSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -198,6 +200,7 @@ class StoryDetailsScreen extends ConsumerWidget {
               onMemoriesSelected: onMemoriesSelected,
               onParticipantsSelected: onParticipantsSelected,
               onMapSelected: onMapSelected,
+              onTimelineSelected: onTimelineSelected,
             ),
           ),
         ),
@@ -207,7 +210,8 @@ class StoryDetailsScreen extends ConsumerWidget {
   bool get _hasFutureSections {
     return onMemoriesSelected != null ||
         onParticipantsSelected != null ||
-        onMapSelected != null;
+        onMapSelected != null ||
+        onTimelineSelected != null;
   }
 }
 
@@ -460,12 +464,14 @@ class _FutureSectionsCard extends StatelessWidget {
     required this.onMemoriesSelected,
     required this.onParticipantsSelected,
     required this.onMapSelected,
+    required this.onTimelineSelected,
   });
 
   final UserStory userStory;
   final ValueChanged<UserStory>? onMemoriesSelected;
   final ValueChanged<UserStory>? onParticipantsSelected;
   final ValueChanged<UserStory>? onMapSelected;
+  final ValueChanged<UserStory>? onTimelineSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -496,6 +502,15 @@ class _FutureSectionsCard extends StatelessWidget {
           label: l10n.storyDetailsMapAction,
           onPressed: () {
             onMapSelected!(userStory);
+          },
+        ),
+      if (onTimelineSelected != null)
+        _SectionAction(
+          actionKey: const ValueKey('story-details.timeline-action'),
+          icon: Icons.timeline_rounded,
+          label: l10n.storyDetailsTimelineAction,
+          onPressed: () {
+            onTimelineSelected!(userStory);
           },
         ),
     ];

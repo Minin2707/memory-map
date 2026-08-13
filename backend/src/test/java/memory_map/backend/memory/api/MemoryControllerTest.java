@@ -12,6 +12,8 @@ import memory_map.backend.memory.application.GetStoryMemoriesUseCase;
 import memory_map.backend.memory.application.MemoryCreationUnavailableException;
 import memory_map.backend.memory.application.MemoryDeletionUnavailableException;
 import memory_map.backend.memory.application.MemoryNotFoundException;
+import memory_map.backend.memory.application.MemoryPreviewPhoto;
+import memory_map.backend.memory.application.MemoryReadModel;
 import memory_map.backend.memory.application.MemoryUpdateUnavailableException;
 import memory_map.backend.memory.application.UpdateMemoryCommand;
 import memory_map.backend.memory.application.UpdateMemoryUseCase;
@@ -95,6 +97,8 @@ class MemoryControllerTest {
             UUID.fromString("00000000-0000-0000-0000-000000000022");
     private static final UUID THIRD_MEMORY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000023");
+    private static final UUID MEDIA_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000031");
     private static final UUID CLIENT_SUPPLIED_MEMORY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000099");
     private static final UUID CLIENT_SUPPLIED_STORY_ID =
@@ -174,6 +178,8 @@ class MemoryControllerTest {
                         .value("2026-01-10T10:00:00Z"))
                 .andExpect(jsonPath("$[0].updatedAt")
                         .value("2026-01-10T10:00:00Z"))
+                .andExpect(jsonPath("$[0].previewPhoto")
+                        .value((Object) null))
                 .andExpect(jsonPath("$[1].id")
                         .value(SECOND_MEMORY_ID.toString()))
                 .andExpect(jsonPath("$[1].description")
@@ -197,8 +203,55 @@ class MemoryControllerTest {
                 .doesNotContain("ownerId")
                 .doesNotContain("role")
                 .doesNotContain("permission")
-                .doesNotContain("media")
-                .doesNotContain("photos");
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("MinIO")
+                .doesNotContain("displayUrl");
+    }
+
+    @Test
+    void shouldReturnStoryMemoriesWithPreviewPhoto() throws Exception {
+
+        Memory memory = memory(
+                MEMORY_ID,
+                "Quiet evening",
+                null,
+                null,
+                EVENT_DATE
+        );
+        getStoryMemoriesUseCase.memoryReadModels(List.of(
+                new MemoryReadModel(
+                        memory,
+                        new MemoryPreviewPhoto(MEDIA_ID)
+                )
+        ));
+
+        String response = mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}/memories",
+                        STORY_ID
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + VALID_ACCESS_TOKEN
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].previewPhoto.mediaId")
+                        .value(MEDIA_ID.toString()))
+                .andExpect(jsonPath("$[0].previewPhoto.thumbnailUrl")
+                        .value("/api/v1/media/%s/thumbnail".formatted(
+                                MEDIA_ID
+                        )))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response)
+                .doesNotContain("displayStorageKey")
+                .doesNotContain("thumbnailStorageKey")
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("MinIO")
+                .doesNotContain("displayUrl");
     }
 
     @Test
@@ -341,6 +394,8 @@ class MemoryControllerTest {
                         .value("2026-01-10T10:00:00Z"))
                 .andExpect(jsonPath("$.updatedAt")
                         .value("2026-01-10T10:00:00Z"))
+                .andExpect(jsonPath("$.previewPhoto")
+                        .value((Object) null))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -358,8 +413,53 @@ class MemoryControllerTest {
                 .doesNotContain("ownerId")
                 .doesNotContain("role")
                 .doesNotContain("permission")
-                .doesNotContain("media")
-                .doesNotContain("photos");
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("MinIO")
+                .doesNotContain("displayUrl");
+    }
+
+    @Test
+    void shouldReturnMemoryByIdWithPreviewPhoto() throws Exception {
+
+        Memory memory = memory(
+                MEMORY_ID,
+                "Quiet evening",
+                null,
+                null,
+                EVENT_DATE
+        );
+        getMemoryUseCase.memoryReadModel(new MemoryReadModel(
+                memory,
+                new MemoryPreviewPhoto(MEDIA_ID)
+        ));
+
+        String response = mockMvc.perform(get(
+                        "/api/v1/memories/{memoryId}",
+                        MEMORY_ID
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + VALID_ACCESS_TOKEN
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.previewPhoto.mediaId")
+                        .value(MEDIA_ID.toString()))
+                .andExpect(jsonPath("$.previewPhoto.thumbnailUrl")
+                        .value("/api/v1/media/%s/thumbnail".formatted(
+                                MEDIA_ID
+                        )))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response)
+                .doesNotContain("displayStorageKey")
+                .doesNotContain("thumbnailStorageKey")
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("MinIO")
+                .doesNotContain("displayUrl");
     }
 
     @Test
@@ -461,8 +561,10 @@ class MemoryControllerTest {
                 .doesNotContain("ownerId")
                 .doesNotContain("role")
                 .doesNotContain("permission")
-                .doesNotContain("media")
-                .doesNotContain("photos");
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("MinIO")
+                .doesNotContain("displayUrl");
     }
 
     @Test
@@ -1145,8 +1247,10 @@ class MemoryControllerTest {
                 .doesNotContain("googleSubject")
                 .doesNotContain("accessToken")
                 .doesNotContain("refreshToken")
-                .doesNotContain("media")
-                .doesNotContain("photos");
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("MinIO")
+                .doesNotContain("displayUrl");
     }
 
     @Test
@@ -1917,14 +2021,14 @@ class MemoryControllerTest {
     static final class FakeGetStoryMemoriesUseCase
             implements GetStoryMemoriesUseCase {
 
-        private List<Memory> memories = List.of();
+        private List<MemoryReadModel> memories = List.of();
         private AuthenticatedUser receivedAuthenticatedUser;
         private UUID receivedStoryId;
         private RuntimeException exception;
         private int callCount;
 
         @Override
-        public List<Memory> getMemories(
+        public List<MemoryReadModel> getMemories(
                 AuthenticatedUser authenticatedUser,
                 UUID storyId
         ) {
@@ -1940,6 +2044,12 @@ class MemoryControllerTest {
         }
 
         private void memories(List<Memory> memories) {
+            this.memories = memories.stream()
+                    .map(MemoryReadModel::withoutPreview)
+                    .toList();
+        }
+
+        private void memoryReadModels(List<MemoryReadModel> memories) {
             this.memories = memories;
         }
 
@@ -1970,12 +2080,14 @@ class MemoryControllerTest {
 
     static final class FakeGetMemoryUseCase implements GetMemoryUseCase {
 
-        private Memory memory = MemoryControllerTest.memory(
-                MEMORY_ID,
-                "First day in Tbilisi",
-                "Old city walk",
-                "Tbilisi",
-                EVENT_DATE
+        private MemoryReadModel memory = MemoryReadModel.withoutPreview(
+                MemoryControllerTest.memory(
+                        MEMORY_ID,
+                        "First day in Tbilisi",
+                        "Old city walk",
+                        "Tbilisi",
+                        EVENT_DATE
+                )
         );
         private AuthenticatedUser receivedAuthenticatedUser;
         private UUID receivedMemoryId;
@@ -1983,7 +2095,7 @@ class MemoryControllerTest {
         private int callCount;
 
         @Override
-        public Memory getMemory(
+        public MemoryReadModel getMemory(
                 AuthenticatedUser authenticatedUser,
                 UUID memoryId
         ) {
@@ -1999,6 +2111,10 @@ class MemoryControllerTest {
         }
 
         private void memory(Memory memory) {
+            this.memory = MemoryReadModel.withoutPreview(memory);
+        }
+
+        private void memoryReadModel(MemoryReadModel memory) {
             this.memory = memory;
         }
 
@@ -2019,12 +2135,14 @@ class MemoryControllerTest {
         }
 
         private void reset() {
-            memory = MemoryControllerTest.memory(
-                    MEMORY_ID,
-                    "First day in Tbilisi",
-                    "Old city walk",
-                    "Tbilisi",
-                    EVENT_DATE
+            memory = MemoryReadModel.withoutPreview(
+                    MemoryControllerTest.memory(
+                            MEMORY_ID,
+                            "First day in Tbilisi",
+                            "Old city walk",
+                            "Tbilisi",
+                            EVENT_DATE
+                    )
             );
             receivedAuthenticatedUser = null;
             receivedMemoryId = null;

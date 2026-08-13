@@ -5,6 +5,10 @@ import 'package:memory_map/features/media/application/memory_media_notifier.dart
 import 'package:memory_map/features/media/application/upload_photo_state.dart';
 import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/media/domain/media_failure.dart';
+import 'package:memory_map/features/memory/application/memory_application_providers.dart';
+import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
+import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 
 final uploadPhotoProvider =
     AsyncNotifierProvider.autoDispose.family<UploadPhotoNotifier,
@@ -80,6 +84,10 @@ final class UploadPhotoNotifier extends AsyncNotifier<UploadPhotoState> {
       }
 
       _upsertIntoLoadedMemoryMedia(media);
+      await _synchronizeLoadedMemoryPreview();
+      if (!ref.mounted) {
+        return null;
+      }
 
       state = const AsyncData<UploadPhotoState>(UploadPhotoState());
       return media;
@@ -114,6 +122,41 @@ final class UploadPhotoNotifier extends AsyncNotifier<UploadPhotoState> {
     }
 
     ref.read(provider.notifier).upsertMedia(media);
+  }
+
+  Future<void> _synchronizeLoadedMemoryPreview() async {
+    if (!_hasLoadedMemoryPreviewTarget(_memoryId)) {
+      return;
+    }
+
+    try {
+      final readModel = await ref.read(memoryRepositoryProvider).getMemory(
+            _memoryId,
+          );
+      if (!ref.mounted) {
+        return;
+      }
+
+      _applyAuthoritativeReadToLoadedProviders(readModel);
+    } on Object {
+      return;
+    }
+  }
+
+  bool _hasLoadedMemoryPreviewTarget(String memoryId) {
+    return ref.exists(memoryDetailsProvider(memoryId));
+  }
+
+  void _applyAuthoritativeReadToLoadedProviders(MemoryReadModel readModel) {
+    final details = memoryDetailsProvider(readModel.memory.id);
+    if (ref.exists(details)) {
+      ref.read(details.notifier).applyAuthoritativeRead(readModel);
+    }
+
+    final storyMemories = storyMemoriesProvider(readModel.memory.storyId);
+    if (ref.exists(storyMemories)) {
+      ref.read(storyMemories.notifier).upsertAuthoritativeRead(readModel);
+    }
   }
 
   bool get _isLoading => state is AsyncLoading<UploadPhotoState>;

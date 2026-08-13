@@ -217,7 +217,7 @@ class MemoryApplicationConfigurationTest {
         }
 
         @Override
-        public Optional<Memory> findByIdAndRequesterUserId(
+        public Optional<MemoryReadModel> findByIdAndRequesterUserId(
                 UUID memoryId,
                 UUID requesterUserId
         ) {

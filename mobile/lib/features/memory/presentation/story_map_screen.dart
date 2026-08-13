@@ -6,6 +6,7 @@ import 'package:memory_map/features/map/config/map_source_configuration.dart';
 import 'package:memory_map/features/map/domain/map_camera.dart';
 import 'package:memory_map/features/map/domain/map_marker.dart';
 import 'package:memory_map/features/map/presentation/widgets/maplibre_marker_map.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/application/story_map_notifier.dart';
 import 'package:memory_map/features/memory/application/story_map_state.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
@@ -120,7 +121,7 @@ class _StoryMapScreenState extends ConsumerState<StoryMapScreen> {
     return state;
   }
 
-  Memory? _selectedMemory(
+  MemoryReadModel? _selectedMemory(
     AsyncValue<StoryMemoriesState> memoriesValue,
     StoryMapState? state,
   ) {
@@ -128,8 +129,9 @@ class _StoryMapScreenState extends ConsumerState<StoryMapScreen> {
       return null;
     }
 
-    return findSelectedStoryMapMemory(
-      memoriesValue.asData?.value.memories ?? const <Memory>[],
+    return findSelectedStoryMapMemoryReadModel(
+      memoriesValue.asData?.value.memoryReadModels ??
+          const <MemoryReadModel>[],
       state.selectedMarkerId,
     );
   }
@@ -230,7 +232,7 @@ class _StoryMapBody extends StatelessWidget {
   final MapSourceConfiguration sourceConfiguration;
   final StoryMapBuilder mapBuilder;
   final MapCameraCommand? cameraCommand;
-  final Memory? selectedMemory;
+  final MemoryReadModel? selectedMemory;
   final ValueChanged<Memory>? onMemorySelected;
   final VoidCallback onPreviewClose;
   final ValueChanged<String> onMarkerSelected;
@@ -343,7 +345,8 @@ class _StoryMapBody extends StatelessWidget {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 560),
                       child: MemoryMapPreviewCard(
-                        memory: selectedMemory!,
+                        memory: selectedMemory!.memory,
+                        previewPhoto: selectedMemory!.previewPhoto,
                         onTap: onMemorySelected,
                         onClose: onPreviewClose,
                       ),

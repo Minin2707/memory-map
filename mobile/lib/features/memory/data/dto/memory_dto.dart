@@ -1,6 +1,8 @@
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 
 final class MemoryDto {
   factory MemoryDto.fromJson(Object? json) {
@@ -18,6 +20,9 @@ final class MemoryDto {
       eventDate: memoryRequiredMemoryDate(map, 'eventDate'),
       createdAt: memoryRequiredDate(map, 'createdAt'),
       updatedAt: memoryRequiredDate(map, 'updatedAt'),
+      previewPhoto: MemoryPhotoPreviewDto.fromNullableJson(
+        map['previewPhoto'],
+      ),
     );
   }
 
@@ -33,6 +38,7 @@ final class MemoryDto {
     required this.eventDate,
     required this.createdAt,
     required this.updatedAt,
+    this.previewPhoto,
   }) {
     try {
       Memory(
@@ -66,6 +72,7 @@ final class MemoryDto {
   final MemoryDate eventDate;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final MemoryPhotoPreviewDto? previewPhoto;
 
   Memory toDomain() {
     return Memory(
@@ -85,6 +92,13 @@ final class MemoryDto {
     );
   }
 
+  MemoryReadModel toReadModel() {
+    return MemoryReadModel(
+      memory: toDomain(),
+      previewPhoto: previewPhoto?.toDomain(),
+    );
+  }
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -99,7 +113,8 @@ final class MemoryDto {
             longitude == other.longitude &&
             eventDate == other.eventDate &&
             createdAt == other.createdAt &&
-            updatedAt == other.updatedAt;
+            updatedAt == other.updatedAt &&
+            previewPhoto == other.previewPhoto;
   }
 
   @override
@@ -115,10 +130,68 @@ final class MemoryDto {
         eventDate,
         createdAt,
         updatedAt,
+        previewPhoto,
       );
 
   @override
   String toString() => 'MemoryDto';
+}
+
+final class MemoryPhotoPreviewDto {
+  factory MemoryPhotoPreviewDto.fromJson(Object? json) {
+    final map = memoryRequiredRootMap(json);
+
+    return MemoryPhotoPreviewDto(
+      mediaId: memoryRequiredString(map, 'mediaId'),
+      thumbnailPath: memoryRequiredString(map, 'thumbnailUrl'),
+    );
+  }
+
+  static MemoryPhotoPreviewDto? fromNullableJson(Object? json) {
+    if (json == null) {
+      return null;
+    }
+
+    return MemoryPhotoPreviewDto.fromJson(json);
+  }
+
+  MemoryPhotoPreviewDto({
+    required this.mediaId,
+    required this.thumbnailPath,
+  }) {
+    try {
+      MemoryPhotoPreview(
+        mediaId: mediaId,
+        thumbnailPath: thumbnailPath,
+      );
+    } on Object {
+      throw const FormatException('Malformed memory response');
+    }
+  }
+
+  final String mediaId;
+  final String thumbnailPath;
+
+  MemoryPhotoPreview toDomain() {
+    return MemoryPhotoPreview(
+      mediaId: mediaId,
+      thumbnailPath: thumbnailPath,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is MemoryPhotoPreviewDto &&
+            mediaId == other.mediaId &&
+            thumbnailPath == other.thumbnailPath;
+  }
+
+  @override
+  int get hashCode => Object.hash(mediaId, thumbnailPath);
+
+  @override
+  String toString() => 'MemoryPhotoPreviewDto';
 }
 
 Map<Object?, Object?> memoryRequiredRootMap(Object? json) {

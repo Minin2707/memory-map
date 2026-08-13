@@ -77,12 +77,13 @@ class GetMemoryUseCaseIntegrationTest extends IntegrationTest {
                 fixture.owner().id()
         ));
 
-        Memory result = getMemoryUseCase.getMemory(
+        MemoryReadModel result = getMemoryUseCase.getMemory(
                 new AuthenticatedUser(fixture.requester().id()),
                 memory.id()
         );
 
-        assertMemoryMatches(result, memory);
+        assertMemoryMatches(result.memory(), memory);
+        assertThat(result.previewPhoto()).isNull();
         assertMemoryMatches(
                 memoryRepository.findById(memory.id()).orElseThrow(),
                 memory
@@ -107,14 +108,15 @@ class GetMemoryUseCaseIntegrationTest extends IntegrationTest {
                 BASE_TIME.plusSeconds(1)
         ));
 
-        Memory result = getMemoryUseCase.getMemory(
+        MemoryReadModel result = getMemoryUseCase.getMemory(
                 new AuthenticatedUser(fixture.requester().id()),
                 memory.id()
         );
 
-        assertMemoryMatches(result, memory);
-        assertThat(result.description()).isNull();
-        assertThat(result.placeName()).isNull();
+        assertMemoryMatches(result.memory(), memory);
+        assertThat(result.previewPhoto()).isNull();
+        assertThat(result.memory().description()).isNull();
+        assertThat(result.memory().placeName()).isNull();
     }
 
     @Test

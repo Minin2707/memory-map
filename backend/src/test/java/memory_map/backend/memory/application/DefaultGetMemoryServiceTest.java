@@ -30,20 +30,23 @@ class DefaultGetMemoryServiceTest {
     void shouldReturnAccessibleMemory() {
 
         Memory memory = memory();
-        TestContext context = testContext(Optional.of(memory));
+        MemoryReadModel readModel = MemoryReadModel.withoutPreview(memory);
+        TestContext context = testContext(Optional.of(readModel));
 
-        Memory result = context.service().getMemory(
+        MemoryReadModel result = context.service().getMemory(
                 AUTHENTICATED_USER,
                 MEMORY_ID
         );
 
-        assertThat(result).isSameAs(memory);
+        assertThat(result).isSameAs(readModel);
     }
 
     @Test
     void shouldPassMemoryIdAndAuthenticatedUserId() {
 
-        TestContext context = testContext(Optional.of(memory()));
+        TestContext context = testContext(Optional.of(
+                MemoryReadModel.withoutPreview(memory())
+        ));
 
         context.service().getMemory(AUTHENTICATED_USER, MEMORY_ID);
 
@@ -79,7 +82,9 @@ class DefaultGetMemoryServiceTest {
     @Test
     void shouldRejectNullAuthenticatedUser() {
 
-        assertThatThrownBy(() -> testContext(Optional.of(memory()))
+        assertThatThrownBy(() -> testContext(Optional.of(
+                MemoryReadModel.withoutPreview(memory())
+        ))
                 .service().getMemory(null, MEMORY_ID))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("authenticatedUser must not be null");
@@ -88,7 +93,9 @@ class DefaultGetMemoryServiceTest {
     @Test
     void shouldRejectNullMemoryId() {
 
-        assertThatThrownBy(() -> testContext(Optional.of(memory()))
+        assertThatThrownBy(() -> testContext(Optional.of(
+                MemoryReadModel.withoutPreview(memory())
+        ))
                 .service().getMemory(AUTHENTICATED_USER, null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("memoryId must not be null");
@@ -108,7 +115,7 @@ class DefaultGetMemoryServiceTest {
                 .isSameAs(failure);
     }
 
-    private static TestContext testContext(Optional<Memory> memory) {
+    private static TestContext testContext(Optional<MemoryReadModel> memory) {
         FakeMemoryReadRepository repository =
                 new FakeMemoryReadRepository(memory);
 
@@ -146,14 +153,14 @@ class DefaultGetMemoryServiceTest {
     private static final class FakeMemoryReadRepository
             implements MemoryReadRepository {
 
-        private final Optional<Memory> memory;
+        private final Optional<MemoryReadModel> memory;
         private UUID receivedMemoryId;
         private UUID receivedRequesterUserId;
         private int memoryGetCallCount;
         private int storyListCallCount;
         private RuntimeException failure;
 
-        private FakeMemoryReadRepository(Optional<Memory> memory) {
+        private FakeMemoryReadRepository(Optional<MemoryReadModel> memory) {
             this.memory = memory;
         }
 
@@ -167,7 +174,7 @@ class DefaultGetMemoryServiceTest {
         }
 
         @Override
-        public Optional<Memory> findByIdAndRequesterUserId(
+        public Optional<MemoryReadModel> findByIdAndRequesterUserId(
                 UUID memoryId,
                 UUID requesterUserId
         ) {

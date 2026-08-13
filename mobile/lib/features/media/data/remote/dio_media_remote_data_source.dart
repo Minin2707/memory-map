@@ -181,6 +181,8 @@ final class DioMediaRemoteDataSource implements MediaRemoteDataSource {
     if (uri == null ||
         uri.hasScheme ||
         uri.hasAuthority ||
+        uri.hasQuery ||
+        uri.hasFragment ||
         !path.startsWith('/api/v1/')) {
       throw ArgumentError('backendPath must be a backend API path');
     }

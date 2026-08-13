@@ -1,7 +1,6 @@
 package memory_map.backend.memory.application;
 
 import memory_map.backend.auth.domain.AuthenticatedUser;
-import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryReadRepository;
 
 import java.util.Objects;
@@ -21,7 +20,7 @@ public class DefaultGetMemoryService implements GetMemoryUseCase {
     }
 
     @Override
-    public Memory getMemory(
+    public MemoryReadModel getMemory(
             AuthenticatedUser authenticatedUser,
             UUID memoryId
     ) {

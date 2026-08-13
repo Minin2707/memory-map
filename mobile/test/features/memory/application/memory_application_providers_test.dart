@@ -9,6 +9,7 @@ import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 
@@ -42,7 +43,7 @@ void main() {
 
       final memory = await repository.getMemory('memory-id');
 
-      expect(memory, memoryFixture);
+      expect(memory.memory, memoryFixture);
       expect(remote.receivedMemoryId, 'memory-id');
       expect(remote.totalCalls, 1);
     });
@@ -82,18 +83,18 @@ final class FakeMemoryRemoteDataSource implements MemoryRemoteDataSource {
   }
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     getMemoriesCalls += 1;
 
-    return <Memory>[memoryFixture];
+    return <MemoryReadModel>[MemoryReadModel.fromMemory(memoryFixture)];
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     getMemoryCalls += 1;
     receivedMemoryId = memoryId;
 
-    return memoryFixture;
+    return MemoryReadModel.fromMemory(memoryFixture);
   }
 
   @override
@@ -115,3 +116,4 @@ final class FakeMemoryRemoteDataSource implements MemoryRemoteDataSource {
     deleteMemoryCalls += 1;
   }
 }
+

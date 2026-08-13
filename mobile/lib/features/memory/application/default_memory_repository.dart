@@ -5,6 +5,7 @@ import 'package:memory_map/features/memory/domain/create_memory_input.dart';
 import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 
@@ -16,7 +17,7 @@ final class DefaultMemoryRepository implements MemoryRepository {
   final MemoryRemoteDataSource _memoryRemoteDataSource;
 
   @override
-  Future<List<Memory>> getMemories(String storyId) async {
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
     try {
       return await _memoryRemoteDataSource.getMemories(storyId);
     } on MemoryRemoteException catch (exception) {
@@ -25,7 +26,7 @@ final class DefaultMemoryRepository implements MemoryRepository {
   }
 
   @override
-  Future<Memory> getMemory(String memoryId) async {
+  Future<MemoryReadModel> getMemory(String memoryId) async {
     try {
       return await _memoryRemoteDataSource.getMemory(memoryId);
     } on MemoryRemoteException catch (exception) {
