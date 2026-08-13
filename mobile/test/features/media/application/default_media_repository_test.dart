@@ -29,6 +29,10 @@ void main() {
         <int>[7, 8, 9],
       );
       expect(await repository.getDisplay(media()), <int>[10, 11, 12]);
+      expect(
+        await repository.getDisplayByPath('/api/v1/media/media-id/display'),
+        <int>[10, 11, 12],
+      );
 
       expect(remote.receivedMemoryIds, <String>[
         defaultMemoryId,
@@ -39,6 +43,7 @@ void main() {
       expect(remote.receivedRepresentationPaths, <String>[
         '/api/v1/media/media-id/thumbnail',
         '/api/v1/media/media-id/thumbnail',
+        '/api/v1/media/media-id/display',
         '/api/v1/media/media-id/display',
       ]);
     });

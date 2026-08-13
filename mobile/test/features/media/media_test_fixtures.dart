@@ -87,6 +87,7 @@ final class FakeMediaRepository implements MediaRepository {
   int getThumbnailCalls = 0;
   int getThumbnailByPathCalls = 0;
   int getDisplayCalls = 0;
+  int getDisplayByPathCalls = 0;
 
   List<Media> mediaResult = <Media>[media()];
   Media uploadResult = media(id: 'uploaded-media-id');
@@ -195,6 +196,19 @@ final class FakeMediaRepository implements MediaRepository {
   Future<Uint8List> getDisplay(Media media) async {
     getDisplayCalls += 1;
     receivedBinaryMedia.add(media);
+
+    final failure = displayFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    return displayResult;
+  }
+
+  @override
+  Future<Uint8List> getDisplayByPath(String displayPath) async {
+    getDisplayByPathCalls += 1;
+    receivedBinaryPaths.add(displayPath);
 
     final failure = displayFailure;
     if (failure != null) {

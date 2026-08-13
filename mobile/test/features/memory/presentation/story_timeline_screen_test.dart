@@ -301,6 +301,7 @@ void main() {
     ) async {
       var backCalls = 0;
       var createCalls = 0;
+      var playbackCalls = 0;
       Memory? selectedMemory;
 
       await pumpScreen(
@@ -313,6 +314,9 @@ void main() {
         onCreateMemory: () {
           createCalls += 1;
         },
+        onPlaybackSelected: () {
+          playbackCalls += 1;
+        },
         onMemorySelected: (memory) {
           selectedMemory = memory;
         },
@@ -324,6 +328,10 @@ void main() {
       );
       await tester.binding.handlePopRoute();
       await tester.pump();
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-timeline.playback-action')),
+      );
       await tester.ensureVisible(find.text('Family picnic'));
       await tester.tap(find.text('Family picnic'));
       await tester.pump();
@@ -334,7 +342,21 @@ void main() {
 
       expect(backCalls, 2);
       expect(createCalls, 1);
+      expect(playbackCalls, 1);
       expect(selectedMemory, same(memory2024A));
+    });
+
+    testWidgets('shouldHidePlaybackActionWhenCallbackIsNull', (tester) async {
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()
+          ..readModelsResult = <MemoryReadModel>[readModel(memory2024A)],
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-timeline.playback-action')),
+        findsNothing,
+      );
     });
 
     testWidgets('shouldNotOverflowOnSmallPhoneWithLargeText', (tester) async {
@@ -489,6 +511,7 @@ Future<ProviderContainer> pumpScreen(
   Locale locale = const Locale('en'),
   VoidCallback? onBack,
   VoidCallback? onCreateMemory,
+  VoidCallback? onPlaybackSelected,
   ValueChanged<Memory>? onMemorySelected,
   media_fixtures.FakeMediaRepository? mediaRepository,
   TextScaler textScaler = TextScaler.noScaling,
@@ -522,6 +545,7 @@ Future<ProviderContainer> pumpScreen(
           storyTitle: storyTitle,
           onBack: onBack,
           onCreateMemory: onCreateMemory,
+          onPlaybackSelected: onPlaybackSelected,
           onMemorySelected: onMemorySelected,
         ),
       ),

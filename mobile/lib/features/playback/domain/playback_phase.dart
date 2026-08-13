@@ -1,0 +1,5 @@
+enum PlaybackPhase {
+  moving,
+  presenting,
+}
+

@@ -46,6 +46,8 @@ import 'package:memory_map/features/participant/domain/participant_failure.dart'
 import 'package:memory_map/features/participant/domain/remove_story_participant_input.dart';
 import 'package:memory_map/features/participant/domain/story_participant.dart';
 import 'package:memory_map/features/participant/domain/story_participant_repository.dart';
+import 'package:memory_map/features/playback/presentation/story_playback_route.dart';
+import 'package:memory_map/features/playback/presentation/story_playback_screen.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/domain/story.dart';
@@ -1209,6 +1211,256 @@ void main() {
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
       );
+    });
+
+    testWidgets('shouldOpenStoryPlaybackFromDetailsAndBackToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyPlaybackMapBuilder: fakeStoryPlaybackMapBuilder,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsPlaybackAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.playback-action')),
+      );
+
+      expect(find.byKey(const ValueKey('story-playback.screen')), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+      expect(find.text('Fake playback markers: 2'), findsOneWidget);
+      expect(fakeMemoryRepository.receivedStoryIds, <String>[
+        ownerStory.story.id,
+      ]);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.close')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenStoryPlaybackFromTimelineAndCloseBackToTimeline', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyPlaybackMapBuilder: fakeStoryPlaybackMapBuilder,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsTimelineAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.timeline-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-timeline.playback-action')),
+      );
+
+      expect(find.byKey(const ValueKey('story-playback.screen')), findsOneWidget);
+      expect(find.text('Fake playback markers: 2'), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.close')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-timeline.tabs')),
+        findsOneWidget,
+      );
+      expect(find.text(memoryA.title), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-timeline.back-action')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+    });
+
+    testWidgets('shouldFallbackDirectStoryPlaybackCloseToDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        storyPlaybackMapBuilder: fakeStoryPlaybackMapBuilder,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/playback');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('story-playback.screen')), findsOneWidget);
+      expect(find.text('Fake playback markers: 2'), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.close')),
+      );
+
+      expect(find.text('About this story'), findsOneWidget);
+      expect(
+        fakeStoryRepository.receivedGetStoryIds,
+        contains(ownerStory.story.id),
+      );
+    });
+
+    testWidgets('shouldRouteUnauthenticatedPlaybackToLogin', (
+      WidgetTester tester,
+    ) async {
+      await pumpApp(tester, FakeAuthRepository());
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Continue with Google'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/playback');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.screen')), findsNothing);
+    });
+
+    testWidgets('shouldShowPlaybackForViewerWithoutMutationActions', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[userStory(role: StoryRole.viewer)]
+        ..storyResult = userStory(role: StoryRole.viewer);
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        storyPlaybackMapBuilder: fakeStoryPlaybackMapBuilder,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsPlaybackAction(tester);
+
+      expect(
+        find.byKey(const ValueKey('story-details.playback-action')),
+        findsOneWidget,
+      );
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.playback-action')),
+      );
+
+      expect(find.byKey(const ValueKey('story-playback.screen')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-timeline.create-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.edit-action')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldOpenEmptyStoryPlaybackState', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..readModelsResult = <MemoryReadModel>[];
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyPlaybackMapBuilder: fakeStoryPlaybackMapBuilder,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/stories/${ownerStory.story.id}/playback');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('story-playback.empty')), findsOneWidget);
+      expect(find.text('Fake playback markers: 0'), findsOneWidget);
+    });
+
+    testWidgets('shouldCaptureFreshPlaybackSnapshotAfterRouteReEntry', (
+      WidgetTester tester,
+    ) async {
+      final memoryC = memory(
+        id: 'memory-c',
+        title: 'Third memory',
+        location: memoryLocationA,
+        eventDate: MemoryDate(year: 2026, month: 3, day: 1),
+      );
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository()
+        ..readModelsResult = <MemoryReadModel>[
+          MemoryReadModel.fromMemory(memoryA),
+          MemoryReadModel.fromMemory(memoryB),
+        ];
+
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyPlaybackMapBuilder: fakeStoryPlaybackMapBuilder,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsPlaybackAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.playback-action')),
+      );
+
+      expect(find.text('Fake playback markers: 2'), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.close')),
+      );
+
+      container
+          .read(storyMemoriesProvider(ownerStory.story.id).notifier)
+          .upsertAuthoritativeRead(MemoryReadModel.fromMemory(memoryC));
+      await tester.pumpAndSettle();
+
+      fakeMemoryRepository.readModelsResult = <MemoryReadModel>[
+        MemoryReadModel.fromMemory(memoryC),
+      ];
+
+      await scrollToStoryDetailsPlaybackAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.playback-action')),
+      );
+
+      expect(find.text('Fake playback markers: 3'), findsOneWidget);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
     });
 
     testWidgets('shouldRouteUnauthenticatedTimelineToLogin', (
@@ -2391,6 +2643,17 @@ Future<void> scrollToStoryDetailsTimelineAction(
   await tester.pumpAndSettle();
 }
 
+Future<void> scrollToStoryDetailsPlaybackAction(
+  WidgetTester tester,
+) async {
+  await tester.scrollUntilVisible(
+    storyDetailsPlaybackActionFinder(),
+    120,
+    scrollable: find.byType(Scrollable),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> scrollDownUntilFound(
   WidgetTester tester,
   Finder finder, {
@@ -2441,6 +2704,10 @@ Finder storyDetailsTimelineActionFinder() {
   return find.byKey(const ValueKey('story-details.timeline-action'));
 }
 
+Finder storyDetailsPlaybackActionFinder() {
+  return find.byKey(const ValueKey('story-details.playback-action'));
+}
+
 Finder memoryDetailsDeleteActionFinder() {
   return find.byKey(const ValueKey('memory-details.delete-action'));
 }
@@ -2458,6 +2725,7 @@ Future<ProviderContainer> pumpApp(
   FakeMemoryRepository? memoryRepository,
   media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
+  PlaybackMapBuilder? storyPlaybackMapBuilder,
 }) async {
   final container = createContainer(
     fakeAuthRepository,
@@ -2467,6 +2735,7 @@ Future<ProviderContainer> pumpApp(
     memoryRepository: memoryRepository,
     mediaRepository: mediaRepository,
     storyMapBuilder: storyMapBuilder,
+    storyPlaybackMapBuilder: storyPlaybackMapBuilder,
   );
   addTearDown(container.dispose);
 
@@ -2489,6 +2758,7 @@ ProviderContainer createContainer(
   FakeMemoryRepository? memoryRepository,
   media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
+  PlaybackMapBuilder? storyPlaybackMapBuilder,
 }) {
   return ProviderContainer(
     overrides: [
@@ -2514,6 +2784,10 @@ ProviderContainer createContainer(
       ),
       if (storyMapBuilder != null)
         storyMapBuilderProvider.overrideWithValue(storyMapBuilder),
+      if (storyPlaybackMapBuilder != null)
+        storyPlaybackMapBuilderProvider.overrideWithValue(
+          storyPlaybackMapBuilder,
+        ),
     ],
   );
 }
@@ -2986,5 +3260,21 @@ Widget fakeStoryMapBuilder(
           child: Text('Select marker ${marker.id}'),
         ),
     ],
+  );
+}
+
+Widget fakeStoryPlaybackMapBuilder(
+  BuildContext context,
+  PlaybackMapPresentation presentation,
+) {
+  return ColoredBox(
+    key: const ValueKey('story-playback.fake-map'),
+    color: const Color(0xFF101820),
+    child: Center(
+      child: Text(
+        'Fake playback markers: ${presentation.markers.length}',
+        style: const TextStyle(color: Colors.white),
+      ),
+    ),
   );
 }

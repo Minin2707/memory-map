@@ -19,6 +19,7 @@ class StoryTimelineScreen extends ConsumerWidget {
     this.onBack,
     this.onCreateMemory,
     this.onMemorySelected,
+    this.onPlaybackSelected,
     super.key,
   });
 
@@ -27,6 +28,7 @@ class StoryTimelineScreen extends ConsumerWidget {
   final VoidCallback? onBack;
   final VoidCallback? onCreateMemory;
   final ValueChanged<Memory>? onMemorySelected;
+  final VoidCallback? onPlaybackSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -64,6 +66,7 @@ class StoryTimelineScreen extends ConsumerWidget {
                             .read(storyMemoriesProvider(storyId).notifier)
                             .refreshMemories();
                       },
+                      onPlaybackSelected: onPlaybackSelected,
                     ),
                   ),
                 ),
@@ -217,12 +220,14 @@ class _StoryTimelineAppBar extends StatelessWidget {
     required this.isRefreshing,
     required this.onBack,
     required this.onRefresh,
+    required this.onPlaybackSelected,
   });
 
   final String? title;
   final bool isRefreshing;
   final VoidCallback? onBack;
   final VoidCallback onRefresh;
+  final VoidCallback? onPlaybackSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -250,6 +255,13 @@ class _StoryTimelineAppBar extends StatelessWidget {
             ),
           ),
         ),
+        if (onPlaybackSelected != null)
+          IconButton(
+            key: const ValueKey('story-timeline.playback-action'),
+            onPressed: onPlaybackSelected,
+            tooltip: l10n.playbackTitle,
+            icon: const Icon(Icons.play_circle_fill_rounded),
+          ),
         IconButton(
           key: const ValueKey('story-timeline.refresh-action'),
           onPressed: isRefreshing ? null : onRefresh,

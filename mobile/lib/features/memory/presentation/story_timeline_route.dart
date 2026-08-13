@@ -11,6 +11,7 @@ class StoryTimelineRoute extends ConsumerWidget {
     this.onBack,
     this.onCreateMemory,
     this.onMemorySelected,
+    this.onPlaybackSelected,
     super.key,
   });
 
@@ -18,6 +19,7 @@ class StoryTimelineRoute extends ConsumerWidget {
   final VoidCallback? onBack;
   final VoidCallback? onCreateMemory;
   final ValueChanged<Memory>? onMemorySelected;
+  final VoidCallback? onPlaybackSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,6 +33,7 @@ class StoryTimelineRoute extends ConsumerWidget {
       onBack: onBack,
       onCreateMemory: _canCreateMemory(role) ? onCreateMemory : null,
       onMemorySelected: onMemorySelected,
+      onPlaybackSelected: onPlaybackSelected,
     );
   }
 

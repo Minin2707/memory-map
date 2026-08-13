@@ -37,10 +37,12 @@ class AuthenticatedMediaPathImage extends ConsumerStatefulWidget {
     required this.fit,
     required this.placeholder,
     required this.errorBuilder,
+    this.representation = AuthenticatedMediaRepresentation.thumbnail,
     super.key,
   });
 
   final String thumbnailPath;
+  final AuthenticatedMediaRepresentation representation;
   final BoxFit fit;
   final Widget placeholder;
   final Widget Function(BuildContext context) errorBuilder;
@@ -63,7 +65,8 @@ class _AuthenticatedMediaPathImageState
   @override
   void didUpdateWidget(AuthenticatedMediaPathImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.thumbnailPath != widget.thumbnailPath) {
+    if (oldWidget.thumbnailPath != widget.thumbnailPath ||
+        oldWidget.representation != widget.representation) {
       _future = _load();
     }
   }
@@ -92,9 +95,13 @@ class _AuthenticatedMediaPathImageState
   }
 
   Future<Uint8List> _load() {
-    return ref
-        .read(mediaRepositoryProvider)
-        .getThumbnailByPath(widget.thumbnailPath);
+    final repository = ref.read(mediaRepositoryProvider);
+    return switch (widget.representation) {
+      AuthenticatedMediaRepresentation.thumbnail =>
+        repository.getThumbnailByPath(widget.thumbnailPath),
+      AuthenticatedMediaRepresentation.display =>
+        repository.getDisplayByPath(widget.thumbnailPath),
+    };
   }
 }
 

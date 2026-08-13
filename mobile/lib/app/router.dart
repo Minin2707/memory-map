@@ -28,6 +28,7 @@ import 'package:memory_map/features/memory/presentation/story_memories_route.dar
 import 'package:memory_map/features/memory/presentation/story_timeline_route.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
+import 'package:memory_map/features/playback/presentation/story_playback_route.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
@@ -50,6 +51,7 @@ const storyParticipantsRoute = '/stories/:storyId/participants';
 const storyMemoriesRoute = '/stories/:storyId/memories';
 const storyMapRoute = '/stories/:storyId/map';
 const storyTimelineRoute = '/stories/:storyId/timeline';
+const storyPlaybackRoute = '/stories/:storyId/playback';
 const createMemoryRoute = '/stories/:storyId/memories/create';
 const memoryDetailsRoute = '/memories/:memoryId';
 const editMemoryRoute = '/memories/:memoryId/edit';
@@ -65,6 +67,7 @@ const storyParticipantsRouteName = 'storyParticipants';
 const storyMemoriesRouteName = 'storyMemories';
 const storyMapRouteName = 'storyMap';
 const storyTimelineRouteName = 'storyTimeline';
+const storyPlaybackRouteName = 'storyPlayback';
 const createMemoryRouteName = 'createMemory';
 const memoryDetailsRouteName = 'memoryDetails';
 const editMemoryRouteName = 'editMemory';
@@ -259,6 +262,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pathParameters: {_storyIdPathParameter: storyId},
               );
             },
+            onPlaybackSelected: (userStory) {
+              context.pushNamed(
+                storyPlaybackRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+                extra: userStory.story.title,
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: storyPlaybackRouteName,
+        path: storyPlaybackRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final storyId =
+              state.pathParameters[_storyIdPathParameter] ?? '';
+
+          return StoryPlaybackRoute(
+            storyId: storyId,
+            storyTitle: _storyTitleFromExtra(state.extra),
+            fallbackRouteName: storyDetailsRouteName,
+            storyIdPathParameter: _storyIdPathParameter,
           );
         },
       ),
@@ -290,6 +315,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   _memoryDetailsOriginQueryParameter:
                       _memoryDetailsTimelineOrigin,
                 },
+              );
+            },
+            onPlaybackSelected: () {
+              context.pushNamed(
+                storyPlaybackRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
               );
             },
           );
@@ -728,6 +759,14 @@ Object? _memoryDetailsOriginFor(GoRouterState state) {
     _memoryDetailsMapOrigin => _MemoryDetailsOrigin.map,
     _ => null,
   };
+}
+
+String? _storyTitleFromExtra(Object? extra) {
+  if (extra is String && extra.trim().isNotEmpty) {
+    return extra;
+  }
+
+  return null;
 }
 
 Map<String, String> _memoryDetailsOriginQueryParameters(Object? origin) {

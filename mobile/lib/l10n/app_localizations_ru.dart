@@ -1120,4 +1120,65 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get acceptInviteErrorSemanticsLabel => 'Ошибка приглашения';
+
+  @override
+  String get playbackTitle => 'Воспроизведение';
+
+  @override
+  String get playbackPreviousAction => 'Назад';
+
+  @override
+  String get playbackNextAction => 'Далее';
+
+  @override
+  String get playbackPauseAction => 'Пауза';
+
+  @override
+  String get playbackResumeAction => 'Продолжить';
+
+  @override
+  String get playbackReplayAction => 'Повторить';
+
+  @override
+  String get playbackCloseAction => 'Закрыть';
+
+  @override
+  String get playbackRetryAction => 'Повторить';
+
+  @override
+  String get playbackEmptyTitle => 'Пока нечего воспроизводить';
+
+  @override
+  String get playbackEmptyBody =>
+      'Добавьте воспоминания в эту историю, а затем вернитесь к путешествию.';
+
+  @override
+  String get playbackLoadFailureTitle => 'Воспроизведение недоступно';
+
+  @override
+  String get playbackLoadFailureBody =>
+      'Не удалось загрузить воспоминания этой истории.';
+
+  @override
+  String get playbackCameraFailureTitle => 'Движение карты остановлено';
+
+  @override
+  String get playbackCameraFailureBody =>
+      'Карта не смогла перейти к следующему воспоминанию. Можно повторить или закрыть воспроизведение.';
+
+  @override
+  String get playbackFinishedTitle => 'Воспроизведение завершено';
+
+  @override
+  String get playbackFinishedBody =>
+      'Повторите путешествие по истории или закройте воспроизведение.';
+
+  @override
+  String get playbackNoPhotoTitle => 'Без фото';
+
+  @override
+  String get playbackPhotoUnavailable => 'Фото недоступно';
+
+  @override
+  String get playbackMemoryPhotoLabel => 'Фото воспоминания';
 }

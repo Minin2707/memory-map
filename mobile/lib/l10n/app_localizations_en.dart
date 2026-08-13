@@ -1107,4 +1107,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get acceptInviteErrorSemanticsLabel => 'Invitation error';
+
+  @override
+  String get playbackTitle => 'Playback';
+
+  @override
+  String get playbackPreviousAction => 'Previous';
+
+  @override
+  String get playbackNextAction => 'Next';
+
+  @override
+  String get playbackPauseAction => 'Pause';
+
+  @override
+  String get playbackResumeAction => 'Resume';
+
+  @override
+  String get playbackReplayAction => 'Replay';
+
+  @override
+  String get playbackCloseAction => 'Close';
+
+  @override
+  String get playbackRetryAction => 'Retry';
+
+  @override
+  String get playbackEmptyTitle => 'No memories to play yet';
+
+  @override
+  String get playbackEmptyBody =>
+      'Add memories to this story, then come back for the journey.';
+
+  @override
+  String get playbackLoadFailureTitle => 'Playback is unavailable';
+
+  @override
+  String get playbackLoadFailureBody =>
+      'We could not load the memories for this story.';
+
+  @override
+  String get playbackCameraFailureTitle => 'Map movement paused';
+
+  @override
+  String get playbackCameraFailureBody =>
+      'The map could not move to the next memory. You can retry or close playback.';
+
+  @override
+  String get playbackFinishedTitle => 'Playback finished';
+
+  @override
+  String get playbackFinishedBody =>
+      'Replay this story journey or close playback.';
+
+  @override
+  String get playbackNoPhotoTitle => 'No photo';
+
+  @override
+  String get playbackPhotoUnavailable => 'Photo unavailable';
+
+  @override
+  String get playbackMemoryPhotoLabel => 'Memory photo';
 }

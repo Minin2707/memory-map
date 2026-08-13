@@ -74,6 +74,15 @@ final class DefaultMediaRepository implements MediaRepository {
     }
   }
 
+  @override
+  Future<Uint8List> getDisplayByPath(String displayPath) async {
+    try {
+      return await _mediaRemoteDataSource.getRepresentation(displayPath);
+    } on MediaRemoteException catch (exception) {
+      throw MediaApplicationException(_mapFailure(exception));
+    }
+  }
+
   MediaFailure _mapFailure(MediaRemoteException exception) {
     return switch (exception) {
       MediaRemoteValidationException() => const MediaValidationFailure(),

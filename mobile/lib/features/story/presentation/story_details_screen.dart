@@ -19,6 +19,7 @@ class StoryDetailsScreen extends ConsumerWidget {
     this.onParticipantsSelected,
     this.onMapSelected,
     this.onTimelineSelected,
+    this.onPlaybackSelected,
     super.key,
   });
 
@@ -30,6 +31,7 @@ class StoryDetailsScreen extends ConsumerWidget {
   final ValueChanged<UserStory>? onParticipantsSelected;
   final ValueChanged<UserStory>? onMapSelected;
   final ValueChanged<UserStory>? onTimelineSelected;
+  final ValueChanged<UserStory>? onPlaybackSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -201,6 +203,7 @@ class StoryDetailsScreen extends ConsumerWidget {
               onParticipantsSelected: onParticipantsSelected,
               onMapSelected: onMapSelected,
               onTimelineSelected: onTimelineSelected,
+              onPlaybackSelected: onPlaybackSelected,
             ),
           ),
         ),
@@ -211,7 +214,8 @@ class StoryDetailsScreen extends ConsumerWidget {
     return onMemoriesSelected != null ||
         onParticipantsSelected != null ||
         onMapSelected != null ||
-        onTimelineSelected != null;
+        onTimelineSelected != null ||
+        onPlaybackSelected != null;
   }
 }
 
@@ -465,6 +469,7 @@ class _FutureSectionsCard extends StatelessWidget {
     required this.onParticipantsSelected,
     required this.onMapSelected,
     required this.onTimelineSelected,
+    required this.onPlaybackSelected,
   });
 
   final UserStory userStory;
@@ -472,11 +477,21 @@ class _FutureSectionsCard extends StatelessWidget {
   final ValueChanged<UserStory>? onParticipantsSelected;
   final ValueChanged<UserStory>? onMapSelected;
   final ValueChanged<UserStory>? onTimelineSelected;
+  final ValueChanged<UserStory>? onPlaybackSelected;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final sections = <Widget>[
+      if (onPlaybackSelected != null)
+        _SectionAction(
+          actionKey: const ValueKey('story-details.playback-action'),
+          icon: Icons.play_circle_fill_rounded,
+          label: l10n.playbackTitle,
+          onPressed: () {
+            onPlaybackSelected!(userStory);
+          },
+        ),
       if (onMemoriesSelected != null)
         _SectionAction(
           actionKey: const ValueKey('story-details.memories-action'),

@@ -2059,6 +2059,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invitation error'**
   String get acceptInviteErrorSemanticsLabel;
+
+  /// No description provided for @playbackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get playbackTitle;
+
+  /// No description provided for @playbackPreviousAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get playbackPreviousAction;
+
+  /// No description provided for @playbackNextAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get playbackNextAction;
+
+  /// No description provided for @playbackPauseAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get playbackPauseAction;
+
+  /// No description provided for @playbackResumeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get playbackResumeAction;
+
+  /// No description provided for @playbackReplayAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Replay'**
+  String get playbackReplayAction;
+
+  /// No description provided for @playbackCloseAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get playbackCloseAction;
+
+  /// No description provided for @playbackRetryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get playbackRetryAction;
+
+  /// No description provided for @playbackEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No memories to play yet'**
+  String get playbackEmptyTitle;
+
+  /// No description provided for @playbackEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add memories to this story, then come back for the journey.'**
+  String get playbackEmptyBody;
+
+  /// No description provided for @playbackLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback is unavailable'**
+  String get playbackLoadFailureTitle;
+
+  /// No description provided for @playbackLoadFailureBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not load the memories for this story.'**
+  String get playbackLoadFailureBody;
+
+  /// No description provided for @playbackCameraFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Map movement paused'**
+  String get playbackCameraFailureTitle;
+
+  /// No description provided for @playbackCameraFailureBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The map could not move to the next memory. You can retry or close playback.'**
+  String get playbackCameraFailureBody;
+
+  /// No description provided for @playbackFinishedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback finished'**
+  String get playbackFinishedTitle;
+
+  /// No description provided for @playbackFinishedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Replay this story journey or close playback.'**
+  String get playbackFinishedBody;
+
+  /// No description provided for @playbackNoPhotoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No photo'**
+  String get playbackNoPhotoTitle;
+
+  /// No description provided for @playbackPhotoUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo unavailable'**
+  String get playbackPhotoUnavailable;
+
+  /// No description provided for @playbackMemoryPhotoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory photo'**
+  String get playbackMemoryPhotoLabel;
 }
 
 class _AppLocalizationsDelegate

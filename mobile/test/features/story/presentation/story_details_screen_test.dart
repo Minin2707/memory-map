@@ -164,6 +164,7 @@ void main() {
       UserStory? participantsStory;
       UserStory? mapStory;
       UserStory? timelineStory;
+      UserStory? playbackStory;
       var inviteCalls = 0;
       await pumpScreen(
         tester,
@@ -183,9 +184,16 @@ void main() {
         onTimelineSelected: (userStory) {
           timelineStory = userStory;
         },
+        onPlaybackSelected: (userStory) {
+          playbackStory = userStory;
+        },
       );
 
       expect(find.text('Explore'), findsOneWidget);
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.playback-action')),
+      );
       await pressButton(
         tester,
         find.byKey(const ValueKey('story-details.memories-action')),
@@ -211,7 +219,50 @@ void main() {
       expect(participantsStory, ownerStory);
       expect(mapStory, ownerStory);
       expect(timelineStory, ownerStory);
+      expect(playbackStory, ownerStory);
       expect(inviteCalls, 1);
+    });
+
+    testWidgets('shouldShowPlaybackForEveryRoleWhenCallbackExists', (
+      WidgetTester tester,
+    ) async {
+      setSurface(tester, const Size(390, 1200));
+
+      for (final role in StoryRole.values) {
+        UserStory? selectedStory;
+        final story = userStory(role: role);
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = story,
+          onPlaybackSelected: (userStory) {
+            selectedStory = userStory;
+          },
+        );
+
+        final action =
+            find.byKey(const ValueKey('story-details.playback-action'));
+        expect(action, findsOneWidget);
+        expect(find.text('Playback'), findsOneWidget);
+
+        await pressButton(tester, action);
+
+        expect(selectedStory, story);
+        expect(find.textContaining(story.story.id), findsNothing);
+      }
+    });
+
+    testWidgets('shouldHidePlaybackWhenCallbackIsAbsent', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-details.playback-action')),
+        findsNothing,
+      );
     });
 
     testWidgets('shouldShowInviteForOwnerAndCoOwner', (
@@ -476,6 +527,7 @@ Future<ProviderContainer> pumpScreen(
   ValueChanged<UserStory>? onParticipantsSelected,
   ValueChanged<UserStory>? onMapSelected,
   ValueChanged<UserStory>? onTimelineSelected,
+  ValueChanged<UserStory>? onPlaybackSelected,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
 }) async {
@@ -508,6 +560,7 @@ Future<ProviderContainer> pumpScreen(
           onParticipantsSelected: onParticipantsSelected,
           onMapSelected: onMapSelected,
           onTimelineSelected: onTimelineSelected,
+          onPlaybackSelected: onPlaybackSelected,
         ),
       ),
     ),
