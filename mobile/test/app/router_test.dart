@@ -285,7 +285,7 @@ void main() {
         find.byKey(const ValueKey('create-story.submit-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(find.text(createdStory.title), findsOneWidget);
       expect(
         fakeStoryRepository.receivedGetStoryIds,
@@ -311,7 +311,7 @@ void main() {
       await tester.tap(find.text(ownerStory.story.title));
       await tester.pumpAndSettle();
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(find.text(ownerStory.story.description!), findsWidgets);
 
       await tapButton(
@@ -343,7 +343,7 @@ void main() {
         find.byKey(const ValueKey('edit-story.cancel-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(find.text('Edit story'), findsNothing);
     });
 
@@ -411,7 +411,7 @@ void main() {
       GoRouter.of(context).go('/stories/${ownerStory.story.id}');
       await tester.pumpAndSettle();
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
@@ -537,7 +537,7 @@ void main() {
         find.byKey(const ValueKey('invite.done-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
     testWidgets('shouldReturnFromInviteToDetailsWithBackActions', (
@@ -558,7 +558,7 @@ void main() {
         find.byKey(const ValueKey('invite.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
 
       await tapButton(
         tester,
@@ -567,7 +567,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(find.text('Invite someone close'), findsNothing);
     });
 
@@ -599,7 +599,7 @@ void main() {
         find.byKey(const ValueKey('invite.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
@@ -626,7 +626,7 @@ void main() {
         find.byKey(const ValueKey('invite.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
     testWidgets('shouldNotMatchInviteRouteWithoutStoryId', (
@@ -714,7 +714,7 @@ void main() {
         find.byKey(const ValueKey('participants.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
     testWidgets('shouldFallbackDirectParticipantsBackToStoryDetails', (
@@ -740,7 +740,7 @@ void main() {
         find.byKey(const ValueKey('participants.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
@@ -814,14 +814,14 @@ void main() {
       );
       expect(find.text('Participants'), findsWidgets);
       expect(find.text(viewerParticipant.displayName), findsNothing);
-      expect(find.text('About this story'), findsNothing);
+      expect(storyDetailsScreenFinder(), findsNothing);
 
       await tapButton(
         tester,
         find.byKey(const ValueKey('participants.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
     testWidgets('shouldSynchronizeStoriesAndGoToStoriesAfterLeaveSuccess', (
@@ -883,7 +883,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
-      expect(find.text('About this story'), findsNothing);
+      expect(storyDetailsScreenFinder(), findsNothing);
       expect(find.text('Participants'), findsNothing);
     });
 
@@ -1027,7 +1027,7 @@ void main() {
         find.byKey(const ValueKey('story-details.memories-action')),
       );
 
-      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
       expect(find.text(memoryA.title), findsOneWidget);
       expect(fakeMemoryRepository.getMemoriesCalls, 1);
 
@@ -1036,8 +1036,8 @@ void main() {
         find.byKey(const ValueKey('story-memories.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
-      expect(find.text('Memories'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
+      expect(storyDetailsMemoriesActionFinder(), findsOneWidget);
     });
 
     testWidgets('shouldOpenDirectStoryMemoriesRouteAndFallbackBackToDetails', (
@@ -1059,14 +1059,14 @@ void main() {
       GoRouter.of(context).go('/stories/${ownerStory.story.id}/memories');
       await tester.pumpAndSettle();
 
-      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
 
       await tapButton(
         tester,
         find.byKey(const ValueKey('story-memories.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
@@ -1103,7 +1103,7 @@ void main() {
         find.byKey(const ValueKey('story-map.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(find.text('Map'), findsWidgets);
     });
 
@@ -1138,7 +1138,7 @@ void main() {
         find.byKey(const ValueKey('story-map.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
@@ -1179,7 +1179,7 @@ void main() {
         find.byKey(const ValueKey('story-timeline.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
     testWidgets('shouldOpenDirectStoryTimelineRouteAndFallbackBackToDetails', (
@@ -1207,7 +1207,7 @@ void main() {
         find.byKey(const ValueKey('story-timeline.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
@@ -1247,7 +1247,7 @@ void main() {
         find.byKey(const ValueKey('story-playback.close')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
     testWidgets('shouldOpenStoryPlaybackFromTimelineAndCloseBackToTimeline', (
@@ -1294,7 +1294,7 @@ void main() {
         find.byKey(const ValueKey('story-timeline.back-action')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
     testWidgets('shouldFallbackDirectStoryPlaybackCloseToDetails', (
@@ -1323,7 +1323,7 @@ void main() {
         find.byKey(const ValueKey('story-playback.close')),
       );
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(
         fakeStoryRepository.receivedGetStoryIds,
         contains(ownerStory.story.id),
@@ -1860,7 +1860,7 @@ void main() {
         find.byKey(const ValueKey('memory-details.back-action')),
       );
 
-      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
       expect(find.text(memoryA.title), findsOneWidget);
     });
 
@@ -1888,7 +1888,7 @@ void main() {
         find.byKey(const ValueKey('memory-details.back-action')),
       );
 
-      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
     });
 
     testWidgets('shouldCreateMemoryThroughLocationPickerAndOpenDetails', (
@@ -1968,7 +1968,7 @@ void main() {
         find.byKey(const ValueKey('memory-details.back-action')),
       );
 
-      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
       expect(find.text(createdMemory.title), findsOneWidget);
       expect(
         find.byKey(const ValueKey('story-memories.create-action')),
@@ -2062,7 +2062,7 @@ void main() {
       GoRouter.of(context).go('/stories/${ownerStory.story.id}/memories');
       await tester.pumpAndSettle();
 
-      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
       expect(
         find.byKey(const ValueKey('story-memories.create-action')),
         findsNothing,
@@ -2212,14 +2212,14 @@ void main() {
         fakeMemoryRepository.receivedDeleteInput,
         DeleteMemoryInput(memoryId: memoryA.id),
       );
-      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
       expect(find.text(memoryA.title), findsNothing);
       expect(find.text(memoryB.title), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
-      expect(find.text('About this story'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsOneWidget);
       expect(find.text(memoryA.title), findsNothing);
     });
 
@@ -2573,17 +2573,10 @@ Future<void> tapButton(
   Finder finder,
 ) async {
   await tester.pump();
-  final widget = tester.widget<Widget>(finder);
-  final onPressed = switch (widget) {
-    FilledButton(:final onPressed) => onPressed,
-    FloatingActionButton(:final onPressed) => onPressed,
-    OutlinedButton(:final onPressed) => onPressed,
-    IconButton(:final onPressed) => onPressed,
-    TextButton(:final onPressed) => onPressed,
-    _ => throw StateError('Unsupported button widget: $widget'),
-  };
-
-  onPressed?.call();
+  await scrollUpUntilFound(tester, finder);
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
   await tester.pumpAndSettle();
 }
 
@@ -2606,7 +2599,7 @@ Future<void> scrollToStoryDetailsParticipantsAction(
   await tester.scrollUntilVisible(
     storyDetailsParticipantsActionFinder(),
     120,
-    scrollable: find.byType(Scrollable),
+    scrollable: storyDetailsScrollableFinder(),
   );
   await tester.pumpAndSettle();
 }
@@ -2617,7 +2610,7 @@ Future<void> scrollToStoryDetailsMemoriesAction(
   await tester.scrollUntilVisible(
     storyDetailsMemoriesActionFinder(),
     120,
-    scrollable: find.byType(Scrollable),
+    scrollable: storyDetailsScrollableFinder(),
   );
   await tester.pumpAndSettle();
 }
@@ -2628,7 +2621,7 @@ Future<void> scrollToStoryDetailsMapAction(
   await tester.scrollUntilVisible(
     storyDetailsMapActionFinder(),
     120,
-    scrollable: find.byType(Scrollable),
+    scrollable: storyDetailsScrollableFinder(),
   );
   await tester.pumpAndSettle();
 }
@@ -2639,7 +2632,7 @@ Future<void> scrollToStoryDetailsTimelineAction(
   await tester.scrollUntilVisible(
     storyDetailsTimelineActionFinder(),
     120,
-    scrollable: find.byType(Scrollable),
+    scrollable: storyDetailsScrollableFinder(),
   );
   await tester.pumpAndSettle();
 }
@@ -2650,7 +2643,7 @@ Future<void> scrollToStoryDetailsPlaybackAction(
   await tester.scrollUntilVisible(
     storyDetailsPlaybackActionFinder(),
     120,
-    scrollable: find.byType(Scrollable),
+    scrollable: storyDetailsScrollableFinder(),
   );
   await tester.pumpAndSettle();
 }
@@ -2674,6 +2667,29 @@ Future<void> scrollDownUntilFound(
   fail('Expected finder to become visible after scrolling: $finder');
 }
 
+Future<void> scrollUpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int maxScrolls = 8,
+}) async {
+  for (var index = 0; index < maxScrolls; index += 1) {
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+
+    final verticalScrollable = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    if (verticalScrollable.evaluate().isEmpty) {
+      break;
+    }
+
+    await tester.drag(verticalScrollable.first, const Offset(0, 320));
+    await tester.pumpAndSettle();
+  }
+}
+
 Future<void> scrollToMemoryDetailsDeleteAction(
   WidgetTester tester,
 ) async {
@@ -2693,8 +2709,22 @@ Finder storyDetailsMemoriesActionFinder() {
   return find.byKey(const ValueKey('story-details.memories-action'));
 }
 
+Finder storyDetailsScreenFinder() {
+  return find.byKey(const ValueKey('story-details.screen'));
+}
+
+Finder storyDetailsScrollableFinder() {
+  return find.descendant(
+    of: storyDetailsScreenFinder(),
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    ),
+  );
+}
+
 Finder storyDetailsParticipantsActionFinder() {
-  return find.byKey(const ValueKey('story-details.participants-action'));
+  return find.byKey(const ValueKey('story-details.participants.manage-action'));
 }
 
 Finder storyDetailsMapActionFinder() {

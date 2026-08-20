@@ -3,17 +3,38 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
+import 'package:memory_map/features/memory/application/memory_application_providers.dart';
+import 'package:memory_map/features/memory/domain/create_memory_input.dart';
+import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
+import 'package:memory_map/features/memory/domain/memory.dart';
+import 'package:memory_map/features/memory/domain/memory_date.dart';
+import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
+import 'package:memory_map/features/memory/domain/memory_repository.dart';
+import 'package:memory_map/features/memory/domain/update_memory_input.dart';
+import 'package:memory_map/features/participant/application/participant_application_exception.dart';
+import 'package:memory_map/features/participant/application/participant_application_providers.dart';
+import 'package:memory_map/features/participant/domain/leave_story_input.dart';
+import 'package:memory_map/features/participant/domain/participant_failure.dart';
+import 'package:memory_map/features/participant/domain/remove_story_participant_input.dart';
+import 'package:memory_map/features/participant/domain/story_participant.dart';
+import 'package:memory_map/features/participant/domain/story_participant_repository.dart';
 import 'package:memory_map/features/story/application/story_application_exception.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/domain/story.dart';
 import 'package:memory_map/features/story/domain/story_failure.dart';
+import 'package:memory_map/features/story/domain/story_photo_preview.dart';
 import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/update_story_input.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
 import 'package:memory_map/features/story/presentation/story_details_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+import '../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('StoryDetailsScreen rendering', () {
@@ -22,14 +43,29 @@ void main() {
     ) async {
       await pumpScreen(tester, FakeStoryRepository()..storyResult = ownerStory);
 
-      expect(find.text('Story'), findsOneWidget);
       expect(find.text(ownerStory.story.title), findsOneWidget);
       expect(find.text(ownerStory.story.description!), findsWidgets);
-      expect(find.text('Owner'), findsOneWidget);
-      expect(find.text('About this story'), findsOneWidget);
-      expect(find.text('Story info'), findsOneWidget);
-      expect(find.text('Created'), findsOneWidget);
-      expect(find.text('Updated'), findsOneWidget);
+      expect(find.text('No memories'), findsOneWidget);
+      expect(find.text('1 participant'), findsOneWidget);
+      expect(find.text('Owner'), findsNothing);
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.lower-content')),
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.lower-content')),
+        findsOneWidget,
+      );
+      expect(find.text('Recent memories'), findsOneWidget);
+      expect(find.text('No memories yet'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-details.description-card')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.info-card')),
+        findsNothing,
+      );
     });
 
     testWidgets('shouldRenderRussianStoryDetails', (
@@ -41,13 +77,23 @@ void main() {
         locale: const Locale('ru'),
       );
 
-      expect(find.text('История'), findsOneWidget);
-      expect(find.text('Об этой истории'), findsOneWidget);
-      expect(find.text('Информация об истории'), findsOneWidget);
-      expect(find.text('Владелец'), findsOneWidget);
+      expect(find.text('Нет воспоминаний'), findsOneWidget);
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.lower-content')),
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.lower-content')),
+        findsOneWidget,
+      );
+      expect(find.text('Последние воспоминания'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-details.info-card')),
+        findsNothing,
+      );
     });
 
-    testWidgets('shouldRenderNoDescriptionPlaceholder', (
+    testWidgets('shouldNotRenderLegacyNoDescriptionPlaceholder', (
       WidgetTester tester,
     ) async {
       await pumpScreen(
@@ -55,10 +101,15 @@ void main() {
         FakeStoryRepository()..storyResult = storyWithoutDescription,
       );
 
-      expect(find.text('No description yet.'), findsOneWidget);
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.lower-content')),
+      );
+
+      expect(find.text('No description yet.'), findsNothing);
     });
 
-    testWidgets('shouldRenderNoDescriptionForBlankDescription', (
+    testWidgets('shouldHideBlankHeroDescription', (
       WidgetTester tester,
     ) async {
       await pumpScreen(
@@ -67,19 +118,301 @@ void main() {
           ..storyResult = userStory(description: '   '),
       );
 
-      expect(find.text('No description yet.'), findsOneWidget);
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.lower-content')),
+      );
+
+      expect(find.text('No description yet.'), findsNothing);
       expect(find.text('   '), findsNothing);
     });
 
-    testWidgets('shouldRenderAllRoleBadges', (WidgetTester tester) async {
+    testWidgets('shouldNotRenderRoleBadgesInStoryDetailsHero', (
+      WidgetTester tester,
+    ) async {
       for (final role in StoryRole.values) {
         await pumpScreen(
           tester,
           FakeStoryRepository()..storyResult = userStory(role: role),
         );
 
-        expect(find.text(roleLabel(role)), findsOneWidget);
+        expect(find.text(roleLabel(role)), findsNothing);
       }
+    });
+
+    testWidgets('shouldRenderParticipantsSummaryFromProvider', (
+      WidgetTester tester,
+    ) async {
+      final participantRepository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[
+          participant(
+            userId: 'anna-user-id',
+            displayName: 'Anna',
+            avatarUrl: 'https://example.test/anna.png',
+            role: StoryRole.owner,
+          ),
+          participant(
+            userId: 'alex-user-id',
+            displayName: 'Alex Lane',
+            avatarUrl: null,
+            role: StoryRole.coOwner,
+          ),
+        ];
+
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        participantRepository: participantRepository,
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.participants-summary')),
+      );
+
+      expect(
+        participantRepository.receivedStoryIds,
+        <String>['story-1'],
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.participants-summary')),
+        findsOneWidget,
+      );
+      expect(find.text('Participants'), findsOneWidget);
+      expect(find.text('Anna'), findsOneWidget);
+      expect(find.text('Alex Lane'), findsOneWidget);
+      expect(find.text('Owner'), findsOneWidget);
+      expect(find.text('Co-owner'), findsOneWidget);
+
+      final avatars = tester
+          .widgetList<CircleAvatar>(
+            find.byKey(const ValueKey('story-details.participants.avatar')),
+          )
+          .toList();
+      expect(avatars, hasLength(2));
+      expect(avatars.first.foregroundImage, isA<NetworkImage>());
+      expect(avatars.last.foregroundImage, isNull);
+      expect((avatars.last.child! as Text).data, 'AL');
+    });
+
+    testWidgets('shouldRenderParticipantPreviewLimitAndRemainingCount', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        participantRepository: FakeStoryParticipantRepository()
+          ..participantsResult = <StoryParticipant>[
+            participant(displayName: 'Anna', role: StoryRole.owner),
+            participant(displayName: 'Alex', role: StoryRole.coOwner),
+            participant(displayName: 'Mira', role: StoryRole.editor),
+            participant(displayName: 'Oleg', role: StoryRole.viewer),
+            participant(displayName: 'Nina', role: StoryRole.viewer),
+          ],
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.participants-summary')),
+      );
+
+      expect(find.text('Anna'), findsOneWidget);
+      expect(find.text('Alex'), findsOneWidget);
+      expect(find.text('Mira'), findsOneWidget);
+      expect(find.text('Oleg'), findsNothing);
+      expect(find.text('Nina'), findsNothing);
+      expect(find.text('+2'), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderParticipantsLoadingWithoutBlockingHero', (
+      WidgetTester tester,
+    ) async {
+      final completer = Completer<List<StoryParticipant>>();
+      final participantRepository = FakeStoryParticipantRepository()
+        ..getParticipantsCompleter = completer;
+
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        participantRepository: participantRepository,
+        settle: false,
+      );
+      await tester.pump();
+
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.participants.loading')),
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.participants.loading')),
+        findsOneWidget,
+      );
+      expect(find.text('Anna'), findsNothing);
+
+      completer.complete(<StoryParticipant>[ownerParticipant]);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('shouldRenderParticipantsEmptyStateDefensively', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        participantRepository: FakeStoryParticipantRepository()
+          ..participantsResult = <StoryParticipant>[],
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.participants.empty')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-details.participants.empty')),
+        findsOneWidget,
+      );
+      expect(find.text('No participants to show'), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderParticipantsFailureSafelyAndRetry', (
+      WidgetTester tester,
+    ) async {
+      final participantRepository = FakeStoryParticipantRepository()
+        ..getParticipantsFailures.add(
+          const ParticipantApplicationException(
+            ParticipantNetworkUnavailable(),
+          ),
+        )
+        ..participantsResult = <StoryParticipant>[ownerParticipant];
+
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        participantRepository: participantRepository,
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.participants.failure')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-details.participants.failure')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Could not load participants'), findsOneWidget);
+      expect(
+        find.textContaining('No network connection'),
+        findsOneWidget,
+      );
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+      expect(find.textContaining('ParticipantApplicationException'),
+          findsNothing);
+      expect(find.textContaining('private-user-id'), findsNothing);
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.participants.retry-action')),
+      );
+
+      expect(participantRepository.getParticipantsCalls, 2);
+      expect(find.text('Anna'), findsOneWidget);
+    });
+
+    testWidgets('shouldHandleLongParticipantsOnSmallViewport', (
+      WidgetTester tester,
+    ) async {
+      setSurface(tester, const Size(320, 640));
+
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        textScaler: const TextScaler.linear(1.45),
+        participantRepository: FakeStoryParticipantRepository()
+          ..participantsResult = <StoryParticipant>[
+            participant(
+              displayName: 'Alexandria Very Long Family Name',
+              role: StoryRole.coOwner,
+            ),
+            participant(displayName: 'Mira', role: StoryRole.editor),
+            participant(displayName: 'Nina', role: StoryRole.viewer),
+          ],
+      );
+
+      expect(find.text('Alexandria Very Long Family Name'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('shouldLoadRealHeroDisplayWhenPreviewExists', (
+      WidgetTester tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository();
+      final story = userStory(
+        memoryCount: 24,
+        participantCount: 2,
+        previewPhoto: previewPhoto('media-a'),
+      );
+
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = story,
+        mediaRepository: mediaRepository,
+      );
+
+      expect(find.text(story.story.title), findsOneWidget);
+      expect(find.text(story.story.description!), findsWidgets);
+      expect(find.text('24 memories'), findsOneWidget);
+      expect(find.text('2 participants'), findsOneWidget);
+      expect(mediaRepository.getDisplayByPathCalls, 1);
+      expect(mediaRepository.getThumbnailByPathCalls, 0);
+      expect(mediaRepository.receivedBinaryPaths, <String>[
+        '/api/v1/media/media-a/display',
+      ]);
+    });
+
+    testWidgets('shouldRenderIntentionalNoPhotoHero', (
+      WidgetTester tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository();
+
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        mediaRepository: mediaRepository,
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-details.hero.no-photo')),
+        findsOneWidget,
+      );
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+      expect(mediaRepository.getDisplayByPathCalls, 0);
+      expect(mediaRepository.getThumbnailByPathCalls, 0);
+    });
+
+    testWidgets('shouldKeepStoryVisibleWhenHeroDisplayFails', (
+      WidgetTester tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..displayFailure = const StoryApplicationException(StoryNotFound());
+
+      final story = userStory(previewPhoto: previewPhoto('media-a'));
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = story,
+        mediaRepository: mediaRepository,
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-details.hero.display-failure')),
+        findsOneWidget,
+      );
+      expect(find.text(story.story.title), findsOneWidget);
+      expect(find.textContaining('/api/v1/media'), findsNothing);
+      expect(find.textContaining('media-a'), findsNothing);
     });
   });
 
@@ -156,27 +489,57 @@ void main() {
       expect(backCalls, 2);
     });
 
-    testWidgets('shouldRenderFutureSectionsOnlyWhenCallbacksExist', (
+    testWidgets('shouldRenderLowerCompositionActionsAndRecentMemories', (
       WidgetTester tester,
     ) async {
       setSurface(tester, const Size(390, 1200));
       UserStory? memoriesStory;
-      UserStory? participantsStory;
       UserStory? mapStory;
       UserStory? timelineStory;
+      Memory? selectedMemory;
       UserStory? playbackStory;
+      var createCalls = 0;
       var inviteCalls = 0;
+      final latestMemory = memory(
+        id: 'latest-memory',
+        title: 'Latest memory',
+        eventDate: MemoryDate(year: 2026, month: 8, day: 9),
+      );
+      final middleMemory = memory(
+        id: 'middle-memory',
+        title: 'Middle memory',
+        eventDate: MemoryDate(year: 2025, month: 5, day: 4),
+      );
+      final olderMemory = memory(
+        id: 'older-memory',
+        title: 'Older memory',
+        eventDate: MemoryDate(year: 2024, month: 2, day: 3),
+      );
+      final oldestMemory = memory(
+        id: 'oldest-memory',
+        title: 'Oldest memory',
+        eventDate: MemoryDate(year: 2023, month: 1, day: 2),
+      );
+      final mediaRepository = media_fixtures.FakeMediaRepository();
       await pumpScreen(
         tester,
         FakeStoryRepository()..storyResult = ownerStory,
+        mediaRepository: mediaRepository,
+        memoryRepository: FakeMemoryRepository()
+          ..memoriesResult = <MemoryReadModel>[
+            MemoryReadModel.fromMemory(oldestMemory),
+            MemoryReadModel.fromMemory(olderMemory),
+            MemoryReadModel.fromMemory(middleMemory),
+            MemoryReadModel(
+              memory: latestMemory,
+              previewPhoto: memoryPreviewPhoto('media-latest'),
+            ),
+          ],
         onInvite: () {
           inviteCalls += 1;
         },
         onMemoriesSelected: (userStory) {
           memoriesStory = userStory;
-        },
-        onParticipantsSelected: (userStory) {
-          participantsStory = userStory;
         },
         onMapSelected: (userStory) {
           mapStory = userStory;
@@ -184,23 +547,42 @@ void main() {
         onTimelineSelected: (userStory) {
           timelineStory = userStory;
         },
+        onCreateMemory: () {
+          createCalls += 1;
+        },
+        onMemorySelected: (memory) {
+          selectedMemory = memory;
+        },
         onPlaybackSelected: (userStory) {
           playbackStory = userStory;
         },
       );
 
-      expect(find.text('Explore'), findsOneWidget);
-      await pressButton(
+      await scrollDownUntilFound(
         tester,
-        find.byKey(const ValueKey('story-details.playback-action')),
+        find.byKey(const ValueKey('story-details.lower-content')),
       );
+
+      expect(find.text('Explore'), findsNothing);
+      expect(find.text('Recent memories'), findsOneWidget);
+      expect(find.text('Latest memory'), findsOneWidget);
+      expect(find.text('Middle memory'), findsOneWidget);
+      expect(find.text('Older memory'), findsOneWidget);
+      expect(find.text('Oldest memory'), findsNothing);
+      expect(
+        mediaRepository.receivedBinaryPaths,
+        contains('/api/v1/media/media-latest/thumbnail'),
+      );
+
       await pressButton(
         tester,
         find.byKey(const ValueKey('story-details.memories-action')),
       );
       await pressButton(
         tester,
-        find.byKey(const ValueKey('story-details.participants-action')),
+        find.byKey(
+          const ValueKey('story-details.recent-memories.see-all-action'),
+        ),
       );
       await pressButton(
         tester,
@@ -214,11 +596,21 @@ void main() {
         tester,
         find.byKey(const ValueKey('story-details.timeline-action')),
       );
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.add-memory-action')),
+      );
+      await pressButton(tester, find.text('Latest memory'));
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.playback-action')),
+      );
 
       expect(memoriesStory, ownerStory);
-      expect(participantsStory, ownerStory);
       expect(mapStory, ownerStory);
       expect(timelineStory, ownerStory);
+      expect(createCalls, 1);
+      expect(selectedMemory, latestMemory);
       expect(playbackStory, ownerStory);
       expect(inviteCalls, 1);
     });
@@ -242,7 +634,7 @@ void main() {
         final action =
             find.byKey(const ValueKey('story-details.playback-action'));
         expect(action, findsOneWidget);
-        expect(find.text('Playback'), findsOneWidget);
+        expect(find.text('Playback Story'), findsOneWidget);
 
         await pressButton(tester, action);
 
@@ -279,34 +671,132 @@ void main() {
           find.byKey(const ValueKey('story-details.invite-action')),
           findsOneWidget,
         );
-        expect(find.bySemanticsLabel('Invite participant'), findsOneWidget);
       }
     });
 
-    testWidgets('shouldShowParticipantsForEveryRoleWhenCallbackExists', (
+    testWidgets('shouldShowParticipantsSummaryManageAndInviteForOwnerAndCoOwner', (
+      WidgetTester tester,
+    ) async {
+      for (final role in <StoryRole>[StoryRole.owner, StoryRole.coOwner]) {
+        UserStory? managedStory;
+        var inviteCalls = 0;
+        final story = userStory(role: role);
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = story,
+          participantRepository: FakeStoryParticipantRepository()
+            ..participantsResult = <StoryParticipant>[ownerParticipant],
+          onParticipantsSelected: (userStory) {
+            managedStory = userStory;
+          },
+          onInvite: () {
+            inviteCalls += 1;
+          },
+        );
+
+        await scrollDownUntilFound(
+          tester,
+          find.byKey(const ValueKey('story-details.participants-summary')),
+        );
+
+        await pressButton(
+          tester,
+          find.byKey(
+            const ValueKey('story-details.participants.manage-action'),
+          ),
+        );
+        await pressButton(
+          tester,
+          find.byKey(
+            const ValueKey('story-details.participants.invite-action'),
+          ),
+        );
+
+        expect(managedStory, story);
+        expect(inviteCalls, 1);
+      }
+    });
+
+    testWidgets('shouldKeepParticipantsSummaryReadonlyForEditorAndViewer', (
+      WidgetTester tester,
+    ) async {
+      for (final role in <StoryRole>[StoryRole.editor, StoryRole.viewer]) {
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = userStory(role: role),
+          participantRepository: FakeStoryParticipantRepository()
+            ..participantsResult = <StoryParticipant>[
+              participant(displayName: 'Anna', role: role),
+            ],
+          onParticipantsSelected: (_) {},
+          onInvite: () {},
+        );
+
+        await scrollDownUntilFound(
+          tester,
+          find.byKey(const ValueKey('story-details.participants-summary')),
+        );
+
+        expect(find.text('Anna'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('story-details.participants.manage-action')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('story-details.participants.invite-action')),
+          findsNothing,
+        );
+      }
+    });
+
+    testWidgets('shouldShowNavigationForEveryRoleWhenCallbacksExist', (
       WidgetTester tester,
     ) async {
       setSurface(tester, const Size(390, 1200));
 
       for (final role in StoryRole.values) {
-        UserStory? selectedStory;
+        UserStory? memoriesStory;
+        UserStory? mapStory;
+        UserStory? timelineStory;
         final story = userStory(role: role);
         await pumpScreen(
           tester,
           FakeStoryRepository()..storyResult = story,
-          onParticipantsSelected: (userStory) {
-            selectedStory = userStory;
+          onMemoriesSelected: (userStory) {
+            memoriesStory = userStory;
+          },
+          onMapSelected: (userStory) {
+            mapStory = userStory;
+          },
+          onTimelineSelected: (userStory) {
+            timelineStory = userStory;
           },
         );
 
-        final action =
-            find.byKey(const ValueKey('story-details.participants-action'));
-        expect(action, findsOneWidget);
-        expect(find.text('Participants'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('story-details.section-navigation')),
+          findsOneWidget,
+        );
+        expect(find.text('Memories'), findsOneWidget);
+        expect(find.text('Map'), findsOneWidget);
+        expect(find.text('Timeline'), findsOneWidget);
 
-        await pressButton(tester, action);
+        await pressButton(
+          tester,
+          find.byKey(const ValueKey('story-details.memories-action')),
+        );
+        await pressButton(
+          tester,
+          find.byKey(const ValueKey('story-details.map-action')),
+        );
+        await pressButton(
+          tester,
+          find.byKey(const ValueKey('story-details.timeline-action')),
+        );
 
-        expect(selectedStory, story);
+        expect(memoriesStory, story);
+        expect(mapStory, story);
+        expect(timelineStory, story);
         expect(find.textContaining(story.story.id), findsNothing);
       }
     });
@@ -328,14 +818,92 @@ void main() {
       }
     });
 
-    testWidgets('shouldHideFutureSectionsWhenCallbacksAreAbsent', (
+    testWidgets('shouldShowAddMemoryForWritableRolesOnly', (
+      WidgetTester tester,
+    ) async {
+      setSurface(tester, const Size(390, 1200));
+
+      for (final role in <StoryRole>[
+        StoryRole.owner,
+        StoryRole.coOwner,
+        StoryRole.editor,
+      ]) {
+        var createCalls = 0;
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = userStory(role: role),
+          onCreateMemory: () {
+            createCalls += 1;
+          },
+        );
+
+        await scrollDownUntilFound(
+          tester,
+          find.byKey(const ValueKey('story-details.lower-content')),
+        );
+
+        final action =
+            find.byKey(const ValueKey('story-details.add-memory-action'));
+        expect(action, findsOneWidget);
+
+        await pressButton(tester, action);
+
+        expect(createCalls, 1);
+      }
+
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()
+          ..storyResult = userStory(role: StoryRole.viewer),
+        onCreateMemory: () {},
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.lower-content')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-details.add-memory-action')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldRenderNavigationButHideUnavailablePrimaryActions', (
       WidgetTester tester,
     ) async {
       await pumpScreen(tester, FakeStoryRepository()..storyResult = ownerStory);
 
-      expect(find.text('Memories'), findsNothing);
-      expect(find.text('Participants'), findsNothing);
-      expect(find.text('Map'), findsNothing);
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.lower-content')),
+      );
+
+      expect(find.text('Memories'), findsOneWidget);
+      expect(find.text('Map'), findsOneWidget);
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-details.participants-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.participants.manage-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('story-details.recent-memories.see-all-action'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.add-memory-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.playback-action')),
+        findsNothing,
+      );
     });
   });
 
@@ -414,6 +982,106 @@ void main() {
       );
       expect(find.textContaining('UnexpectedStoryException'), findsNothing);
       expect(find.textContaining('StackTrace'), findsNothing);
+    });
+  });
+
+  group('StoryDetailsScreen period', () {
+    testWidgets('shouldRenderHistoricalYearRangeFromMemoryEventDates', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        memoryRepository: FakeMemoryRepository()
+          ..memoriesResult = <MemoryReadModel>[
+            MemoryReadModel.fromMemory(memory(eventDate: memoryDate(2024))),
+            MemoryReadModel.fromMemory(memory(eventDate: memoryDate(2021))),
+          ],
+      );
+
+      expect(find.text('2021 — 2024'), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderPresentWhenLatestMemoryYearIsCurrent', (
+      WidgetTester tester,
+    ) async {
+      final currentYear = DateTime.now().year;
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        memoryRepository: FakeMemoryRepository()
+          ..memoriesResult = <MemoryReadModel>[
+            MemoryReadModel.fromMemory(memory(eventDate: memoryDate(2021))),
+            MemoryReadModel.fromMemory(
+              memory(eventDate: memoryDate(currentYear)),
+            ),
+          ],
+      );
+
+      expect(find.text('2021 — present'), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderSingleYearWithoutPresentSuffix', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        memoryRepository: FakeMemoryRepository()
+          ..memoriesResult = <MemoryReadModel>[
+            MemoryReadModel.fromMemory(memory(eventDate: memoryDate(2023))),
+          ],
+      );
+
+      expect(find.text('2023'), findsOneWidget);
+      expect(find.textContaining('present'), findsNothing);
+    });
+
+    testWidgets('shouldOmitPeriodWhenMemoriesAreEmpty', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        memoryRepository: FakeMemoryRepository()
+          ..memoriesResult = const <MemoryReadModel>[],
+      );
+
+      expect(find.textContaining(' — '), findsNothing);
+    });
+
+    testWidgets('shouldRenderHeroWhileMemoriesAreStillLoading', (
+      WidgetTester tester,
+    ) async {
+      final completer = Completer<List<MemoryReadModel>>();
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        memoryRepository: FakeMemoryRepository()..getMemoriesCompleter = completer,
+        settle: false,
+      );
+      await tester.pump();
+
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+      expect(find.textContaining(' — '), findsNothing);
+
+      completer.complete(const <MemoryReadModel>[]);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('shouldRenderHeroWhenMemoriesFail', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        memoryRepository: FakeMemoryRepository()
+          ..failure = const StoryApplicationException(StoryNotFound()),
+      );
+
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+      expect(find.textContaining('StoryApplicationException'), findsNothing);
+      expect(find.textContaining(' — '), findsNothing);
     });
   });
 
@@ -527,13 +1195,27 @@ Future<ProviderContainer> pumpScreen(
   ValueChanged<UserStory>? onParticipantsSelected,
   ValueChanged<UserStory>? onMapSelected,
   ValueChanged<UserStory>? onTimelineSelected,
+  VoidCallback? onCreateMemory,
+  ValueChanged<Memory>? onMemorySelected,
   ValueChanged<UserStory>? onPlaybackSelected,
+  media_fixtures.FakeMediaRepository? mediaRepository,
+  FakeMemoryRepository? memoryRepository,
+  FakeStoryParticipantRepository? participantRepository,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
 }) async {
   final container = ProviderContainer(
     overrides: [
       storyRepositoryProvider.overrideWithValue(repository),
+      mediaRepositoryProvider.overrideWithValue(
+        mediaRepository ?? media_fixtures.FakeMediaRepository(),
+      ),
+      memoryRepositoryProvider.overrideWithValue(
+        memoryRepository ?? FakeMemoryRepository(),
+      ),
+      storyParticipantRepositoryProvider.overrideWithValue(
+        participantRepository ?? FakeStoryParticipantRepository(),
+      ),
     ],
   );
   addTearDown(container.dispose);
@@ -560,6 +1242,8 @@ Future<ProviderContainer> pumpScreen(
           onParticipantsSelected: onParticipantsSelected,
           onMapSelected: onMapSelected,
           onTimelineSelected: onTimelineSelected,
+          onCreateMemory: onCreateMemory,
+          onMemorySelected: onMemorySelected,
           onPlaybackSelected: onPlaybackSelected,
         ),
       ),
@@ -578,22 +1262,34 @@ Future<void> pressButton(
   Finder finder, {
   bool settle = true,
 }) async {
-  final widget = tester.widget<Widget>(finder);
-  final onPressed = switch (widget) {
-    FilledButton(:final onPressed) => onPressed,
-    OutlinedButton(:final onPressed) => onPressed,
-    IconButton(:final onPressed) => onPressed,
-    TextButton(:final onPressed) => onPressed,
-    _ => throw StateError('Unsupported button widget: $widget'),
-  };
-
-  onPressed?.call();
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
 
   if (settle) {
     await tester.pumpAndSettle();
   } else {
     await tester.pump();
   }
+}
+
+Future<void> scrollDownUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int maxScrolls = 8,
+}) async {
+  for (var index = 0; index < maxScrolls; index += 1) {
+    if (finder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      return;
+    }
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -280));
+    await tester.pumpAndSettle();
+  }
+
+  fail('Expected finder to become visible after scrolling: $finder');
 }
 
 void setSurface(WidgetTester tester, Size size) {
@@ -619,6 +1315,9 @@ UserStory userStory({
   String title = 'First story',
   String? description = 'First description',
   StoryRole role = StoryRole.owner,
+  int memoryCount = 0,
+  int participantCount = 1,
+  StoryPhotoPreview? previewPhoto,
 }) {
   return UserStory(
     story: Story(
@@ -629,6 +1328,9 @@ UserStory userStory({
       updatedAt: DateTime.utc(2026, 1, 2),
     ),
     role: role,
+    memoryCount: memoryCount,
+    participantCount: participantCount,
+    previewPhoto: previewPhoto,
   );
 }
 
@@ -655,6 +1357,66 @@ final UserStory storyWithoutDescription = userStory(
   title: 'Quiet archive',
   description: null,
   role: StoryRole.viewer,
+);
+
+Memory memory({
+  String id = 'memory-id',
+  String title = 'Memory',
+  String? placeName,
+  MemoryDate? eventDate,
+}) {
+  return Memory(
+    id: id,
+    storyId: ownerStory.story.id,
+    createdBy: 'author-id',
+    title: title,
+    description: null,
+    placeName: placeName,
+    location: MemoryLocation(latitude: 55.751244, longitude: 37.618423),
+    eventDate: eventDate ?? memoryDate(2024),
+    createdAt: DateTime.utc(2026, 1, 1),
+    updatedAt: DateTime.utc(2026, 1, 2),
+  );
+}
+
+MemoryDate memoryDate(int year) {
+  return MemoryDate(year: year, month: 6, day: 1);
+}
+
+StoryPhotoPreview previewPhoto(String mediaId) {
+  return StoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}
+
+MemoryPhotoPreview memoryPreviewPhoto(String mediaId) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}
+
+StoryParticipant participant({
+  String? userId,
+  String displayName = 'Anna',
+  String? avatarUrl,
+  StoryRole role = StoryRole.owner,
+}) {
+  return StoryParticipant(
+    userId: userId ?? '${displayName.toLowerCase().replaceAll(' ', '-')}-id',
+    displayName: displayName,
+    avatarUrl: avatarUrl,
+    role: role,
+    joinedAt: DateTime.utc(2026, 1, 3),
+  );
+}
+
+final StoryParticipant ownerParticipant = participant(
+  userId: 'owner-user-id',
+  displayName: 'Anna',
+  avatarUrl: 'https://example.test/anna.png',
+  role: StoryRole.owner,
 );
 
 final class FakeStoryRepository implements StoryRepository {
@@ -702,6 +1464,87 @@ final class FakeStoryRepository implements StoryRepository {
   @override
   Future<UserStory> updateStory(UpdateStoryInput input) async {
     updateStoryCalls += 1;
+    throw UnimplementedError();
+  }
+}
+
+final class FakeStoryParticipantRepository implements StoryParticipantRepository {
+  int getParticipantsCalls = 0;
+  final List<String> receivedStoryIds = <String>[];
+  List<StoryParticipant> participantsResult = const <StoryParticipant>[];
+  final List<Object> getParticipantsFailures = <Object>[];
+  Completer<List<StoryParticipant>>? getParticipantsCompleter;
+
+  @override
+  Future<List<StoryParticipant>> getParticipants(String storyId) async {
+    getParticipantsCalls += 1;
+    receivedStoryIds.add(storyId);
+
+    final completer = getParticipantsCompleter;
+    if (completer != null) {
+      getParticipantsCompleter = null;
+      return completer.future;
+    }
+
+    if (getParticipantsFailures.isNotEmpty) {
+      throw getParticipantsFailures.removeAt(0);
+    }
+
+    return participantsResult;
+  }
+
+  @override
+  Future<void> leaveStory(LeaveStoryInput input) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> removeParticipant(RemoveStoryParticipantInput input) async {
+    throw UnimplementedError();
+  }
+}
+
+final class FakeMemoryRepository implements MemoryRepository {
+  int getMemoriesCalls = 0;
+  List<MemoryReadModel> memoriesResult = const <MemoryReadModel>[];
+  Completer<List<MemoryReadModel>>? getMemoriesCompleter;
+  Object? failure;
+
+  @override
+  Future<List<MemoryReadModel>> getMemories(String storyId) async {
+    getMemoriesCalls += 1;
+
+    final completer = getMemoriesCompleter;
+    if (completer != null) {
+      getMemoriesCompleter = null;
+      return completer.future;
+    }
+
+    final configuredFailure = failure;
+    if (configuredFailure != null) {
+      throw configuredFailure;
+    }
+
+    return memoriesResult;
+  }
+
+  @override
+  Future<MemoryReadModel> getMemory(String memoryId) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Memory> createMemory(CreateMemoryInput input) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Memory> updateMemory(UpdateMemoryInput input) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMemory(DeleteMemoryInput input) async {
     throw UnimplementedError();
   }
 }

@@ -324,6 +324,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storyDetailsRefreshFailureTitle => 'Не удалось обновить историю';
 
   @override
+  String get storyDetailsPeriodPresent => 'наст. время';
+
+  @override
   String get storyDetailsSectionsTitle => 'Разделы';
 
   @override
@@ -333,10 +336,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storyDetailsParticipantsAction => 'Участники';
 
   @override
+  String get storyDetailsParticipantsManageAction => 'Управление';
+
+  @override
   String get storyDetailsMapAction => 'Карта';
 
   @override
   String get storyDetailsTimelineAction => 'Хронология';
+
+  @override
+  String get storyDetailsRecentMemoriesTitle => 'Последние воспоминания';
+
+  @override
+  String get storyDetailsSeeAllAction => 'Смотреть все';
+
+  @override
+  String get storyDetailsPlaybackStoryAction => 'Воспроизвести историю';
 
   @override
   String get participantsPageTitle => 'Участники';

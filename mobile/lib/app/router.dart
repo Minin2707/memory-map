@@ -80,6 +80,7 @@ const _inviteTokenPathParameter = 'token';
 const _memoryDetailsOriginQueryParameter = 'origin';
 const _memoryDetailsMapOrigin = 'map';
 const _memoryDetailsTimelineOrigin = 'timeline';
+const _memoryDetailsDetailsOrigin = 'details';
 const _inviteDeepLinkParser = InviteDeepLinkParser();
 
 final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
@@ -262,6 +263,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pathParameters: {_storyIdPathParameter: storyId},
               );
             },
+            onCreateMemory: () {
+              context.pushNamed(
+                createMemoryRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+                extra: _MemoryDetailsOrigin.details,
+              );
+            },
+            onMemorySelected: (memory) {
+              context.pushNamed(
+                memoryDetailsRouteName,
+                pathParameters: {_memoryIdPathParameter: memory.id},
+                extra: _MemoryDetailsOrigin.details,
+                queryParameters: {
+                  _memoryDetailsOriginQueryParameter:
+                      _memoryDetailsDetailsOrigin,
+                },
+              );
+            },
             onPlaybackSelected: (userStory) {
               context.pushNamed(
                 storyPlaybackRouteName,
@@ -388,6 +407,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return CreateMemoryScreen(
             storyId: storyId,
             onBack: () {
+              if (state.extra == _MemoryDetailsOrigin.details) {
+                _popOrGoToStoryDetails(context, storyId);
+                return;
+              }
+
               if (state.extra == _MemoryDetailsOrigin.timeline) {
                 _popOrGoToStoryTimeline(context, storyId);
                 return;
@@ -429,6 +453,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               _popOrGoToStories(context);
             },
             onBack: (memory) {
+              if (origin == _MemoryDetailsOrigin.details) {
+                _popOrGoToStoryDetails(context, memory.storyId);
+                return;
+              }
+
               if (origin == _MemoryDetailsOrigin.timeline) {
                 _popOrGoToStoryTimeline(context, memory.storyId);
                 return;
@@ -749,12 +778,14 @@ void _popOrGoToMemoryDetails(BuildContext context, String memoryId) {
 
 Object? _memoryDetailsOriginFor(GoRouterState state) {
   final extra = state.extra;
-  if (extra == _MemoryDetailsOrigin.timeline ||
+  if (extra == _MemoryDetailsOrigin.details ||
+      extra == _MemoryDetailsOrigin.timeline ||
       extra == _MemoryDetailsOrigin.map) {
     return extra;
   }
 
   return switch (state.uri.queryParameters[_memoryDetailsOriginQueryParameter]) {
+    _memoryDetailsDetailsOrigin => _MemoryDetailsOrigin.details,
     _memoryDetailsTimelineOrigin => _MemoryDetailsOrigin.timeline,
     _memoryDetailsMapOrigin => _MemoryDetailsOrigin.map,
     _ => null,
@@ -770,6 +801,11 @@ String? _storyTitleFromExtra(Object? extra) {
 }
 
 Map<String, String> _memoryDetailsOriginQueryParameters(Object? origin) {
+  if (origin == _MemoryDetailsOrigin.details) {
+    return {
+      _memoryDetailsOriginQueryParameter: _memoryDetailsDetailsOrigin,
+    };
+  }
   if (origin == _MemoryDetailsOrigin.timeline) {
     return {
       _memoryDetailsOriginQueryParameter: _memoryDetailsTimelineOrigin,
@@ -835,7 +871,12 @@ void _completeDeletedMemory(
   Memory memory,
   Object? origin,
 ) {
-  if (origin == _MemoryDetailsOrigin.timeline) {
+  if (origin == _MemoryDetailsOrigin.details) {
+    context.goNamed(
+      storyDetailsRouteName,
+      pathParameters: {_storyIdPathParameter: memory.storyId},
+    );
+  } else if (origin == _MemoryDetailsOrigin.timeline) {
     context.go(_storyTimelinePath(memory.storyId));
   } else if (origin == _MemoryDetailsOrigin.map) {
     context.go(_storyMapPath(memory.storyId));
@@ -858,6 +899,7 @@ String _storyTimelinePath(String storyId) {
 }
 
 enum _MemoryDetailsOrigin {
+  details,
   timeline,
   map,
 }

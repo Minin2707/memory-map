@@ -321,6 +321,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyDetailsRefreshFailureTitle => 'Could not refresh story';
 
   @override
+  String get storyDetailsPeriodPresent => 'present';
+
+  @override
   String get storyDetailsSectionsTitle => 'Explore';
 
   @override
@@ -330,10 +333,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyDetailsParticipantsAction => 'Participants';
 
   @override
+  String get storyDetailsParticipantsManageAction => 'Manage';
+
+  @override
   String get storyDetailsMapAction => 'Map';
 
   @override
   String get storyDetailsTimelineAction => 'Timeline';
+
+  @override
+  String get storyDetailsRecentMemoriesTitle => 'Recent memories';
+
+  @override
+  String get storyDetailsSeeAllAction => 'See all';
+
+  @override
+  String get storyDetailsPlaybackStoryAction => 'Playback Story';
 
   @override
   String get participantsPageTitle => 'Participants';

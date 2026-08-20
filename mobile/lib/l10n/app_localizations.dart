@@ -632,6 +632,12 @@ abstract class AppLocalizations {
   /// **'Could not refresh story'**
   String get storyDetailsRefreshFailureTitle;
 
+  /// No description provided for @storyDetailsPeriodPresent.
+  ///
+  /// In en, this message translates to:
+  /// **'present'**
+  String get storyDetailsPeriodPresent;
+
   /// No description provided for @storyDetailsSectionsTitle.
   ///
   /// In en, this message translates to:
@@ -650,6 +656,12 @@ abstract class AppLocalizations {
   /// **'Participants'**
   String get storyDetailsParticipantsAction;
 
+  /// No description provided for @storyDetailsParticipantsManageAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get storyDetailsParticipantsManageAction;
+
   /// No description provided for @storyDetailsMapAction.
   ///
   /// In en, this message translates to:
@@ -661,6 +673,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Timeline'**
   String get storyDetailsTimelineAction;
+
+  /// No description provided for @storyDetailsRecentMemoriesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent memories'**
+  String get storyDetailsRecentMemoriesTitle;
+
+  /// No description provided for @storyDetailsSeeAllAction.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get storyDetailsSeeAllAction;
+
+  /// No description provided for @storyDetailsPlaybackStoryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback Story'**
+  String get storyDetailsPlaybackStoryAction;
 
   /// No description provided for @participantsPageTitle.
   ///
