@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/map/domain/map_coordinate.dart';
 import 'package:memory_map/features/map/domain/map_marker.dart';
+import 'package:memory_map/features/memory/application/story_map_projection.dart';
 import 'package:memory_map/features/memory/application/story_map_state.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 
 void main() {
   group('StoryMapState', () {
@@ -46,6 +48,41 @@ void main() {
 
       expect(
         () => state.markers.add(markerB),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('shouldDeriveMarkersFromMarkerPresentations', () {
+      final preview = MemoryPhotoPreview(
+        mediaId: 'media-id',
+        thumbnailPath: '/api/v1/media/media-id/thumbnail',
+      );
+      final presentation = StoryMapMarkerPresentation(
+        marker: markerA,
+        previewPhoto: preview,
+      );
+
+      final state = StoryMapState(
+        markerPresentations: <StoryMapMarkerPresentation>[presentation],
+      );
+
+      expect(state.markers, <MapMarker>[markerA]);
+      expect(state.markerPresentations, <StoryMapMarkerPresentation>[
+        presentation,
+      ]);
+    });
+
+    test('shouldExposeImmutableMarkerPresentationList', () {
+      final state = StoryMapState(
+        markerPresentations: <StoryMapMarkerPresentation>[
+          StoryMapMarkerPresentation(marker: markerA),
+        ],
+      );
+
+      expect(
+        () => state.markerPresentations.add(
+          StoryMapMarkerPresentation(marker: markerB),
+        ),
         throwsA(isA<UnsupportedError>()),
       );
     });

@@ -19,10 +19,11 @@ void main() {
 
       expect(find.text('First picnic'), findsOneWidget);
       expect(find.text('Riverside Park'), findsOneWidget);
+      expect(find.text('Near the river'), findsOneWidget);
       expect(find.text('Aug 9, 2026'), findsOneWidget);
       expect(find.text('9'), findsOneWidget);
       expect(find.text('08'), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+      expect(find.text('Show details'), findsOneWidget);
     });
 
     testWidgets('shouldLoadPreviewThumbnailThroughBackendPath', (
@@ -46,6 +47,37 @@ void main() {
       expect(find.byType(Image), findsOneWidget);
     });
 
+    testWidgets('shouldFallbackWhenPreviewThumbnailFails', (tester) async {
+      final repository = media_fixtures.FakeMediaRepository()
+        ..thumbnailFailure = Object();
+
+      await pumpPreview(
+        tester,
+        memoryA,
+        previewPhoto: previewPhoto(mediaId: 'broken-media'),
+        mediaRepository: repository,
+      );
+
+      expect(repository.getThumbnailByPathCalls, 1);
+      expect(
+        find.byKey(const ValueKey('story-map.memory-preview.no-photo')),
+        findsOneWidget,
+      );
+      expect(find.text('Show details'), findsOneWidget);
+      expect(find.textContaining('Object'), findsNothing);
+      expect(find.textContaining('/api/v1/media'), findsNothing);
+    });
+
+    testWidgets('shouldRenderNoPhotoFallback', (tester) async {
+      await pumpPreview(tester, memoryA);
+
+      expect(
+        find.byKey(const ValueKey('story-map.memory-preview.no-photo')),
+        findsOneWidget,
+      );
+      expect(find.byType(Image), findsNothing);
+    });
+
     testWidgets('shouldRenderLocalizedDateWithoutTimezoneConversion', (
       tester,
     ) async {
@@ -59,11 +91,11 @@ void main() {
       expect(find.text(expected), findsOneWidget);
     });
 
-    testWidgets('shouldHideDescriptionAndBlankPlaceName', (tester) async {
+    testWidgets('shouldHideBlankDescriptionAndBlankPlaceName', (tester) async {
       await pumpPreview(
         tester,
         memory(
-          description: 'Private preview description',
+          description: '   ',
           placeName: '   ',
         ),
       );
@@ -82,8 +114,10 @@ void main() {
         },
       );
 
-      await tester.tap(find.byType(InkWell));
-      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('story-map.memory-preview.details-action')),
+      );
+      await tester.pumpAndSettle();
 
       expect(selectedMemory, same(memoryA));
     });
@@ -92,7 +126,10 @@ void main() {
       await pumpPreview(tester, memoryA, enableTap: false);
 
       expect(find.text('First picnic'), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(
+        find.byKey(const ValueKey('story-map.memory-preview.details-action')),
+        findsNothing,
+      );
     });
 
     testWidgets('shouldCloseWithoutTriggeringOpen', (tester) async {
@@ -137,10 +174,10 @@ void main() {
 
       expect(find.text('Visible memory'), findsOneWidget);
       expect(find.text('Visible place'), findsOneWidget);
+      expect(find.text('Private description'), findsOneWidget);
       expect(find.textContaining('private-memory-id'), findsNothing);
       expect(find.textContaining('private-story-id'), findsNothing);
       expect(find.textContaining('private-user-id'), findsNothing);
-      expect(find.textContaining('Private description'), findsNothing);
       expect(find.textContaining('41.715123'), findsNothing);
       expect(find.textContaining('44.827456'), findsNothing);
       expect(find.textContaining('createdAt'), findsNothing);

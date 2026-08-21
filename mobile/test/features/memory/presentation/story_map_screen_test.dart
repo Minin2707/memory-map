@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/map/config/map_source_configuration.dart';
 import 'package:memory_map/features/map/domain/map_camera.dart';
 import 'package:memory_map/features/map/domain/map_coordinate.dart';
@@ -16,11 +17,21 @@ import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/story_map_screen.dart';
+import 'package:memory_map/features/story/application/story_application_providers.dart';
+import 'package:memory_map/features/story/domain/story.dart';
+import 'package:memory_map/features/story/domain/story_photo_preview.dart';
+import 'package:memory_map/features/story/domain/story_repository.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
+import 'package:memory_map/features/story/domain/update_story_input.dart';
+import 'package:memory_map/features/story/domain/user_story.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+import '../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('StoryMapScreen rendering', () {
@@ -46,11 +57,23 @@ void main() {
     testWidgets('shouldRenderLoadedMarkersThroughMapBoundary', (tester) async {
       final repository = FakeMemoryRepository()
         ..memoriesResult = <Memory>[memoryA, memoryB];
+      final storyRepository = FakeStoryRepository()
+        ..storyResult = userStory(
+          title: 'Our story',
+          memoryCount: 24,
+        );
       final mapSpy = FakeStoryMapSpy();
 
-      await pumpScreen(tester, repository, mapSpy: mapSpy);
+      await pumpScreen(
+        tester,
+        repository,
+        storyRepository: storyRepository,
+        mapSpy: mapSpy,
+      );
 
-      expect(find.text('Map'), findsOneWidget);
+      expect(find.text('Our story'), findsOneWidget);
+      expect(find.text('24 memories'), findsOneWidget);
+      expect(find.text('Map'), findsNothing);
       expect(find.text('Fake map markers: 2'), findsOneWidget);
       expect(mapSpy.latest.markers.map((marker) => marker.id), <String>[
         memoryA.id,
@@ -58,6 +81,134 @@ void main() {
       ]);
       expect(mapSpy.latest.sourceConfiguration, MapSources.openFreeMapLiberty);
       expect(mapSpy.latest.selectedMarkerId, isNull);
+      expect(storyRepository.receivedGetStoryIds, <String>[defaultStoryId]);
+    });
+
+    testWidgets('shouldPassPhotoMarkerProjectionThroughMapBoundary', (
+      tester,
+    ) async {
+      final preview = memoryPreviewPhoto(mediaId: 'memory-media');
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[
+          MemoryReadModel(memory: memoryA, previewPhoto: preview),
+          MemoryReadModel.fromMemory(memoryB),
+        ];
+      final mapSpy = FakeStoryMapSpy();
+
+      await pumpScreen(tester, repository, mapSpy: mapSpy);
+
+      expect(mapSpy.latest.markers.map((marker) => marker.id), <String>[
+        memoryA.id,
+        memoryB.id,
+      ]);
+      expect(
+        mapSpy.latest.markerPresentations.map(
+          (presentation) => presentation.previewPhoto,
+        ),
+        <MemoryPhotoPreview?>[preview, null],
+      );
+      expect(mapSpy.latest.toString(), isNot(contains('/api/v1/media')));
+      expect(mapSpy.latest.toString(), isNot(contains('memory-media')));
+    });
+
+    testWidgets('shouldRenderStoryThumbnailThroughAuthenticatedPath', (
+      tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository();
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoriesResult = <Memory>[memoryA],
+        storyRepository: FakeStoryRepository()
+          ..storyResult = userStory(
+            previewPhoto: storyPreviewPhoto(mediaId: 'story-media'),
+          ),
+        mediaRepository: mediaRepository,
+        mapSpy: FakeStoryMapSpy(),
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-map.header-thumbnail.story-media')),
+        findsOneWidget,
+      );
+      expect(
+        mediaRepository.receivedBinaryPaths,
+        contains('/api/v1/media/story-media/thumbnail'),
+      );
+      expect(mediaRepository.getDisplayByPathCalls, 0);
+      expect(mediaRepository.getMediaCalls, 0);
+    });
+
+    testWidgets('shouldRenderNoStoryPreviewFallback', (tester) async {
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoriesResult = <Memory>[memoryA],
+        storyRepository: FakeStoryRepository()
+          ..storyResult = userStory(
+            title: 'Quiet archive',
+            memoryCount: 1,
+          ),
+        mapSpy: FakeStoryMapSpy(),
+      );
+
+      expect(find.text('Quiet archive'), findsOneWidget);
+      expect(find.text('1 memory'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-map.header.no-photo')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shouldTreatStoryThumbnailFailureAsSafeFallback', (
+      tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..thumbnailFailure = Object();
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoriesResult = <Memory>[memoryA],
+        storyRepository: FakeStoryRepository()
+          ..storyResult = userStory(
+            previewPhoto: storyPreviewPhoto(mediaId: 'broken-story-media'),
+          ),
+        mediaRepository: mediaRepository,
+        mapSpy: FakeStoryMapSpy(),
+      );
+
+      expect(find.text('Fake map markers: 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-map.header.no-photo')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shouldKeepLoadedMapVisibleWhileStoryHeaderIsLoading', (
+      tester,
+    ) async {
+      final storyCompleter = Completer<UserStory>();
+      final storyRepository = FakeStoryRepository()
+        ..getStoryCompleter = storyCompleter;
+      final mapSpy = FakeStoryMapSpy();
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoriesResult = <Memory>[memoryA],
+        storyRepository: storyRepository,
+        mapSpy: mapSpy,
+        settle: false,
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('story-map.header.thumbnail-loading')),
+        findsOneWidget,
+      );
+      expect(find.text('Fake map markers: 1'), findsOneWidget);
+      expect(mapSpy.configurations, isNotEmpty);
+
+      storyCompleter.complete(ownerStory);
+      await tester.pumpAndSettle();
     });
 
     testWidgets('shouldRenderEmptyMapAndInformationalEmptyState', (
@@ -66,7 +217,12 @@ void main() {
       final repository = FakeMemoryRepository()..memoriesResult = <Memory>[];
       final mapSpy = FakeStoryMapSpy();
 
-      await pumpScreen(tester, repository, mapSpy: mapSpy);
+      await pumpScreen(
+        tester,
+        repository,
+        mapSpy: mapSpy,
+        onMemorySelected: (_) {},
+      );
 
       expect(find.text('Fake map markers: 0'), findsOneWidget);
       expect(find.text('No memories on the map yet'), findsOneWidget);
@@ -90,10 +246,16 @@ void main() {
         tester,
         FakeMemoryRepository()..memoriesResult = <Memory>[],
         locale: const Locale('ru'),
+        storyRepository: FakeStoryRepository()
+          ..storyResult = userStory(
+            title: 'Наша история',
+            memoryCount: 0,
+          ),
         mapSpy: FakeStoryMapSpy(),
       );
 
-      expect(find.text('Карта'), findsOneWidget);
+      expect(find.text('Наша история'), findsOneWidget);
+      expect(find.text('Нет воспоминаний'), findsOneWidget);
       expect(find.text('На карте пока нет воспоминаний'), findsOneWidget);
     });
   });
@@ -296,7 +458,12 @@ void main() {
         ..memoriesResult = <Memory>[memoryA, memoryB];
       final mapSpy = FakeStoryMapSpy();
 
-      await pumpScreen(tester, repository, mapSpy: mapSpy);
+      await pumpScreen(
+        tester,
+        repository,
+        mapSpy: mapSpy,
+        onMemorySelected: (_) {},
+      );
       mapSpy.latest.onMarkerSelected(memoryB.id);
       await tester.pumpAndSettle();
 
@@ -304,8 +471,59 @@ void main() {
       expect(find.text('Beach morning'), findsOneWidget);
       expect(find.text('Aug 15, 2026'), findsOneWidget);
       expect(find.text('Private place'), findsOneWidget);
+      expect(find.text('Private note'), findsOneWidget);
+      expect(find.text('Show details'), findsOneWidget);
       expect(find.text('Fake map markers: 2'), findsOneWidget);
       expect(repository.getMemoryCalls, 0);
+    });
+
+    testWidgets('shouldRenderSelectedPreviewOptionalContent', (tester) async {
+      final repository = FakeMemoryRepository()
+        ..memoriesResult = <Memory>[
+          memory(
+            id: memoryA.id,
+            title: 'Quiet title',
+            description: null,
+            placeName: null,
+          ),
+        ];
+      final mapSpy = FakeStoryMapSpy();
+
+      await pumpScreen(tester, repository, mapSpy: mapSpy);
+      mapSpy.latest.onMarkerSelected(memoryA.id);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quiet title'), findsOneWidget);
+      expect(find.text('Private note'), findsNothing);
+      expect(find.text('Private place'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('story-map.memory-preview.no-photo')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shouldRenderSelectedPreviewAuthenticatedThumbnail', (
+      tester,
+    ) async {
+      final preview = memoryPreviewPhoto(mediaId: 'selected-media');
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[
+          MemoryReadModel(memory: memoryA, previewPhoto: preview),
+        ];
+      final mapSpy = FakeStoryMapSpy();
+
+      await pumpScreen(tester, repository, mapSpy: mapSpy);
+      mapSpy.latest.onMarkerSelected(memoryA.id);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(
+          const ValueKey('story-map.memory-preview.photo.selected-media'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('/api/v1/media'), findsNothing);
+      expect(find.textContaining('selected-media'), findsNothing);
     });
 
     testWidgets('shouldSwitchPreviewWhenAnotherMarkerIsSelected', (
@@ -357,7 +575,7 @@ void main() {
       expect(repository.getMemoryCalls, 0);
     });
 
-    testWidgets('shouldEmitOpenDetailsIntentWithExactMemoryOnlyOnPreviewTap', (
+    testWidgets('shouldEmitOpenDetailsIntentWithExactMemoryOnlyOnDetailsAction', (
       tester,
     ) async {
       final repository = FakeMemoryRepository()
@@ -378,8 +596,12 @@ void main() {
 
       expect(openedMemory, isNull);
 
-      await tester.tap(find.byKey(const ValueKey('story-map.memory-preview')));
-      await tester.pump();
+      await pressButton(
+        tester,
+        find.byKey(
+          const ValueKey('story-map.memory-preview.details-action'),
+        ),
+      );
 
       expect(openedMemory, same(memoryB));
       expect(repository.getMemoryCalls, 0);
@@ -397,7 +619,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Beach morning'), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(
+        find.byKey(
+          const ValueKey('story-map.memory-preview.details-action'),
+        ),
+        findsNothing,
+      );
 
       await tester.tap(find.byKey(const ValueKey('story-map.memory-preview')));
       await tester.pump();
@@ -755,6 +982,8 @@ void main() {
 Future<ProviderContainer> pumpScreen(
   WidgetTester tester,
   FakeMemoryRepository repository, {
+  FakeStoryRepository? storyRepository,
+  media_fixtures.FakeMediaRepository? mediaRepository,
   String storyId = defaultStoryId,
   Locale locale = const Locale('en'),
   VoidCallback? onBack,
@@ -767,6 +996,12 @@ Future<ProviderContainer> pumpScreen(
   final container = ProviderContainer(
     overrides: [
       memoryRepositoryProvider.overrideWithValue(repository),
+      storyRepositoryProvider.overrideWithValue(
+        storyRepository ?? FakeStoryRepository(),
+      ),
+      mediaRepositoryProvider.overrideWithValue(
+        mediaRepository ?? media_fixtures.FakeMediaRepository(),
+      ),
     ],
   );
   addTearDown(container.dispose);
@@ -834,6 +1069,46 @@ void setSurface(WidgetTester tester, Size size) {
   });
 }
 
+UserStory userStory({
+  String id = defaultStoryId,
+  String title = 'Our story',
+  StoryRole role = StoryRole.owner,
+  int memoryCount = 3,
+  StoryPhotoPreview? previewPhoto,
+}) {
+  return UserStory(
+    story: Story(
+      id: id,
+      title: title,
+      description: 'Together',
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: DateTime.utc(2026, 1, 2),
+    ),
+    role: role,
+    memoryCount: memoryCount,
+    participantCount: 2,
+    previewPhoto: previewPhoto,
+  );
+}
+
+StoryPhotoPreview storyPreviewPhoto({
+  required String mediaId,
+}) {
+  return StoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}
+
+MemoryPhotoPreview memoryPreviewPhoto({
+  required String mediaId,
+}) {
+  return MemoryPhotoPreview(
+    mediaId: mediaId,
+    thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+  );
+}
+
 Memory memory({
   String id = '00000000-0000-0000-0000-000000000001',
   String storyId = defaultStoryId,
@@ -860,6 +1135,8 @@ Memory memory({
 }
 
 const String defaultStoryId = 'story-id';
+
+final UserStory ownerStory = userStory();
 
 final Memory memoryA = memory(
   id: '00000000-0000-0000-0000-000000000001',
@@ -924,6 +1201,7 @@ final class FakeMemoryRepository implements MemoryRepository {
   int deleteMemoryCalls = 0;
   Completer<List<Memory>>? getCompleter;
   List<Memory> memoriesResult = <Memory>[];
+  List<MemoryReadModel>? memoryReadModelsResult;
   final List<Object> getFailures = <Object>[];
 
   @override
@@ -940,7 +1218,7 @@ final class FakeMemoryRepository implements MemoryRepository {
       throw getFailures.removeAt(0);
     }
 
-    return _readModelsFromMemories(memoriesResult);
+    return memoryReadModelsResult ?? _readModelsFromMemories(memoriesResult);
   }
 
   @override
@@ -964,6 +1242,52 @@ final class FakeMemoryRepository implements MemoryRepository {
   @override
   Future<void> deleteMemory(DeleteMemoryInput input) async {
     deleteMemoryCalls += 1;
+  }
+}
+
+final class FakeStoryRepository implements StoryRepository {
+  int createCalls = 0;
+  int getStoriesCalls = 0;
+  int getStoryCalls = 0;
+  int updateStoryCalls = 0;
+
+  UserStory storyResult = ownerStory;
+  Completer<UserStory>? getStoryCompleter;
+  final List<String> receivedGetStoryIds = <String>[];
+
+  @override
+  Future<Story> createStory({
+    required String title,
+    String? description,
+  }) async {
+    createCalls += 1;
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<UserStory>> getStories() async {
+    getStoriesCalls += 1;
+    return <UserStory>[storyResult];
+  }
+
+  @override
+  Future<UserStory> getStory(String storyId) async {
+    getStoryCalls += 1;
+    receivedGetStoryIds.add(storyId);
+
+    final completer = getStoryCompleter;
+    if (completer != null) {
+      getStoryCompleter = null;
+      return completer.future;
+    }
+
+    return storyResult;
+  }
+
+  @override
+  Future<UserStory> updateStory(UpdateStoryInput input) async {
+    updateStoryCalls += 1;
+    return storyResult;
   }
 }
 

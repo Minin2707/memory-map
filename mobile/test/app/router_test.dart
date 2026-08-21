@@ -37,6 +37,8 @@ import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_map_configuration.dart';
 import 'package:memory_map/features/memory/presentation/location_picker_route.dart';
+import 'package:memory_map/features/memory/presentation/memory_details_route.dart';
+import 'package:memory_map/features/memory/presentation/memory_details_screen.dart';
 import 'package:memory_map/features/memory/presentation/story_map_route.dart';
 import 'package:memory_map/features/memory/presentation/story_map_screen.dart';
 import 'package:memory_map/features/participant/application/participant_application_exception.dart';
@@ -981,7 +983,9 @@ void main() {
       expect(find.text('Fake story map markers: 2'), findsOneWidget);
       expect(fakeMemoryRepository.getMemoriesCalls, 1);
 
-      final mapContext = tester.element(find.text('Map'));
+      final mapContext = tester.element(
+        find.byKey(const ValueKey('story-map.header')),
+      );
       GoRouter.of(mapContext).go(
         '/stories/${ownerStory.story.id}/participants',
       );
@@ -1094,7 +1098,8 @@ void main() {
         find.byKey(const ValueKey('story-details.map-action')),
       );
 
-      expect(find.text('Map'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-map.header')), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
       expect(find.text('Fake story map markers: 2'), findsOneWidget);
       expect(fakeMemoryRepository.getMemoriesCalls, 1);
 
@@ -1104,7 +1109,52 @@ void main() {
       );
 
       expect(storyDetailsScreenFinder(), findsOneWidget);
-      expect(find.text('Map'), findsWidgets);
+      expect(storyDetailsMapActionFinder(), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenStoryMapFromMemoryDetailsAndSelectMemory', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyMapBuilder: fakeStoryMapBuilder,
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go('/memories/${memoryA.id}');
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('memory-details.open-map-action')),
+        120,
+        scrollable: memoryDetailsScrollableFinder(),
+      );
+      await tester.pumpAndSettle();
+      final openMapButton = tester.widget<TextButton>(
+        find.byKey(const ValueKey('memory-details.open-map-action')),
+      );
+      expect(openMapButton.onPressed, isNotNull);
+      openMapButton.onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(
+        routerLocation(
+          tester.element(find.byKey(const ValueKey('story-map.header'))),
+        ),
+        '/stories/${memoryA.storyId}/map',
+      );
+      expect(find.text('Fake story map markers: 2'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-map.memory-preview')),
+        findsOneWidget,
+      );
+      expect(find.text(memoryA.title), findsOneWidget);
     });
 
     testWidgets('shouldOpenDirectStoryMapRouteAndFallbackBackToDetails', (
@@ -1127,7 +1177,8 @@ void main() {
       GoRouter.of(context).go('/stories/${ownerStory.story.id}/map');
       await tester.pumpAndSettle();
 
-      expect(find.text('Map'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-map.header')), findsOneWidget);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
       expect(find.text('Fake story map markers: 2'), findsOneWidget);
       expect(fakeMemoryRepository.receivedStoryIds, <String>[
         ownerStory.story.id,
@@ -1497,7 +1548,7 @@ void main() {
       await tester.tap(find.text(memoryA.title));
       await tester.pumpAndSettle();
 
-      expect(find.text('Memory'), findsOneWidget);
+      expect(find.byKey(const ValueKey('memory-details.hero')), findsOneWidget);
       expect(find.text(memoryA.title), findsOneWidget);
       expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
 
@@ -1673,10 +1724,14 @@ void main() {
         tester,
         find.byKey(ValueKey('story-map.fake-marker.${memoryA.id}')),
       );
-      await tester.tap(find.byKey(const ValueKey('story-map.memory-preview')));
-      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(
+          const ValueKey('story-map.memory-preview.details-action'),
+        ),
+      );
 
-      expect(find.text('Memory'), findsOneWidget);
+      expect(find.byKey(const ValueKey('memory-details.hero')), findsOneWidget);
       expect(find.text(memoryA.title), findsOneWidget);
       expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
 
@@ -1727,7 +1782,9 @@ void main() {
         find.byKey(ValueKey('story-map.fake-marker.${secretMemory.id}')),
       );
 
-      final location = routerLocation(tester.element(find.text('Map')));
+      final location = routerLocation(
+        tester.element(find.byKey(const ValueKey('story-map.header'))),
+      );
 
       expect(location, contains(storyId));
       expect(location, isNot(contains('41.715123')));
@@ -1851,7 +1908,7 @@ void main() {
       await tester.tap(find.text(memoryA.title));
       await tester.pumpAndSettle();
 
-      expect(find.text('Memory'), findsOneWidget);
+      expect(find.byKey(const ValueKey('memory-details.hero')), findsOneWidget);
       expect(find.text(memoryA.title), findsOneWidget);
       expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
 
@@ -1960,7 +2017,7 @@ void main() {
         fakeMemoryRepository.receivedCreateInput?.location,
         memoryLocationA,
       );
-      expect(find.text('Memory'), findsOneWidget);
+      expect(find.byKey(const ValueKey('memory-details.hero')), findsOneWidget);
       expect(find.text(createdMemory.title), findsOneWidget);
 
       await tapButton(
@@ -2032,7 +2089,7 @@ void main() {
       );
 
       expect(fakeMemoryRepository.createMemoryCalls, 1);
-      expect(find.text('Memory'), findsOneWidget);
+      expect(find.byKey(const ValueKey('memory-details.hero')), findsOneWidget);
 
       await tapButton(
         tester,
@@ -2104,7 +2161,7 @@ void main() {
       );
 
       expect(fakeMemoryRepository.updateMemoryCalls, 1);
-      expect(find.text('Memory'), findsOneWidget);
+      expect(find.byKey(const ValueKey('memory-details.hero')), findsOneWidget);
       expect(find.text(updatedMemory.title), findsOneWidget);
       expect(find.text('Edit memory'), findsNothing);
     });
@@ -2248,7 +2305,9 @@ void main() {
       GoRouter.of(context).go('/memories/${only2025.id}?origin=timeline');
       await tester.pumpAndSettle();
       expect(
-        routerLocation(tester.element(find.text('Memory'))),
+        routerLocation(
+          tester.element(find.byKey(const ValueKey('memory-details.hero'))),
+        ),
         '/memories/${only2025.id}?origin=timeline',
       );
       await scrollToMemoryDetailsDeleteAction(tester);
@@ -2696,7 +2755,7 @@ Future<void> scrollToMemoryDetailsDeleteAction(
   await tester.scrollUntilVisible(
     memoryDetailsDeleteActionFinder(),
     120,
-    scrollable: find.byType(Scrollable),
+    scrollable: memoryDetailsScrollableFinder(),
   );
   await tester.pumpAndSettle();
 }
@@ -2741,6 +2800,13 @@ Finder storyDetailsPlaybackActionFinder() {
 
 Finder memoryDetailsDeleteActionFinder() {
   return find.byKey(const ValueKey('memory-details.delete-action'));
+}
+
+Finder memoryDetailsScrollableFinder() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Scrollable && widget.axisDirection == AxisDirection.down,
+  );
 }
 
 Finder removeActionFor(StoryParticipant participant) {
@@ -2812,6 +2878,9 @@ ProviderContainer createContainer(
       ),
       locationPickerMapBuilderProvider.overrideWithValue(
         fakeLocationPickerMapBuilder,
+      ),
+      memoryDetailsMapBuilderProvider.overrideWithValue(
+        fakeMemoryLocationMapBuilder,
       ),
       if (storyMapBuilder != null)
         storyMapBuilderProvider.overrideWithValue(storyMapBuilder),
@@ -3291,6 +3360,15 @@ Widget fakeStoryMapBuilder(
           child: Text('Select marker ${marker.id}'),
         ),
     ],
+  );
+}
+
+Widget fakeMemoryLocationMapBuilder(
+  BuildContext context,
+  MemoryLocationMapConfiguration configuration,
+) {
+  return const SizedBox(
+    key: ValueKey('memory-details.fake-map'),
   );
 }
 

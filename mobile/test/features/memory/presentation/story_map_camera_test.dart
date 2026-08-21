@@ -34,6 +34,10 @@ void main() {
       expect(target.northeast!.latitude, 55.751244);
       expect(target.northeast!.longitude, 44.8271);
       expect(target.padding, storyMapBoundsPadding);
+      expect(target.padding.left, 56.0);
+      expect(target.padding.top, 128.0);
+      expect(target.padding.right, 78.0);
+      expect(target.padding.bottom, 220.0);
     });
 
     test('shouldTreatManyMarkersWithSameCoordinateAsSinglePoint', () {

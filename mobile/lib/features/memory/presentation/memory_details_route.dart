@@ -6,6 +6,11 @@ import 'package:memory_map/features/memory/presentation/memory_details_screen.da
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 
+final memoryDetailsMapBuilderProvider =
+    Provider<MemoryLocationMapBuilder>((_) {
+  return defaultMemoryLocationMapBuilder;
+});
+
 class MemoryDetailsRoute extends ConsumerWidget {
   const MemoryDetailsRoute({
     required this.memoryId,
@@ -14,6 +19,7 @@ class MemoryDetailsRoute extends ConsumerWidget {
     this.onBack,
     this.onEdit,
     this.onDelete,
+    this.onOpenMap,
     super.key,
   });
 
@@ -23,6 +29,7 @@ class MemoryDetailsRoute extends ConsumerWidget {
   final ValueChanged<Memory>? onBack;
   final ValueChanged<Memory>? onEdit;
   final ValueChanged<Memory>? onDelete;
+  final ValueChanged<Memory>? onOpenMap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,6 +57,8 @@ class MemoryDetailsRoute extends ConsumerWidget {
       },
       onEdit: canManage ? onEdit : null,
       onDelete: canManage ? onDelete : null,
+      onOpenMap: onOpenMap,
+      mapBuilder: ref.watch(memoryDetailsMapBuilderProvider),
     );
   }
 

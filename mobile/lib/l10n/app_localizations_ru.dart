@@ -592,6 +592,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storyMapRefreshAction => 'Обновить карту';
 
   @override
+  String get storyMapShowDetailsAction => 'Подробнее';
+
+  @override
   String get storyMapEmptyTitle => 'На карте пока нет воспоминаний';
 
   @override
@@ -781,6 +784,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get memoryDetailsNoPlace => 'Подписи места пока нет.';
+
+  @override
+  String get memoryDetailsOpenOnMapAction => 'Открыть на карте';
+
+  @override
+  String get memoryDetailsMapUnavailable => 'Предпросмотр карты недоступен.';
 
   @override
   String get memoryMediaTitle => 'Фото';

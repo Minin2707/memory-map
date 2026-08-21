@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/map/domain/map_coordinate.dart';
@@ -19,13 +20,15 @@ void main() {
     });
 
     test('shouldIgnoreDuplicateStyleLoadedCallbacks', () {
+      final controller = FakeAnnotationController();
       final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
-        controller: FakeAnnotationController(),
+        controller: controller,
       );
 
       expect(synchronizer.markStyleLoaded(), isTrue);
       expect(synchronizer.markStyleLoaded(), isFalse);
       expect(synchronizer.isLoading, isFalse);
+      expect(controller.styleLoadedCalls, 2);
     });
 
     test('shouldResyncCurrentMarkersOnRepeatedStyleLoadedCallback', () async {
@@ -161,6 +164,85 @@ void main() {
       ]);
     });
 
+    test('shouldPassMarkerIconsThroughRenderOptions', () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+      final icon = MapMarkerIcon(
+        imageKey: 'marker-photo-safe-key',
+        bytes: Uint8List.fromList(<int>[1, 2, 3]),
+      );
+
+      synchronizer.updateMarkers(
+        <MapMarker>[markerA],
+        markerIcons: <String, MapMarkerIcon>{markerA.id: icon},
+      );
+      await flushMicrotasks();
+
+      expect(controller.addedBatches.last, <MapMarkerRenderOptions>[
+        MapMarkerRenderOptions(
+          coordinate: markerA.coordinate,
+          selected: false,
+          icon: icon,
+        ),
+      ]);
+    });
+
+    test('shouldReconcileWhenMarkerIconChanges', () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+      final firstIcon = MapMarkerIcon(
+        imageKey: 'marker-photo-a',
+        bytes: Uint8List.fromList(<int>[1]),
+      );
+      final secondIcon = MapMarkerIcon(
+        imageKey: 'marker-photo-b',
+        bytes: Uint8List.fromList(<int>[2]),
+      );
+
+      synchronizer.updateMarkers(
+        <MapMarker>[markerA],
+        markerIcons: <String, MapMarkerIcon>{markerA.id: firstIcon},
+      );
+      await flushMicrotasks();
+      synchronizer.updateMarkers(
+        <MapMarker>[markerA],
+        markerIcons: <String, MapMarkerIcon>{markerA.id: secondIcon},
+      );
+      await flushMicrotasks();
+
+      expect(controller.addCalls, 2);
+      expect(controller.addedBatches.last.single.icon, secondIcon);
+    });
+
+    test('shouldReconcileWhenMarkerPhotoBecomesFallback', () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+      final icon = MapMarkerIcon(
+        imageKey: 'marker-photo-a',
+        bytes: Uint8List.fromList(<int>[1]),
+      );
+
+      synchronizer.updateMarkers(
+        <MapMarker>[markerA],
+        markerIcons: <String, MapMarkerIcon>{markerA.id: icon},
+      );
+      await flushMicrotasks();
+      synchronizer.updateMarkers(<MapMarker>[markerA]);
+      await flushMicrotasks();
+
+      expect(controller.addCalls, 2);
+      expect(controller.addedBatches.last.single.icon, isNull);
+    });
+
     test('shouldSkipRedundantSyncWhenRenderInputIsUnchanged', () async {
       final controller = FakeAnnotationController();
       final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
@@ -214,6 +296,103 @@ void main() {
           selected: false,
         ),
       ]);
+    });
+
+    test('shouldPreserveAllMarkersWhenSelectingFirstMarker', () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+
+      synchronizer.updateMarkers(fourMarkers);
+      await flushMicrotasks();
+      synchronizer.updateMarkers(fourMarkers, selectedMarkerId: markerA.id);
+      await flushMicrotasks();
+
+      expect(controller.annotations.length, 4);
+      expect(
+        controller.addedBatches.last.map((options) => options.selected),
+        <bool>[true, false, false, false],
+      );
+    });
+
+    test('shouldPreserveAllMarkersWhenMovingSelection', () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+
+      synchronizer.updateMarkers(fourMarkers, selectedMarkerId: markerA.id);
+      await flushMicrotasks();
+      synchronizer.updateMarkers(fourMarkers, selectedMarkerId: markerB.id);
+      await flushMicrotasks();
+
+      expect(controller.annotations.length, 4);
+      expect(
+        controller.addedBatches.last.map((options) => options.selected),
+        <bool>[false, true, false, false],
+      );
+    });
+
+    test('shouldPreserveAllMarkersWhenClearingSelection', () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+
+      synchronizer.updateMarkers(fourMarkers, selectedMarkerId: markerB.id);
+      await flushMicrotasks();
+      synchronizer.updateMarkers(fourMarkers);
+      await flushMicrotasks();
+
+      expect(controller.annotations.length, 4);
+      expect(
+        controller.addedBatches.last.map((options) => options.selected),
+        <bool>[false, false, false, false],
+      );
+    });
+
+    test('shouldPreserveMixedPhotoAndFallbackMarkersDuringSelection', () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+      final photoIcon = MapMarkerIcon(
+        imageKey: 'marker-photo-a',
+        bytes: Uint8List.fromList(<int>[1]),
+      );
+      final fallbackIcon = MapMarkerIcon(
+        imageKey: 'marker-fallback',
+        bytes: Uint8List.fromList(<int>[2]),
+      );
+
+      synchronizer.updateMarkers(
+        fourMarkers,
+        markerIcons: <String, MapMarkerIcon>{
+          markerA.id: photoIcon,
+          markerB.id: fallbackIcon,
+          markerC.id: photoIcon,
+          markerD.id: fallbackIcon,
+        },
+        selectedMarkerId: markerB.id,
+      );
+      await flushMicrotasks();
+
+      expect(controller.annotations.length, 4);
+      expect(controller.addedBatches.last.map((options) => options.icon), [
+        photoIcon,
+        fallbackIcon,
+        photoIcon,
+        fallbackIcon,
+      ]);
+      expect(
+        controller.addedBatches.last.map((options) => options.selected),
+        <bool>[false, true, false, false],
+      );
     });
 
     test('shouldClearAnnotationsWhenMarkerListBecomesEmpty', () async {
@@ -412,6 +591,48 @@ void main() {
       expect(first, isNot(different));
     });
 
+    test('shouldIncludeIconIdentityInEquality', () {
+      final icon = MapMarkerIcon(
+        imageKey: 'safe-key',
+        bytes: Uint8List.fromList(<int>[1]),
+      );
+      final first = MapMarkerRenderOptions(
+        coordinate: coordinateA,
+        selected: false,
+        icon: icon,
+      );
+      final second = MapMarkerRenderOptions(
+        coordinate: coordinateA,
+        selected: false,
+        icon: MapMarkerIcon(
+          imageKey: 'safe-key',
+          bytes: Uint8List.fromList(<int>[9]),
+        ),
+      );
+      final different = MapMarkerRenderOptions(
+        coordinate: coordinateA,
+        selected: false,
+        icon: MapMarkerIcon(
+          imageKey: 'other-safe-key',
+          bytes: Uint8List.fromList(<int>[1]),
+        ),
+      );
+
+      expect(first, second);
+      expect(first.hashCode, second.hashCode);
+      expect(first, isNot(different));
+    });
+
+    test('shouldRejectBlankMarkerIconKey', () {
+      expect(
+        () => MapMarkerIcon(
+          imageKey: ' ',
+          bytes: Uint8List.fromList(<int>[1]),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
     test('shouldHaveSafeToString', () {
       final options = MapMarkerRenderOptions(
         coordinate: coordinateA,
@@ -421,9 +642,25 @@ void main() {
       final text = options.toString();
 
       expect(text, contains('selected: true'));
+      expect(text, contains('hasIcon: false'));
       expect(text, isNot(contains('41.7151')));
       expect(text, isNot(contains('44.8271')));
       expect(text, isNot(contains('memory')));
+    });
+
+    test('shouldHaveSafeMarkerIconToString', () {
+      final icon = MapMarkerIcon(
+        imageKey: 'private-memory-private-media-path',
+        bytes: Uint8List.fromList(<int>[1, 2, 3]),
+      );
+
+      final text = icon.toString();
+
+      expect(text, 'MapMarkerIcon(hasBytes: true)');
+      expect(text, isNot(contains('private-memory')));
+      expect(text, isNot(contains('private-media')));
+      expect(text, isNot(contains('path')));
+      expect(text, isNot(contains('1, 2, 3')));
     });
   });
 }
@@ -456,6 +693,12 @@ final MapMarker latestMovedMarkerB =
     MapMarker(id: 'memory-b', coordinate: coordinateC);
 final MapMarker markerC = MapMarker(id: 'memory-c', coordinate: coordinateC);
 final MapMarker markerD = MapMarker(id: 'memory-d', coordinate: coordinateA);
+final List<MapMarker> fourMarkers = <MapMarker>[
+  markerA,
+  markerB,
+  markerC,
+  markerD,
+];
 
 final class FakeAnnotation {
   const FakeAnnotation(this.id);
@@ -472,6 +715,7 @@ final class FakeAnnotationController
       <List<MapMarkerRenderOptions>>[];
   int clearCalls = 0;
   int addCalls = 0;
+  int styleLoadedCalls = 0;
   Completer<List<FakeAnnotation>>? _pausedAdd;
 
   int get listenerCount => _listeners.length;
@@ -484,6 +728,11 @@ final class FakeAnnotationController
   @override
   void removeMarkerTapListener(MapMarkerTapHandler<FakeAnnotation> listener) {
     _listeners.remove(listener);
+  }
+
+  @override
+  void handleStyleLoaded() {
+    styleLoadedCalls += 1;
   }
 
   @override

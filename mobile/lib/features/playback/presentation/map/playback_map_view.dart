@@ -227,6 +227,9 @@ final class _PlaybackCircleMarkerController
   }
 
   @override
+  void handleStyleLoaded() {}
+
+  @override
   Future<void> clearMarkers() {
     return _controller.clearCircles();
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:memory_map/features/map/domain/map_coordinate.dart';
 import 'package:memory_map/features/map/domain/map_marker.dart';
@@ -11,33 +12,77 @@ abstract interface class MapMarkerAnnotationController<T extends Object> {
 
   void removeMarkerTapListener(MapMarkerTapHandler<T> listener);
 
+  void handleStyleLoaded();
+
   Future<void> clearMarkers();
 
   Future<List<T>> addMarkers(List<MapMarkerRenderOptions> options);
+}
+
+final class MapMarkerIcon {
+  factory MapMarkerIcon({
+    required String imageKey,
+    required Uint8List bytes,
+  }) {
+    if (imageKey.trim().isEmpty) {
+      throw ArgumentError('imageKey must not be blank');
+    }
+
+    return MapMarkerIcon._(
+      imageKey: imageKey,
+      bytes: bytes,
+    );
+  }
+
+  const MapMarkerIcon._({
+    required this.imageKey,
+    required this.bytes,
+  });
+
+  final String imageKey;
+  final Uint8List bytes;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is MapMarkerIcon && imageKey == other.imageKey;
+  }
+
+  @override
+  int get hashCode => imageKey.hashCode;
+
+  @override
+  String toString() => 'MapMarkerIcon(hasBytes: true)';
 }
 
 final class MapMarkerRenderOptions {
   const MapMarkerRenderOptions({
     required this.coordinate,
     required this.selected,
+    this.icon,
   });
 
   final MapCoordinate coordinate;
   final bool selected;
+  final MapMarkerIcon? icon;
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is MapMarkerRenderOptions &&
             coordinate == other.coordinate &&
-            selected == other.selected;
+            selected == other.selected &&
+            icon == other.icon;
   }
 
   @override
-  int get hashCode => Object.hash(coordinate, selected);
+  int get hashCode => Object.hash(coordinate, selected, icon);
 
   @override
-  String toString() => 'MapMarkerRenderOptions(selected: $selected)';
+  String toString() {
+    return 'MapMarkerRenderOptions(selected: $selected, '
+        'hasIcon: ${icon != null})';
+  }
 }
 
 final class MapLibreMarkerSynchronizer<T extends Object> {
@@ -53,6 +98,7 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
   final Map<T, String> _markerIdsByAnnotation = <T, String>{};
   MapMarkerSelectedHandler? _onMarkerSelected;
   List<MapMarker> _markers = const <MapMarker>[];
+  Map<String, MapMarkerIcon> _markerIcons = const <String, MapMarkerIcon>{};
   String? _selectedMarkerId;
   bool _styleLoaded = false;
   bool _syncInProgress = false;
@@ -69,17 +115,19 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
 
   void updateMarkers(
     List<MapMarker> markers, {
+    Map<String, MapMarkerIcon> markerIcons = const <String, MapMarkerIcon>{},
     String? selectedMarkerId,
   }) {
     if (_disposed) {
       return;
     }
 
-    if (_hasSameRenderInput(markers, selectedMarkerId)) {
+    if (_hasSameRenderInput(markers, markerIcons, selectedMarkerId)) {
       return;
     }
 
     _markers = List<MapMarker>.unmodifiable(markers);
+    _markerIcons = Map<String, MapMarkerIcon>.unmodifiable(markerIcons);
     _selectedMarkerId = selectedMarkerId;
     unawaited(_scheduleSync());
   }
@@ -88,6 +136,8 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
     if (_disposed) {
       return false;
     }
+
+    _controller.handleStyleLoaded();
 
     if (_styleLoaded) {
       unawaited(_scheduleSync());
@@ -147,6 +197,7 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
           (marker) => MapMarkerRenderOptions(
             coordinate: marker.coordinate,
             selected: marker.id == selectedMarkerId,
+            icon: _markerIcons[marker.id],
           ),
         )
         .toList(growable: false);
@@ -180,15 +231,23 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
 
   bool _hasSameRenderInput(
     List<MapMarker> markers,
+    Map<String, MapMarkerIcon> markerIcons,
     String? selectedMarkerId,
   ) {
     if (_selectedMarkerId != selectedMarkerId ||
-        _markers.length != markers.length) {
+        _markers.length != markers.length ||
+        _markerIcons.length != markerIcons.length) {
       return false;
     }
 
     for (var index = 0; index < markers.length; index += 1) {
       if (_markers[index] != markers[index]) {
+        return false;
+      }
+    }
+
+    for (final entry in markerIcons.entries) {
+      if (_markerIcons[entry.key] != entry.value) {
         return false;
       }
     }

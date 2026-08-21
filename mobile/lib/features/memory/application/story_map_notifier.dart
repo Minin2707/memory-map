@@ -103,17 +103,17 @@ StoryMapState _storyMapStateFrom(
     );
   }
 
-  final markers = mapMarkersFromMemoryReadModels(
+  final markerPresentations = storyMapMarkerPresentationsFromMemoryReadModels(
     memoriesState.memoryReadModels,
   );
-  final reconciledSelection = markers.any(
-    (marker) => marker.id == selectedMarkerId,
+  final reconciledSelection = markerPresentations.any(
+    (presentation) => presentation.marker.id == selectedMarkerId,
   )
       ? selectedMarkerId
       : null;
 
   return StoryMapState(
-    markers: markers,
+    markerPresentations: markerPresentations,
     selectedMarkerId: reconciledSelection,
     isRefreshing: memoriesState.isRefreshing,
     refreshFailure: memoriesState.refreshFailure,

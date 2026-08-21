@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/map/domain/map_coordinate.dart';
 import 'package:memory_map/features/memory/application/memory_application_exception.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
@@ -17,8 +18,11 @@ import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/memory_details_screen.dart';
+import 'package:memory_map/features/media/application/media_application_exception.dart';
 import 'package:memory_map/features/media/application/media_application_providers.dart';
+import 'package:memory_map/features/media/application/memory_media_notifier.dart';
 import 'package:memory_map/features/media/domain/media.dart';
+import 'package:memory_map/features/media/domain/media_failure.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 import '../../media/media_test_fixtures.dart' as media_fixtures;
@@ -31,12 +35,15 @@ void main() {
         FakeMemoryRepository()..memoryResult = memoryA,
       );
 
-      expect(find.text('Memory'), findsOneWidget);
       expect(find.text('First picnic'), findsOneWidget);
-      expect(find.text('Memory note'), findsOneWidget);
       expect(find.text('Near the river'), findsOneWidget);
       expect(find.text('Place'), findsOneWidget);
       expect(find.text('Riverside Park'), findsOneWidget);
+      expect(find.text('Open on map'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('memory-details.map-preview')),
+        findsOneWidget,
+      );
       expect(find.text('Aug 9, 2026'), findsOneWidget);
     });
 
@@ -50,16 +57,17 @@ void main() {
         tester.element(find.byType(MemoryDetailsScreen)),
       );
 
-      expect(find.text(l10n.memoryDetailsPageTitle), findsOneWidget);
-      expect(find.text(l10n.memoryDetailsDescriptionTitle), findsOneWidget);
       expect(find.text(l10n.memoryDetailsPlaceTitle), findsOneWidget);
+      expect(find.text(l10n.memoryDetailsOpenOnMapAction), findsOneWidget);
       expect(
         find.text(formatMemoryDate(l10n, memoryA.eventDate)),
         findsOneWidget,
       );
     });
 
-    testWidgets('shouldRenderNullableFieldsWithPlaceholders', (tester) async {
+    testWidgets('shouldHideNullableOptionalFieldsWithoutPlaceholders', (
+      tester,
+    ) async {
       await pumpScreen(
         tester,
         FakeMemoryRepository()
@@ -71,10 +79,330 @@ void main() {
       );
 
       expect(find.text('Memory without optional fields'), findsOneWidget);
-      expect(find.text('No description yet.'), findsOneWidget);
-      expect(find.text('No place name yet.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('memory-details.description-section')),
+        findsNothing,
+      );
+      expect(find.text('No description yet.'), findsNothing);
+      expect(find.text('No place name yet.'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('memory-details.place-section')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('memory-details.map-preview')),
+        findsOneWidget,
+      );
       expect(find.text('null'), findsNothing);
       expect(find.text('   '), findsNothing);
+    });
+
+    testWidgets('shouldHideBlankDescriptionWithoutPlaceholder', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()
+          ..memoryResult = memory(description: '   ', placeName: 'Park'),
+      );
+
+      expect(
+        find.byKey(const ValueKey('memory-details.description-section')),
+        findsNothing,
+      );
+      expect(find.text('No description yet.'), findsNothing);
+      expect(find.text('Park'), findsOneWidget);
+    });
+
+    testWidgets('shouldUseMemoryLocationForReadOnlyMapWithoutRawCoordinates', (
+      tester,
+    ) async {
+      final mapSpy = MemoryLocationMapSpy();
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mapBuilder: mapSpy.call,
+      );
+
+      expect(
+        mapSpy.configuration?.marker.coordinate,
+        memoryA.location.toMapCoordinate(),
+      );
+      expect(
+        mapSpy.configuration?.sourceConfiguration.styleUri.trim().isNotEmpty,
+        isTrue,
+      );
+      expect(
+        mapSpy.configuration?.cameraCommand.target.coordinate,
+        memoryA.location.toMapCoordinate(),
+      );
+      expect(
+        find.byKey(const ValueKey('memory-details.fake-map')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('41.715123'), findsNothing);
+      expect(find.textContaining('44.827456'), findsNothing);
+    });
+
+    testWidgets('shouldCallOpenMapCallbackWithCurrentMemory', (tester) async {
+      Memory? openedMemory;
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        onOpenMap: (memory) {
+          openedMemory = memory;
+        },
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.open-map-action')),
+      );
+
+      expect(openedMemory, same(memoryA));
+    });
+
+    testWidgets('shouldRenderSafeMapFallbackWhenMapBuilderFails', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mapBuilder: (_, __) {
+          throw StateError('SECRET_MAP_FAILURE');
+        },
+      );
+
+      expect(find.text('Map preview unavailable.'), findsOneWidget);
+      expect(find.textContaining('SECRET_MAP_FAILURE'), findsNothing);
+      expect(find.text('Riverside Park'), findsOneWidget);
+    });
+  });
+
+  group('MemoryDetailsScreen photo hero', () {
+    testWidgets('shouldRenderDisplayPhotoHeroFromMemoryMedia', (
+      tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..mediaResult = <Media>[
+          media_fixtures.media(
+            id: 'hero-photo',
+            memoryId: defaultMemoryId,
+            thumbnailPath: '/api/v1/media/private-thumbnail/thumbnail',
+            displayPath: '/api/v1/media/private-display/display',
+          ),
+        ];
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+      );
+
+      expect(
+        find.byKey(const ValueKey('memory-details.hero.page-view')),
+        findsOneWidget,
+      );
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(mediaRepository.getDisplayCalls, 1);
+      expect(
+        mediaRepository.receivedBinaryMedia
+            .where((media) => media.id == 'hero-photo'),
+        isNotEmpty,
+      );
+      expect(find.textContaining('/api/v1/media/private-display'), findsNothing);
+      expect(
+        find.textContaining('/api/v1/media/private-thumbnail'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldRenderStableFallbackWhenMemoryHasNoPhoto', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+      );
+
+      expect(
+        find.byKey(const ValueKey('memory-details.hero.no-photo')),
+        findsOneWidget,
+      );
+      expect(find.text('First picnic'), findsOneWidget);
+      expect(find.text('Aug 9, 2026'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('memory-details.hero.photo-counter')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldKeepHeroGeometryWhileMediaListLoads', (tester) async {
+      final completer = Completer<List<Media>>();
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..getMediaCompleter = completer;
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+        settle: false,
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('memory-details.hero.no-photo')),
+        findsOneWidget,
+      );
+      expect(find.text('First picnic'), findsOneWidget);
+
+      completer.complete(<Media>[
+        media_fixtures.media(
+          id: 'loaded-photo',
+          memoryId: defaultMemoryId,
+        ),
+      ]);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('memory-details.hero.page-view')),
+        findsOneWidget,
+      );
+      expect(find.text('1 / 1'), findsOneWidget);
+    });
+
+    testWidgets('shouldFallbackSafelyWhenDisplayPhotoFails', (tester) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..mediaResult = <Media>[
+          media_fixtures.media(id: 'failing-photo', memoryId: defaultMemoryId),
+        ]
+        ..displayFailure = Exception('SECRET_DISPLAY_FAILURE');
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+      );
+
+      expect(
+        find.byKey(const ValueKey('memory-details.hero.display-failure')),
+        findsOneWidget,
+      );
+      expect(find.text('First picnic'), findsOneWidget);
+      expect(find.text('Aug 9, 2026'), findsOneWidget);
+      expect(find.textContaining('SECRET_DISPLAY_FAILURE'), findsNothing);
+    });
+
+    testWidgets('shouldSwipePhotosAndClampWhenCurrentPhotoIsRemoved', (
+      tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..mediaResult = <Media>[
+          media_fixtures.media(id: 'photo-a', memoryId: defaultMemoryId),
+          media_fixtures.media(id: 'photo-b', memoryId: defaultMemoryId),
+        ];
+      final container = await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+      );
+
+      await tester.drag(
+        find.byKey(const ValueKey('memory-details.hero.page-view')),
+        const Offset(-420, 0),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 / 2'), findsOneWidget);
+
+      container
+          .read(memoryMediaProvider(defaultMemoryId).notifier)
+          .removeMediaById('photo-b');
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('memory-details.hero.display.photo-a')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shouldRenderPhotoStripAndSwitchHeroFromThumbnailTap', (
+      tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..mediaResult = <Media>[
+          media_fixtures.media(id: 'photo-a', memoryId: defaultMemoryId),
+          media_fixtures.media(id: 'photo-b', memoryId: defaultMemoryId),
+        ];
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+      );
+      await ensureVisible(
+        tester,
+        find.byKey(const ValueKey('memory-media.thumbnail.photo-b')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('memory-media.thumbnail-strip')),
+        findsOneWidget,
+      );
+      expect(mediaRepository.getThumbnailCalls, greaterThanOrEqualTo(2));
+
+      await tester.tap(
+        find.byKey(const ValueKey('memory-media.thumbnail.photo-b')),
+      );
+      await tester.pumpAndSettle();
+      await ensureMemoryDetailsHeroVisible(tester);
+
+      expect(find.text('2 / 2'), findsOneWidget);
+    });
+
+    testWidgets('shouldPreserveUploadActionWhenCapabilityAllowsIt', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        canUploadPhoto: true,
+      );
+      await ensureVisible(
+        tester,
+        find.byKey(const ValueKey('memory-media.add-photo-action')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('memory-media.add-photo-action')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shouldRenderMediaListFailureInsidePhotosSectionOnly', (
+      tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..getMediaFailure = const MediaApplicationException(
+          MediaUnavailable(),
+        );
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+      );
+      await ensureVisible(
+        tester,
+        find.byKey(const ValueKey('memory-details.photos-section')),
+      );
+
+      expect(find.text('First picnic'), findsOneWidget);
+      expect(find.text('Photos are unavailable.'), findsOneWidget);
+      expect(find.textContaining('MediaApplicationException'), findsNothing);
     });
   });
 
@@ -178,15 +506,15 @@ void main() {
       expect(find.text('First picnic'), findsNothing);
     });
 
-    testWidgets('shouldRefreshFromExplicitRefreshAction', (tester) async {
+    testWidgets('shouldRefreshFromDetailsProviderRequest', (tester) async {
       final repository = FakeMemoryRepository()..memoryResult = memoryA;
-      await pumpScreen(tester, repository);
+      final container = await pumpScreen(tester, repository);
       repository.memoryResult = memoryB;
 
-      await pressButton(
-        tester,
-        find.byKey(const ValueKey('memory-details.refresh-action')),
-      );
+      await container
+          .read(memoryDetailsProvider(defaultMemoryId).notifier)
+          .refreshMemory();
+      await tester.pumpAndSettle();
 
       expect(repository.getMemoryCalls, 2);
       expect(find.text('Beach morning'), findsOneWidget);
@@ -194,15 +522,15 @@ void main() {
 
     testWidgets('shouldRenderRefreshFailureBannerAndRetry', (tester) async {
       final repository = FakeMemoryRepository()..memoryResult = memoryA;
-      await pumpScreen(tester, repository);
+      final container = await pumpScreen(tester, repository);
       repository.getMemoryFailures.add(
         const MemoryApplicationException(MemoryRequestTimedOut()),
       );
 
-      await pressButton(
-        tester,
-        find.byKey(const ValueKey('memory-details.refresh-action')),
-      );
+      await container
+          .read(memoryDetailsProvider(defaultMemoryId).notifier)
+          .refreshMemory();
+      await tester.pumpAndSettle();
 
       expect(find.text('First picnic'), findsOneWidget);
       expect(
@@ -457,15 +785,10 @@ void main() {
       expect(find.text('Deleting memory...'), findsOneWidget);
       expect(deletedMemory, isNull);
       expect(repository.deleteMemoryCalls, 1);
+      await ensureMemoryDetailsHeroVisible(tester);
       expect(
         tester.widget<IconButton>(
           find.byKey(const ValueKey('memory-details.back-action')),
-        ).onPressed,
-        isNull,
-      );
-      expect(
-        tester.widget<IconButton>(
-          find.byKey(const ValueKey('memory-details.refresh-action')),
         ).onPressed,
         isNull,
       );
@@ -523,6 +846,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Memory cannot be deleted from here.'), findsOneWidget);
+      await ensureMemoryDetailsHeroVisible(tester);
       expect(find.text('First picnic'), findsOneWidget);
       expect(deletedMemory, isNull);
       expect(find.textContaining('MemoryApplicationException'), findsNothing);
@@ -619,6 +943,10 @@ Future<ProviderContainer> pumpScreen(
   VoidCallback? onBack,
   ValueChanged<Memory>? onEdit,
   ValueChanged<Memory>? onDelete,
+  ValueChanged<Memory>? onOpenMap,
+  MemoryLocationMapBuilder? mapBuilder,
+  media_fixtures.FakeMediaRepository? mediaRepository,
+  bool canUploadPhoto = false,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
 }) async {
@@ -626,8 +954,9 @@ Future<ProviderContainer> pumpScreen(
     overrides: [
       memoryRepositoryProvider.overrideWithValue(repository),
       mediaRepositoryProvider.overrideWithValue(
-        media_fixtures.FakeMediaRepository()
-          ..mediaResult = <Media>[],
+        mediaRepository ??
+            (media_fixtures.FakeMediaRepository()
+              ..mediaResult = <Media>[]),
       ),
     ],
   );
@@ -651,6 +980,9 @@ Future<ProviderContainer> pumpScreen(
           onBack: onBack,
           onEdit: onEdit,
           onDelete: onDelete,
+          onOpenMap: onOpenMap ?? (_) {},
+          mapBuilder: mapBuilder ?? fakeMemoryLocationMapBuilder,
+          canUploadPhoto: canUploadPhoto,
         ),
       ),
     ),
@@ -663,12 +995,49 @@ Future<ProviderContainer> pumpScreen(
   return container;
 }
 
+Future<void> ensureVisible(WidgetTester tester, Finder finder) async {
+  await tester.pump();
+
+  if (finder.evaluate().isEmpty &&
+      find.byType(CustomScrollView).evaluate().isNotEmpty) {
+    await tester.scrollUntilVisible(
+      finder,
+      120,
+      scrollable: memoryDetailsScrollableFinder(),
+    );
+  }
+
+  await tester.ensureVisible(finder);
+  await tester.pump();
+}
+
+Future<void> ensureMemoryDetailsHeroVisible(WidgetTester tester) async {
+  final finder = find.byKey(const ValueKey('memory-details.hero'));
+  await tester.pump();
+
+  for (var index = 0; index < 8; index += 1) {
+    if (finder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(finder);
+      await tester.pump();
+      return;
+    }
+
+    await tester.drag(
+      memoryDetailsScrollableFinder().first,
+      const Offset(0, 360),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  fail('Expected Memory Details hero to become visible after scrolling.');
+}
+
 Future<void> pressButton(
   WidgetTester tester,
   Finder finder, {
   bool settle = true,
 }) async {
-  await tester.pump();
+  await ensureVisible(tester, finder);
   final widget = tester.widget<Widget>(finder);
   final onPressed = switch (widget) {
     FilledButton(:final onPressed) => onPressed,
@@ -685,6 +1054,13 @@ Future<void> pressButton(
   } else {
     await tester.pump();
   }
+}
+
+Finder memoryDetailsScrollableFinder() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Scrollable && widget.axisDirection == AxisDirection.down,
+  );
 }
 
 void setSurface(WidgetTester tester, Size size) {
@@ -808,6 +1184,37 @@ final class FakeMemoryRepository implements MemoryRepository {
 
 final class UnexpectedMemoryException implements Exception {
   const UnexpectedMemoryException();
+}
+
+Widget fakeMemoryLocationMapBuilder(
+  BuildContext context,
+  MemoryLocationMapConfiguration configuration,
+) {
+  return const SizedBox(
+    key: ValueKey('memory-details.fake-map'),
+  );
+}
+
+final class MemoryLocationMapSpy {
+  MemoryLocationMapConfiguration? configuration;
+
+  Widget call(
+    BuildContext context,
+    MemoryLocationMapConfiguration configuration,
+  ) {
+    this.configuration = configuration;
+
+    return fakeMemoryLocationMapBuilder(context, configuration);
+  }
+}
+
+extension on MemoryLocation {
+  MapCoordinate toMapCoordinate() {
+    return MapCoordinate(
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
 }
 
 

@@ -582,6 +582,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyMapRefreshAction => 'Refresh map';
 
   @override
+  String get storyMapShowDetailsAction => 'Show details';
+
+  @override
   String get storyMapEmptyTitle => 'No memories on the map yet';
 
   @override
@@ -767,6 +770,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memoryDetailsNoPlace => 'No place name yet.';
+
+  @override
+  String get memoryDetailsOpenOnMapAction => 'Open on map';
+
+  @override
+  String get memoryDetailsMapUnavailable => 'Map preview unavailable.';
 
   @override
   String get memoryMediaTitle => 'Photos';

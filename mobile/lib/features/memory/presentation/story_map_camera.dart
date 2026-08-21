@@ -6,10 +6,10 @@ const double storyMapNeutralZoom = 1.5;
 const double storyMapSingleMarkerZoom = 12;
 
 final MapCameraPadding storyMapBoundsPadding = MapCameraPadding(
-  left: 56,
-  top: 96,
-  right: 56,
-  bottom: 120,
+  left: 56.0,
+  top: 128.0,
+  right: 78.0,
+  bottom: 220.0,
 );
 
 MapCameraTarget storyMapCameraTargetForMarkers(List<MapMarker> markers) {

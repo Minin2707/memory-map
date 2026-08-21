@@ -1070,6 +1070,12 @@ abstract class AppLocalizations {
   /// **'Refresh map'**
   String get storyMapRefreshAction;
 
+  /// No description provided for @storyMapShowDetailsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Show details'**
+  String get storyMapShowDetailsAction;
+
   /// No description provided for @storyMapEmptyTitle.
   ///
   /// In en, this message translates to:
@@ -1417,6 +1423,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No place name yet.'**
   String get memoryDetailsNoPlace;
+
+  /// No description provided for @memoryDetailsOpenOnMapAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open on map'**
+  String get memoryDetailsOpenOnMapAction;
+
+  /// No description provided for @memoryDetailsMapUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Map preview unavailable.'**
+  String get memoryDetailsMapUnavailable;
 
   /// No description provided for @memoryMediaTitle.
   ///

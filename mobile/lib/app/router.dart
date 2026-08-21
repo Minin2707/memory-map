@@ -354,6 +354,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
           return StoryMapRoute(
             storyId: storyId,
+            initialSelectedMemoryId: _storyMapInitialMemoryIdFromExtra(
+              state.extra,
+            ),
             onBack: () {
               _popOrGoToStoryDetails(context, storyId);
             },
@@ -478,6 +481,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
             onDelete: (memory) {
               _completeDeletedMemory(ref, context, memory, origin);
+            },
+            onOpenMap: (memory) {
+              context.goNamed(
+                storyMapRouteName,
+                pathParameters: {_storyIdPathParameter: memory.storyId},
+                extra: memory.id,
+              );
             },
           );
         },
@@ -793,6 +803,14 @@ Object? _memoryDetailsOriginFor(GoRouterState state) {
 }
 
 String? _storyTitleFromExtra(Object? extra) {
+  if (extra is String && extra.trim().isNotEmpty) {
+    return extra;
+  }
+
+  return null;
+}
+
+String? _storyMapInitialMemoryIdFromExtra(Object? extra) {
   if (extra is String && extra.trim().isNotEmpty) {
     return extra;
   }

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/features/map/config/map_source_configuration.dart';
+import 'package:memory_map/features/map/domain/map_camera.dart';
+import 'package:memory_map/features/map/domain/map_coordinate.dart';
+import 'package:memory_map/features/map/domain/map_marker.dart';
+import 'package:memory_map/features/map/presentation/widgets/maplibre_marker_map.dart';
 import 'package:memory_map/features/memory/application/delete_memory_notifier.dart';
 import 'package:memory_map/features/memory/application/delete_memory_state.dart';
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
@@ -7,8 +12,46 @@ import 'package:memory_map/features/memory/application/memory_details_state.dart
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/memory_failure_message.dart';
-import 'package:memory_map/features/media/presentation/widgets/memory_media_gallery.dart';
+import 'package:memory_map/features/media/application/memory_media_notifier.dart';
+import 'package:memory_map/features/media/application/memory_media_state.dart';
+import 'package:memory_map/features/media/application/upload_photo_notifier.dart';
+import 'package:memory_map/features/media/application/upload_photo_state.dart';
+import 'package:memory_map/features/media/domain/media.dart';
+import 'package:memory_map/features/media/presentation/media_failure_message.dart';
+import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+const double _memoryDetailsSectionGap = 14;
+const double _memoryDetailsFirstSectionGap = 14;
+const double _memoryDetailsDeleteGap = 16;
+const double _memoryDetailsBottomGap = 22;
+const double _memoryDetailsCardPadding = 16;
+const double _memoryDetailsMapHeight = 148;
+const double _memoryDetailsThumbnailSize = 78;
+const double _memoryDetailsThumbnailGap = 8;
+
+typedef MemoryLocationMapBuilder = Widget Function(
+  BuildContext context,
+  MemoryLocationMapConfiguration configuration,
+);
+
+final class MemoryLocationMapConfiguration {
+  MemoryLocationMapConfiguration({
+    required this.marker,
+    required this.sourceConfiguration,
+    required this.cameraCommand,
+  });
+
+  final MapMarker marker;
+  final MapSourceConfiguration sourceConfiguration;
+  final MapCameraCommand cameraCommand;
+
+  @override
+  String toString() {
+    return 'MemoryLocationMapConfiguration(hasMarker: true, '
+        'hasCameraCommand: true)';
+  }
+}
 
 class MemoryDetailsScreen extends ConsumerStatefulWidget {
   const MemoryDetailsScreen({
@@ -16,6 +59,8 @@ class MemoryDetailsScreen extends ConsumerStatefulWidget {
     this.onBack,
     this.onEdit,
     this.onDelete,
+    this.onOpenMap,
+    this.mapBuilder = defaultMemoryLocationMapBuilder,
     this.canUploadPhoto = false,
     this.canDeletePhoto = false,
     super.key,
@@ -25,6 +70,8 @@ class MemoryDetailsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   final ValueChanged<Memory>? onEdit;
   final ValueChanged<Memory>? onDelete;
+  final ValueChanged<Memory>? onOpenMap;
+  final MemoryLocationMapBuilder mapBuilder;
   final bool canUploadPhoto;
   final bool canDeletePhoto;
 
@@ -35,13 +82,30 @@ class MemoryDetailsScreen extends ConsumerStatefulWidget {
 
 class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
   bool _deleteCompleted = false;
+  late PageController _heroPageController;
+  int _heroPhotoIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _heroPageController = PageController();
+  }
 
   @override
   void didUpdateWidget(MemoryDetailsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.memoryId != widget.memoryId) {
       _deleteCompleted = false;
+      _heroPhotoIndex = 0;
+      _heroPageController.dispose();
+      _heroPageController = PageController();
     }
+  }
+
+  @override
+  void dispose() {
+    _heroPageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -72,25 +136,9 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
                   .refreshMemory();
             },
             child: CustomScrollView(
+              key: const ValueKey('memory-details.scrollable'),
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: _MemoryDetailsAppBar(
-                      isRefreshing: _isRefreshing(detailsValue),
-                      isDeleting: isDeleting,
-                      onBack: widget.onBack,
-                      onRefresh: () {
-                        ref
-                            .read(
-                              memoryDetailsProvider(widget.memoryId).notifier,
-                            )
-                            .refreshMemory();
-                      },
-                    ),
-                  ),
-                ),
                 ..._contentSlivers(
                   context,
                   ref,
@@ -98,7 +146,9 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
                   deleteValue,
                   isDeleting,
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: _memoryDetailsBottomGap),
+                ),
               ],
             ),
           ),
@@ -180,6 +230,10 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
       return const [];
     }
 
+    final mediaValue = ref.watch(memoryMediaProvider(widget.memoryId));
+    final heroPhotos = _heroPhotos(mediaValue);
+    _reconcileHeroPhotoIndex(heroPhotos.length);
+    final description = _visibleText(memory.description);
     final deleteFailureMessage = _deleteFailureMessage(
       l10n,
       deleteValue,
@@ -214,10 +268,20 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
           ),
         ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
         sliver: SliverToBoxAdapter(
-          child: _MemoryHero(
+          child: _MemoryPhotoHero(
             memory: memory,
+            photos: heroPhotos,
+            mediaIsLoading: _isHeroMediaLoading(mediaValue),
+            pageController: _heroPageController,
+            currentIndex: _heroPhotoIndex,
+            onPageChanged: (index) {
+              setState(() {
+                _heroPhotoIndex = index;
+              });
+            },
+            onBack: widget.onBack,
             editEnabled: !isDeleting,
             onEdit: widget.onEdit,
           ),
@@ -230,21 +294,61 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
             child: _DeleteFailureBanner(message: deleteFailureMessage),
           ),
         ),
+      if (description != null)
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            24,
+            _memoryDetailsFirstSectionGap,
+            24,
+            0,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: _MemoryDescriptionSection(description: description),
+          ),
+        ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          description == null
+              ? _memoryDetailsFirstSectionGap
+              : _memoryDetailsSectionGap,
+          24,
+          0,
+        ),
         sliver: SliverToBoxAdapter(
-          child: _MemoryDescriptionCard(memory: memory),
+          child: _MemoryPlaceSection(
+            memory: memory,
+            onOpenMap: widget.onOpenMap,
+            mapBuilder: widget.mapBuilder,
+          ),
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+        padding: const EdgeInsets.fromLTRB(
+          24,
+          _memoryDetailsSectionGap,
+          24,
+          0,
+        ),
         sliver: SliverToBoxAdapter(
-          child: _MemoryPlaceCard(memory: memory),
+          child: _MemoryPhotosStripSection(
+            memoryId: memory.id,
+            photos: heroPhotos,
+            mediaValue: mediaValue,
+            selectedIndex: _heroPhotoIndex,
+            canUploadPhoto: widget.canUploadPhoto && !isDeleting,
+            onPhotoSelected: _showHeroPhotoAt,
+          ),
         ),
       ),
       if (widget.onDelete != null)
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+          padding: const EdgeInsets.fromLTRB(
+            24,
+            _memoryDetailsDeleteGap,
+            24,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: _DeleteMemoryCard(
               isDeleting: isDeleting,
@@ -255,21 +359,77 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
             ),
           ),
         ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-        sliver: SliverToBoxAdapter(
-          child: MemoryMediaGallery(
-            memoryId: memory.id,
-            canUploadPhoto: widget.canUploadPhoto && !isDeleting,
-            canDeletePhoto: widget.canDeletePhoto && !isDeleting,
-          ),
-        ),
-      ),
     ];
   }
 
-  bool _isRefreshing(AsyncValue<MemoryDetailsState> value) {
-    return value.asData?.value.isRefreshing ?? false;
+  List<Media> _heroPhotos(AsyncValue<MemoryMediaState> mediaValue) {
+    final state = mediaValue.asData?.value;
+    if (state == null || state.loadFailure != null) {
+      return const [];
+    }
+
+    return state.media.where((media) => media.isPhoto).toList(growable: false);
+  }
+
+  bool _isHeroMediaLoading(AsyncValue<MemoryMediaState> mediaValue) {
+    final state = mediaValue.asData?.value;
+    if (state == null) {
+      return mediaValue.isLoading;
+    }
+
+    return mediaValue.isLoading || state.isRefreshing;
+  }
+
+  void _reconcileHeroPhotoIndex(int photoCount) {
+    final nextIndex = photoCount == 0
+        ? 0
+        : _heroPhotoIndex.clamp(0, photoCount - 1);
+    if (nextIndex == _heroPhotoIndex) {
+      return;
+    }
+
+    _heroPhotoIndex = nextIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_heroPageController.hasClients) {
+        return;
+      }
+
+      _heroPageController.jumpToPage(nextIndex);
+    });
+  }
+
+  void _showHeroPhotoAt(int index) {
+    if (index < 0) {
+      return;
+    }
+
+    final photoCount = _heroPhotos(ref.read(memoryMediaProvider(widget.memoryId)))
+        .length;
+    if (index >= photoCount) {
+      return;
+    }
+
+    setState(() {
+      _heroPhotoIndex = index;
+    });
+
+    if (!_heroPageController.hasClients) {
+      _heroPageController.dispose();
+      _heroPageController = PageController(initialPage: index);
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_heroPageController.hasClients) {
+        return;
+      }
+
+      _heroPageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   bool _isDeleting(AsyncValue<DeleteMemoryState> value) {
@@ -356,64 +516,26 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
   }
 }
 
-class _MemoryDetailsAppBar extends StatelessWidget {
-  const _MemoryDetailsAppBar({
-    required this.isRefreshing,
-    required this.isDeleting,
-    required this.onBack,
-    required this.onRefresh,
-  });
-
-  final bool isRefreshing;
-  final bool isDeleting;
-  final VoidCallback? onBack;
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Row(
-      children: [
-        IconButton(
-          key: const ValueKey('memory-details.back-action'),
-          onPressed: isDeleting ? null : onBack,
-          tooltip: l10n.memoryDetailsBackLabel,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        Expanded(
-          child: Text(
-            l10n.memoryDetailsPageTitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        IconButton(
-          key: const ValueKey('memory-details.refresh-action'),
-          onPressed: isRefreshing || isDeleting ? null : onRefresh,
-          tooltip: l10n.memoryDetailsRefreshAction,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-      ],
-    );
-  }
-}
-
-class _MemoryHero extends StatelessWidget {
-  const _MemoryHero({
+class _MemoryPhotoHero extends StatelessWidget {
+  const _MemoryPhotoHero({
     required this.memory,
+    required this.photos,
+    required this.mediaIsLoading,
+    required this.pageController,
+    required this.currentIndex,
+    required this.onPageChanged,
+    required this.onBack,
     required this.editEnabled,
     required this.onEdit,
   });
 
   final Memory memory;
+  final List<Media> photos;
+  final bool mediaIsLoading;
+  final PageController pageController;
+  final int currentIndex;
+  final ValueChanged<int> onPageChanged;
+  final VoidCallback? onBack;
   final bool editEnabled;
   final ValueChanged<Memory>? onEdit;
 
@@ -421,120 +543,265 @@ class _MemoryHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Container(
-      key: const ValueKey('memory-details.hero'),
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height =
+            (constraints.maxWidth * 0.78).clamp(286.0, 430.0).toDouble();
+
+        return Column(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(30),
+              ),
+              child: SizedBox(
+                key: const ValueKey('memory-details.hero'),
+                height: height,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _MemoryHeroMedia(
+                      photos: photos,
+                      mediaIsLoading: mediaIsLoading,
+                      pageController: pageController,
+                      onPageChanged: onPageChanged,
+                    ),
+                    const _MemoryHeroScrim(),
+                    Positioned(
+                      left: 12,
+                      top: 10,
+                      child: _HeroCircleButton(
+                        buttonKey:
+                            const ValueKey('memory-details.back-action'),
+                        tooltip: l10n.memoryDetailsBackLabel,
+                        onPressed: editEnabled ? onBack : null,
+                        icon: Icons.arrow_back_ios_new_rounded,
+                      ),
+                    ),
+                    if (onEdit != null)
+                      Positioned(
+                        right: 12,
+                        top: 10,
+                        child: _HeroCircleButton(
+                          buttonKey:
+                              const ValueKey('memory-details.edit-action'),
+                          tooltip: l10n.memoryDetailsEditAction,
+                          onPressed:
+                              editEnabled ? () => onEdit!(memory) : null,
+                          icon: Icons.edit_rounded,
+                        ),
+                      ),
+                    Positioned(
+                      left: 24,
+                      right: 24,
+                      bottom: 24,
+                      child: _MemoryHeroText(
+                        memory: memory,
+                        photoCount: photos.length,
+                        currentIndex: currentIndex,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (photos.length > 1) ...[
+              const SizedBox(height: 8),
+              _HeroPageDots(
+                count: photos.length,
+                currentIndex: currentIndex,
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MemoryHeroMedia extends StatelessWidget {
+  const _MemoryHeroMedia({
+    required this.photos,
+    required this.mediaIsLoading,
+    required this.pageController,
+    required this.onPageChanged,
+  });
+
+  final List<Media> photos;
+  final bool mediaIsLoading;
+  final PageController pageController;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (photos.isEmpty) {
+      return _MemoryHeroFallback(
+        key: const ValueKey('memory-details.hero.no-photo'),
+        isLoading: mediaIsLoading,
+      );
+    }
+
+    return PageView.builder(
+      key: const ValueKey('memory-details.hero.page-view'),
+      controller: pageController,
+      itemCount: photos.length,
+      onPageChanged: onPageChanged,
+      itemBuilder: (context, index) {
+        final photo = photos[index];
+
+        return AuthenticatedMediaImage(
+          key: ValueKey('memory-details.hero.display.${photo.id}'),
+          media: photo,
+          representation: AuthenticatedMediaRepresentation.display,
+          fit: BoxFit.cover,
+          placeholder: const _MemoryHeroFallback(
+            key: ValueKey('memory-details.hero.display-loading'),
+            isLoading: true,
+          ),
+          errorBuilder: (context) {
+            return const _MemoryHeroFallback(
+              key: ValueKey('memory-details.hero.display-failure'),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _MemoryHeroFallback extends StatelessWidget {
+  const _MemoryHeroFallback({
+    this.isLoading = false,
+    super.key,
+  });
+
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFF8A99),
-            Color(0xFFFF5D72),
-            Color(0xFF4F8F86),
+            Color(0xFFFFA3AE),
+            Color(0xFFFF6A7C),
+            Color(0xFF6EA79E),
           ],
         ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x24FF5D72),
-            offset: Offset(0, 14),
-            blurRadius: 30,
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _HeroDatePill(memory: memory),
-              ),
-              if (onEdit != null)
-                IconButton.filled(
-                  key: const ValueKey('memory-details.edit-action'),
-                  onPressed:
-                      editEnabled ? () => onEdit!(memory) : null,
-                  tooltip: l10n.memoryDetailsEditAction,
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFFF5D72),
+      child: Center(
+        child: Container(
+          width: 82,
+          height: 82,
+          decoration: BoxDecoration(
+            color: const Color(0x33FFFFFF),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0x33FFFFFF)),
+          ),
+          child: isLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(25),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
                   ),
-                  icon: const Icon(Icons.edit_rounded),
+                )
+              : const Icon(
+                  Icons.photo_camera_outlined,
+                  color: Colors.white,
+                  size: 38,
                 ),
-            ],
-          ),
-          const SizedBox(height: 34),
-          Text(
-            memory.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              height: 1.12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _HeroDatePill extends StatelessWidget {
-  const _HeroDatePill({
-    required this.memory,
-  });
-
-  final Memory memory;
+class _MemoryHeroScrim extends StatelessWidget {
+  const _MemoryHeroScrim();
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+    return IgnorePointer(
+      child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0x2EFFFFFF),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0x3DFFFFFF)),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withValues(alpha: 0.42),
+              Colors.black.withValues(alpha: 0.04),
+              Colors.black.withValues(alpha: 0.70),
+            ],
+            stops: const [0, 0.48, 1],
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+      ),
+    );
+  }
+}
+
+class _MemoryHeroText extends StatelessWidget {
+  const _MemoryHeroText({
+    required this.memory,
+    required this.photoCount,
+    required this.currentIndex,
+  });
+
+  final Memory memory;
+  final int photoCount;
+  final int currentIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          memory.title,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 34,
+            height: 1.08,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Icon(
-              Icons.calendar_today_rounded,
-              color: Colors.white,
-              size: 18,
+            Expanded(
+              child: _HeroDateText(memory: memory),
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                formatMemoryDate(l10n, memory.eventDate),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            if (photoCount > 0) ...[
+              const SizedBox(width: 14),
+              Text(
+                '${currentIndex + 1} / $photoCount',
+                key: const ValueKey('memory-details.hero.photo-counter'),
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
                   letterSpacing: 0,
                 ),
               ),
-            ),
+            ],
           ],
         ),
-      ),
+      ],
     );
   }
 }
 
-class _MemoryDescriptionCard extends StatelessWidget {
-  const _MemoryDescriptionCard({
+class _HeroDateText extends StatelessWidget {
+  const _HeroDateText({
     required this.memory,
   });
 
@@ -543,72 +810,697 @@ class _MemoryDescriptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final description = _visibleText(memory.description);
 
-    return _DetailsCard(
-      key: const ValueKey('memory-details.description-card'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionTitle(
-            icon: Icons.notes_rounded,
-            title: l10n.memoryDetailsDescriptionTitle,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            description ?? l10n.memoryDetailsNoDescription,
-            style: TextStyle(
-              color: description == null
-                  ? const Color(0xFF8A93A3)
-                  : const Color(0xFF4B5563),
-              fontSize: 16,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
+    return Text(
+      formatMemoryDate(l10n, memory.eventDate),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Color(0xFFEFF5F4),
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0,
       ),
     );
   }
 }
 
-class _MemoryPlaceCard extends StatelessWidget {
-  const _MemoryPlaceCard({
+class _HeroCircleButton extends StatelessWidget {
+  const _HeroCircleButton({
+    required this.buttonKey,
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final Key buttonKey;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filled(
+      key: buttonKey,
+      onPressed: onPressed,
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: 0.88),
+        disabledBackgroundColor: Colors.white.withValues(alpha: 0.54),
+        foregroundColor: const Color(0xFF28323C),
+        disabledForegroundColor: const Color(0xFF8A93A3),
+      ),
+      icon: Icon(icon, size: 21),
+    );
+  }
+}
+
+class _HeroPageDots extends StatelessWidget {
+  const _HeroPageDots({
+    required this.count,
+    required this.currentIndex,
+  });
+
+  final int count;
+  final int currentIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const ValueKey('memory-details.hero.page-indicator'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (index) {
+        final isSelected = index == currentIndex;
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: isSelected ? 16 : 6,
+          height: 6,
+          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF64717F)
+                : const Color(0xFFE1E6ED),
+            borderRadius: BorderRadius.circular(99),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _MemoryDescriptionSection extends StatelessWidget {
+  const _MemoryDescriptionSection({
+    required this.description,
+  });
+
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      description,
+      key: const ValueKey('memory-details.description-section'),
+      style: const TextStyle(
+        color: Color(0xFF3E4754),
+        fontSize: 16,
+        height: 1.44,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+      ),
+    );
+  }
+}
+
+class _MemoryPlaceSection extends StatelessWidget {
+  const _MemoryPlaceSection({
     required this.memory,
+    required this.onOpenMap,
+    required this.mapBuilder,
   });
 
   final Memory memory;
+  final ValueChanged<Memory>? onOpenMap;
+  final MemoryLocationMapBuilder mapBuilder;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final placeName = _visibleText(memory.placeName);
+    final configuration = _memoryLocationMapConfiguration(memory);
 
     return _DetailsCard(
-      key: const ValueKey('memory-details.place-card'),
+      key: const ValueKey('memory-details.place-section'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(
-            icon: Icons.place_rounded,
-            title: l10n.memoryDetailsPlaceTitle,
+          Row(
+            children: [
+              Expanded(
+                child: _SectionTitle(
+                  icon: Icons.place_rounded,
+                  title: l10n.memoryDetailsPlaceTitle,
+                ),
+              ),
+              if (onOpenMap != null)
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      key: const ValueKey('memory-details.open-map-action'),
+                      onPressed: () => onOpenMap!(memory),
+                      icon: const Icon(Icons.map_rounded, size: 17),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFFF5D72),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 34),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      label: Text(
+                        l10n.memoryDetailsOpenOnMapAction,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 14),
+          if (placeName != null) ...[
+            const SizedBox(height: 7),
+            Text(
+              placeName,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF4B5563),
+                fontSize: 15,
+                height: 1.32,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          _MemoryLocationMapPreview(
+            configuration: configuration,
+            mapBuilder: mapBuilder,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemoryLocationMapPreview extends StatelessWidget {
+  const _MemoryLocationMapPreview({
+    required this.configuration,
+    required this.mapBuilder,
+  });
+
+  final MemoryLocationMapConfiguration configuration;
+  final MemoryLocationMapBuilder mapBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: SizedBox(
+        key: const ValueKey('memory-details.map-preview'),
+        height: _memoryDetailsMapHeight,
+        width: double.infinity,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: Color(0xFFEAF0F5)),
+          child: _SafeMemoryLocationMap(
+            configuration: configuration,
+            mapBuilder: mapBuilder,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SafeMemoryLocationMap extends StatelessWidget {
+  const _SafeMemoryLocationMap({
+    required this.configuration,
+    required this.mapBuilder,
+  });
+
+  final MemoryLocationMapConfiguration configuration;
+  final MemoryLocationMapBuilder mapBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    try {
+      return mapBuilder(context, configuration);
+    } catch (_) {
+      return const _MemoryLocationMapUnavailable();
+    }
+  }
+}
+
+class _MemoryLocationMapUnavailable extends StatelessWidget {
+  const _MemoryLocationMapUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Text(
+          l10n.memoryDetailsMapUnavailable,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Color(0xFF6B7280),
+            fontSize: 14,
+            height: 1.35,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MemoryPhotosStripSection extends ConsumerWidget {
+  const _MemoryPhotosStripSection({
+    required this.memoryId,
+    required this.photos,
+    required this.mediaValue,
+    required this.selectedIndex,
+    required this.canUploadPhoto,
+    required this.onPhotoSelected,
+  });
+
+  final String memoryId;
+  final List<Media> photos;
+  final AsyncValue<MemoryMediaState> mediaValue;
+  final int selectedIndex;
+  final bool canUploadPhoto;
+  final ValueChanged<int> onPhotoSelected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final uploadValue = ref.watch(uploadPhotoProvider(memoryId));
+    final uploadState = uploadValue.asData?.value ?? const UploadPhotoState();
+
+    return _DetailsCard(
+      key: const ValueKey('memory-details.photos-section'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _SectionTitle(
+                  icon: Icons.photo_library_rounded,
+                  title: l10n.memoryMediaTitle,
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('memory-media.refresh-action'),
+                onPressed: mediaValue.isLoading ||
+                        uploadState.isBusy ||
+                        _isRefreshing(mediaValue)
+                    ? null
+                    : () {
+                        ref
+                            .read(memoryMediaProvider(memoryId).notifier)
+                            .refreshMedia();
+                      },
+                tooltip: l10n.memoryMediaRefreshAction,
+                style: IconButton.styleFrom(
+                  padding: const EdgeInsets.all(8),
+                  minimumSize: const Size.square(38),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+              if (canUploadPhoto)
+                IconButton.filled(
+                  key: const ValueKey('memory-media.add-photo-action'),
+                  onPressed: uploadState.isBusy
+                      ? null
+                      : () {
+                          ref
+                              .read(uploadPhotoProvider(memoryId).notifier)
+                              .selectPrepareAndUpload();
+                        },
+                  tooltip: l10n.memoryMediaAddPhotoAction,
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF5D72),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(8),
+                    minimumSize: const Size.square(38),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: uploadState.isBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.add_photo_alternate_rounded),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (uploadState.phase == UploadPhotoPhase.selecting)
+            _MediaStatusBanner(message: l10n.memoryMediaSelectingPhoto),
+          if (uploadState.phase == UploadPhotoPhase.preparing)
+            _MediaStatusBanner(message: l10n.memoryMediaPreparingPhoto),
+          if (uploadState.phase == UploadPhotoPhase.uploading)
+            _MediaStatusBanner(message: l10n.memoryMediaUploadingPhoto),
+          if (uploadState.failure != null)
+            _MediaFailureBanner(
+              message: mediaFailureMessage(l10n, uploadState.failure!),
+            ),
+          if (uploadValue.hasError)
+            _MediaFailureBanner(message: l10n.mediaFailureUnknown),
+          if (mediaValue.hasError)
+            _MediaFailureBanner(message: l10n.mediaFailureUnknown)
+          else
+            _MemoryPhotosStripContent(
+              memoryId: memoryId,
+              photos: photos,
+              mediaValue: mediaValue,
+              selectedIndex: selectedIndex,
+              onPhotoSelected: onPhotoSelected,
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool _isRefreshing(AsyncValue<MemoryMediaState> value) {
+    return value.asData?.value.isRefreshing ?? false;
+  }
+}
+
+class _MemoryPhotosStripContent extends ConsumerWidget {
+  const _MemoryPhotosStripContent({
+    required this.memoryId,
+    required this.photos,
+    required this.mediaValue,
+    required this.selectedIndex,
+    required this.onPhotoSelected,
+  });
+
+  final String memoryId;
+  final List<Media> photos;
+  final AsyncValue<MemoryMediaState> mediaValue;
+  final int selectedIndex;
+  final ValueChanged<int> onPhotoSelected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    if (mediaValue.isLoading) {
+      return const _PhotoStripSkeleton();
+    }
+
+    final state = mediaValue.asData?.value;
+    if (state == null) {
+      return const SizedBox.shrink();
+    }
+
+    final loadFailure = state.loadFailure;
+    if (loadFailure != null) {
+      return _MediaRetryFailure(
+        message: mediaFailureMessage(l10n, loadFailure),
+        onRetry: () {
+          ref.read(memoryMediaProvider(memoryId).notifier).retryLoad();
+        },
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (state.isRefreshing)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: LinearProgressIndicator(
+              minHeight: 3,
+              color: Color(0xFFFF5D72),
+              backgroundColor: Color(0xFFFFE6EA),
+            ),
+          ),
+        if (state.refreshFailure != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _MediaRetryFailure(
+              message: mediaFailureMessage(l10n, state.refreshFailure!),
+              onRetry: () {
+                ref.read(memoryMediaProvider(memoryId).notifier).refreshMedia();
+              },
+            ),
+          ),
+        if (photos.isEmpty)
           Text(
-            placeName ?? l10n.memoryDetailsNoPlace,
-            style: TextStyle(
-              color: placeName == null
-                  ? const Color(0xFF8A93A3)
-                  : const Color(0xFF4B5563),
-              fontSize: 16,
-              height: 1.45,
+            l10n.memoryMediaEmpty,
+            style: const TextStyle(
+              color: Color(0xFF8A93A3),
+              fontSize: 15,
+              height: 1.35,
               fontWeight: FontWeight.w600,
               letterSpacing: 0,
+            ),
+          )
+        else
+          SingleChildScrollView(
+            key: const ValueKey('memory-media.thumbnail-strip'),
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var index = 0; index < photos.length; index += 1) ...[
+                  if (index > 0)
+                    const SizedBox(width: _memoryDetailsThumbnailGap),
+                  _PhotoStripThumbnail(
+                    media: photos[index],
+                    isSelected: index == selectedIndex,
+                    onTap: () {
+                      onPhotoSelected(index);
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _PhotoStripThumbnail extends StatelessWidget {
+  const _PhotoStripThumbnail({
+    required this.media,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Media media;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Semantics(
+      label: l10n.memoryMediaOpenPhotoLabel,
+      image: true,
+      selected: isSelected,
+      button: true,
+      child: Material(
+        color: const Color(0xFFF3F5F8),
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey('memory-media.thumbnail.${media.id}'),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            width: _memoryDetailsThumbnailSize,
+            height: _memoryDetailsThumbnailSize,
+            padding: EdgeInsets.all(isSelected ? 2 : 0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFFFF5D72)
+                    : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(isSelected ? 13 : 16),
+              child: AuthenticatedMediaImage(
+                media: media,
+                representation: AuthenticatedMediaRepresentation.thumbnail,
+                fit: BoxFit.cover,
+                placeholder: const _PhotoThumbnailPlaceholder(),
+                errorBuilder: (_) => const _PhotoThumbnailErrorPlaceholder(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoStripSkeleton extends StatelessWidget {
+  const _PhotoStripSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const ValueKey('memory-media.loading-view'),
+      children: const [
+        _PhotoSkeletonSquare(),
+        SizedBox(width: _memoryDetailsThumbnailGap),
+        _PhotoSkeletonSquare(),
+        SizedBox(width: _memoryDetailsThumbnailGap),
+        _PhotoSkeletonSquare(),
+      ],
+    );
+  }
+}
+
+class _PhotoSkeletonSquare extends StatelessWidget {
+  const _PhotoSkeletonSquare();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: _memoryDetailsThumbnailSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color(0xFFF3F5F8),
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoThumbnailPlaceholder extends StatelessWidget {
+  const _PhotoThumbnailPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFFF3F5F8),
+      child: Center(
+        child: SizedBox.square(
+          dimension: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFFFF5D72),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoThumbnailErrorPlaceholder extends StatelessWidget {
+  const _PhotoThumbnailErrorPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFFF3F5F8),
+      child: Center(
+        child: Icon(
+          Icons.broken_image_rounded,
+          color: Color(0xFF8A93A3),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaStatusBanner extends StatelessWidget {
+  const _MediaStatusBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          const SizedBox.square(
+            dimension: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFFFF5D72),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MediaFailureBanner extends StatelessWidget {
+  const _MediaFailureBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: Color(0xFFFF5D72),
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaRetryFailure extends StatelessWidget {
+  const _MediaRetryFailure({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Row(
+      children: [
+        Expanded(child: _MediaFailureBanner(message: message)),
+        TextButton(
+          key: const ValueKey('memory-media.retry-action'),
+          onPressed: onRetry,
+          child: Text(l10n.retry),
+        ),
+      ],
     );
   }
 }
@@ -635,15 +1527,17 @@ class _DeleteMemoryCard extends StatelessWidget {
         onPressed: isDisabled ? null : onDelete,
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFFFF5D72),
-          side: const BorderSide(color: Color(0xFFFF8A99)),
-          minimumSize: const Size.fromHeight(56),
+          side: const BorderSide(color: Color(0xFFFFCAD2)),
+          backgroundColor: const Color(0xFFFFFAFB),
+          minimumSize: const Size.fromHeight(48),
           alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
           textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
             letterSpacing: 0,
           ),
         ),
@@ -651,11 +1545,11 @@ class _DeleteMemoryCard extends StatelessWidget {
             ? const SizedBox.square(
                 dimension: 18,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2,
+                  strokeWidth: 1.8,
                   color: Color(0xFFFF5D72),
                 ),
               )
-            : const Icon(Icons.delete_outline_rounded),
+            : const Icon(Icons.delete_outline_rounded, size: 20),
         label: Text(
           isDeleting
               ? l10n.deleteMemoryDeleting
@@ -890,15 +1784,15 @@ class _DetailsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(_memoryDetailsCardPadding),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
+            color: Color(0x0F0F172A),
+            offset: Offset(0, 8),
+            blurRadius: 22,
           ),
         ],
       ),
@@ -920,8 +1814,8 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFFFF5D72)),
-        const SizedBox(width: 10),
+        Icon(icon, color: const Color(0xFFFF5D72), size: 22),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             title,
@@ -929,7 +1823,7 @@ class _SectionTitle extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF1F2937),
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.w900,
               letterSpacing: 0,
             ),
@@ -946,4 +1840,37 @@ String? _visibleText(String? value) {
   }
 
   return value;
+}
+
+MemoryLocationMapConfiguration _memoryLocationMapConfiguration(Memory memory) {
+  final coordinate = MapCoordinate(
+    latitude: memory.location.latitude,
+    longitude: memory.location.longitude,
+  );
+
+  return MemoryLocationMapConfiguration(
+    marker: MapMarker(id: memory.id, coordinate: coordinate),
+    sourceConfiguration: MapSources.openFreeMapLiberty,
+    cameraCommand: MapCameraCommand(
+      revision: 1,
+      target: MapCameraTarget.point(
+        coordinate: coordinate,
+        zoom: 13.0,
+      ),
+    ),
+  );
+}
+
+Widget defaultMemoryLocationMapBuilder(
+  BuildContext context,
+  MemoryLocationMapConfiguration configuration,
+) {
+  return IgnorePointer(
+    child: MapLibreMarkerMap(
+      markers: [configuration.marker],
+      sourceConfiguration: configuration.sourceConfiguration,
+      selectedMarkerId: configuration.marker.id,
+      cameraCommand: configuration.cameraCommand,
+    ),
+  );
 }

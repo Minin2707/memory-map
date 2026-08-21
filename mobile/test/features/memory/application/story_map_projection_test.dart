@@ -3,6 +3,8 @@ import 'package:memory_map/features/memory/application/story_map_projection.dart
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 
 void main() {
   group('Story Map projection', () {
@@ -122,6 +124,96 @@ void main() {
       expect(text, isNot(contains('Private title')));
       expect(text, isNot(contains('Private description')));
       expect(text, isNot(contains('Private place')));
+      expect(text, isNot(contains('41.715123')));
+      expect(text, isNot(contains('44.827456')));
+    });
+
+    test('shouldProjectMarkerPresentationWithPhotoPreview', () {
+      final preview = MemoryPhotoPreview(
+        mediaId: 'private-media-id',
+        thumbnailPath: '/api/v1/media/private-media-id/thumbnail',
+      );
+
+      final presentation = storyMapMarkerPresentationFromMemoryReadModel(
+        MemoryReadModel(
+          memory: memory(id: 'memory-1'),
+          previewPhoto: preview,
+        ),
+      );
+
+      expect(presentation.marker.id, 'memory-1');
+      expect(presentation.previewPhoto, preview);
+      expect(presentation.hasPreviewPhoto, isTrue);
+    });
+
+    test('shouldProjectNoPhotoMarkerPresentation', () {
+      final presentation = storyMapMarkerPresentationFromMemoryReadModel(
+        MemoryReadModel.fromMemory(memory(id: 'memory-1')),
+      );
+
+      expect(presentation.marker.id, 'memory-1');
+      expect(presentation.previewPhoto, isNull);
+      expect(presentation.hasPreviewPhoto, isFalse);
+    });
+
+    test('shouldPreservePresentationOrderAndPreviewReplacement', () {
+      final firstPreview = MemoryPhotoPreview(
+        mediaId: 'media-a',
+        thumbnailPath: '/api/v1/media/media-a/thumbnail',
+      );
+      final replacementPreview = MemoryPhotoPreview(
+        mediaId: 'media-b',
+        thumbnailPath: '/api/v1/media/media-b/thumbnail',
+      );
+      final first = MemoryReadModel(
+        memory: memory(id: 'memory-1'),
+        previewPhoto: firstPreview,
+      );
+      final second = MemoryReadModel.fromMemory(memory(id: 'memory-2'));
+
+      final presentations = storyMapMarkerPresentationsFromMemoryReadModels(
+        <MemoryReadModel>[
+          first,
+          second,
+          MemoryReadModel(
+            memory: memory(id: 'memory-1'),
+            previewPhoto: replacementPreview,
+          ),
+        ],
+      );
+
+      expect(
+        presentations.map((presentation) => presentation.marker.id),
+        <String>['memory-1', 'memory-2', 'memory-1'],
+      );
+      expect(presentations[0].previewPhoto, firstPreview);
+      expect(presentations[1].previewPhoto, isNull);
+      expect(presentations[2].previewPhoto, replacementPreview);
+    });
+
+    test('shouldHaveSafePresentationDiagnostics', () {
+      final presentation = storyMapMarkerPresentationFromMemoryReadModel(
+        MemoryReadModel(
+          memory: memory(
+            id: 'private-memory-id',
+            storyId: 'private-story-id',
+            latitude: 41.715123,
+            longitude: 44.827456,
+          ),
+          previewPhoto: MemoryPhotoPreview(
+            mediaId: 'private-media-id',
+            thumbnailPath: '/api/v1/media/private-media-id/thumbnail',
+          ),
+        ),
+      );
+
+      final text = presentation.toString();
+
+      expect(text, contains('hasPreviewPhoto: true'));
+      expect(text, isNot(contains('private-memory-id')));
+      expect(text, isNot(contains('private-story-id')));
+      expect(text, isNot(contains('private-media-id')));
+      expect(text, isNot(contains('/api/v1/media')));
       expect(text, isNot(contains('41.715123')));
       expect(text, isNot(contains('44.827456')));
     });

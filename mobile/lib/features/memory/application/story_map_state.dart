@@ -1,9 +1,12 @@
 import 'package:memory_map/features/map/domain/map_marker.dart';
+import 'package:memory_map/features/memory/application/story_map_projection.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
 
 final class StoryMapState {
   factory StoryMapState({
     List<MapMarker> markers = const <MapMarker>[],
+    List<StoryMapMarkerPresentation> markerPresentations =
+        const <StoryMapMarkerPresentation>[],
     String? selectedMarkerId,
     MemoryFailure? loadFailure,
     bool isRefreshing = false,
@@ -13,8 +16,25 @@ final class StoryMapState {
       throw ArgumentError('selectedMarkerId must not be blank');
     }
 
+    final effectiveMarkerPresentations =
+        markerPresentations.isEmpty && markers.isNotEmpty
+            ? markers
+                .map(
+                  (marker) => StoryMapMarkerPresentation(marker: marker),
+                )
+                .toList(growable: false)
+            : markerPresentations;
+    final effectiveMarkers = effectiveMarkerPresentations.isEmpty
+        ? markers
+        : effectiveMarkerPresentations
+            .map((presentation) => presentation.marker)
+            .toList(growable: false);
+
     return StoryMapState._(
-      markers: List<MapMarker>.unmodifiable(markers),
+      markers: List<MapMarker>.unmodifiable(effectiveMarkers),
+      markerPresentations: List<StoryMapMarkerPresentation>.unmodifiable(
+        effectiveMarkerPresentations,
+      ),
       selectedMarkerId: selectedMarkerId,
       loadFailure: loadFailure,
       isRefreshing: isRefreshing,
@@ -24,6 +44,7 @@ final class StoryMapState {
 
   const StoryMapState._({
     required this.markers,
+    required this.markerPresentations,
     required this.selectedMarkerId,
     required this.loadFailure,
     required this.isRefreshing,
@@ -31,6 +52,7 @@ final class StoryMapState {
   });
 
   final List<MapMarker> markers;
+  final List<StoryMapMarkerPresentation> markerPresentations;
   final String? selectedMarkerId;
   final MemoryFailure? loadFailure;
   final bool isRefreshing;
@@ -49,6 +71,7 @@ final class StoryMapState {
     return identical(this, other) ||
         other is StoryMapState &&
             _listEquals(markers, other.markers) &&
+            _listEquals(markerPresentations, other.markerPresentations) &&
             selectedMarkerId == other.selectedMarkerId &&
             loadFailure == other.loadFailure &&
             isRefreshing == other.isRefreshing &&
@@ -58,6 +81,7 @@ final class StoryMapState {
   @override
   int get hashCode => Object.hash(
         Object.hashAll(markers),
+        Object.hashAll(markerPresentations),
         selectedMarkerId,
         loadFailure,
         isRefreshing,
