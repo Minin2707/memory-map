@@ -1301,6 +1301,75 @@ void main() {
       expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
+    testWidgets('shouldOpenMemoryDetailsFromPlaybackAndReturnPaused', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeMemoryRepository = FakeMemoryRepository();
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        memoryRepository: fakeMemoryRepository,
+        storyPlaybackMapBuilder: controllableStoryPlaybackMapBuilder,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsPlaybackAction(tester);
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.playback-action')),
+      );
+
+      expect(find.byKey(const ValueKey('story-playback.screen')), findsOneWidget);
+      expect(find.text('Fake playback markers: 2'), findsOneWidget);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.fake-camera-arrived')),
+      );
+
+      expect(find.byKey(const ValueKey('story-playback.details')), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.details')),
+      );
+
+      expect(find.byKey(const ValueKey('memory-details.hero')), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsNothing);
+      expect(find.byKey(const ValueKey('story-playback.screen')), findsNothing);
+      expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
+
+      container
+          .read(storyMemoriesProvider(ownerStory.story.id).notifier)
+          .upsertAuthoritativeRead(
+            MemoryReadModel.fromMemory(
+              memory(
+                id: 'memory-c',
+                title: 'Fresh shared memory',
+                location: memoryLocationA,
+                eventDate: MemoryDate(year: 2026, month: 6, day: 1),
+              ),
+            ),
+          );
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('memory-details.back-action')),
+      );
+
+      expect(find.byKey(const ValueKey('story-playback.screen')), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
+      expect(find.text(memoryA.title), findsOneWidget);
+      expect(find.text('Fake playback markers: 2'), findsOneWidget);
+      expect(find.text('Fake playback current: 0'), findsOneWidget);
+      expect(find.text('Fresh shared memory'), findsNothing);
+      expect(fakeMemoryRepository.getMemoriesCalls, 1);
+    });
+
     testWidgets('shouldOpenStoryPlaybackFromTimelineAndCloseBackToTimeline', (
       WidgetTester tester,
     ) async {
@@ -3383,6 +3452,41 @@ Widget fakeStoryPlaybackMapBuilder(
       child: Text(
         'Fake playback markers: ${presentation.markers.length}',
         style: const TextStyle(color: Colors.white),
+      ),
+    ),
+  );
+}
+
+Widget controllableStoryPlaybackMapBuilder(
+  BuildContext context,
+  PlaybackMapPresentation presentation,
+) {
+  return ColoredBox(
+    key: const ValueKey('story-playback.fake-map'),
+    color: const Color(0xFF101820),
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Fake playback markers: ${presentation.markers.length}',
+            style: const TextStyle(color: Colors.white),
+          ),
+          Text(
+            'Fake playback current: ${presentation.currentIndex ?? -1}',
+            style: const TextStyle(color: Colors.white),
+          ),
+          TextButton(
+            key: const ValueKey('story-playback.fake-camera-arrived'),
+            onPressed: () {
+              final command = presentation.cameraCommand;
+              if (command != null) {
+                presentation.onCameraArrived(command.revision);
+              }
+            },
+            child: const Text('Arrive camera'),
+          ),
+        ],
       ),
     ),
   );

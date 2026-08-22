@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/playback/presentation/story_playback_screen.dart';
 
 final storyPlaybackMapBuilderProvider = Provider<PlaybackMapBuilder?>((_) {
@@ -13,6 +14,7 @@ class StoryPlaybackRoute extends ConsumerWidget {
     required this.fallbackRouteName,
     required this.storyIdPathParameter,
     this.storyTitle,
+    this.onMemoryDetailsSelected,
     super.key,
   });
 
@@ -20,6 +22,7 @@ class StoryPlaybackRoute extends ConsumerWidget {
   final String fallbackRouteName;
   final String storyIdPathParameter;
   final String? storyTitle;
+  final ValueChanged<MemoryReadModel>? onMemoryDetailsSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,6 +37,7 @@ class StoryPlaybackRoute extends ConsumerWidget {
         storyId: storyId,
         storyTitle: storyTitle,
         mapBuilder: ref.watch(storyPlaybackMapBuilderProvider),
+        onMemoryDetailsSelected: onMemoryDetailsSelected,
         onClose: () {
           _close(context);
         },

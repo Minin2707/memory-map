@@ -1165,6 +1165,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playbackTitle => 'Playback';
 
   @override
+  String get playbackContextLabel => 'Story playback';
+
+  @override
+  String playbackProgressLabel(int current, int total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total memories',
+      one: '1 memory',
+    );
+    return '$current / $_temp0';
+  }
+
+  @override
   String get playbackPreviousAction => 'Previous';
 
   @override

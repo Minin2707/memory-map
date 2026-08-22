@@ -1182,6 +1182,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playbackTitle => 'Воспроизведение';
 
   @override
+  String get playbackContextLabel => 'Воспроизведение истории';
+
+  @override
+  String playbackProgressLabel(int current, int total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total воспоминаний',
+      many: '$total воспоминаний',
+      few: '$total воспоминания',
+      one: '1 воспоминание',
+    );
+    return '$current / $_temp0';
+  }
+
+  @override
   String get playbackPreviousAction => 'Назад';
 
   @override

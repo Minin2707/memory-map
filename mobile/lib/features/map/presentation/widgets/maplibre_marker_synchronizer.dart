@@ -55,6 +55,24 @@ final class MapMarkerIcon {
   String toString() => 'MapMarkerIcon(hasBytes: true)';
 }
 
+String? resolveCompatibleMarkerIconKey({
+  required String desiredImageKey,
+  required Iterable<String> compatibleImageKeys,
+  required bool Function(String imageKey) hasIconBytes,
+}) {
+  if (hasIconBytes(desiredImageKey)) {
+    return desiredImageKey;
+  }
+
+  for (final imageKey in compatibleImageKeys) {
+    if (hasIconBytes(imageKey)) {
+      return imageKey;
+    }
+  }
+
+  return null;
+}
+
 final class MapMarkerRenderOptions {
   const MapMarkerRenderOptions({
     required this.coordinate,

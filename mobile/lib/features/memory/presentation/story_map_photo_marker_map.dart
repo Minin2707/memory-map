@@ -257,17 +257,11 @@ String? resolveStoryMapMarkerIconKey({
   required Iterable<String> compatibleImageKeys,
   required bool Function(String imageKey) hasIconBytes,
 }) {
-  if (hasIconBytes(desiredImageKey)) {
-    return desiredImageKey;
-  }
-
-  for (final imageKey in compatibleImageKeys) {
-    if (hasIconBytes(imageKey)) {
-      return imageKey;
-    }
-  }
-
-  return null;
+  return resolveCompatibleMarkerIconKey(
+    desiredImageKey: desiredImageKey,
+    compatibleImageKeys: compatibleImageKeys,
+    hasIconBytes: hasIconBytes,
+  );
 }
 
 Future<Uint8List> _composeMarkerIcon({

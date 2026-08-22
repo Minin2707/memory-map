@@ -1,19 +1,24 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:memory_map/features/map/config/map_source_configuration.dart';
+import 'package:memory_map/features/map/domain/map_coordinate.dart';
 import 'package:memory_map/features/map/domain/map_marker.dart';
 import 'package:memory_map/features/map/presentation/widgets/maplibre_marker_map.dart';
 import 'package:memory_map/features/map/presentation/widgets/maplibre_marker_synchronizer.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/playback/domain/playback_camera_command.dart';
 import 'package:memory_map/features/playback/presentation/map/maplibre_playback_map_camera_port.dart';
 import 'package:memory_map/features/playback/presentation/map/playback_map_camera_adapter.dart';
 import 'package:memory_map/features/playback/presentation/map/playback_marker_projection.dart';
+import 'package:memory_map/features/playback/presentation/map/playback_marker_visual.dart';
 import 'package:memory_map/features/playback/presentation/map/playback_route_projection.dart';
 import 'package:memory_map/features/playback/presentation/map/playback_route_synchronizer.dart';
 
-class PlaybackMapView extends StatefulWidget {
+class PlaybackMapView extends ConsumerStatefulWidget {
   const PlaybackMapView({
     required this.markers,
     required this.route,
@@ -34,7 +39,7 @@ class PlaybackMapView extends StatefulWidget {
   final MapSourceConfiguration sourceConfiguration;
 
   @override
-  State<PlaybackMapView> createState() => _PlaybackMapViewState();
+  ConsumerState<PlaybackMapView> createState() => _PlaybackMapViewState();
 }
 
 const PlaybackMapInteractionPolicy playbackMapInteractionPolicy =
@@ -52,9 +57,15 @@ final class PlaybackMapInteractionPolicy {
   bool get tiltGesturesEnabled => false;
 }
 
-class _PlaybackMapViewState extends State<PlaybackMapView> {
+class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   late final PlaybackMapCameraAdapter _cameraAdapter;
-  MapLibreMarkerSynchronizer<Circle>? _markerSynchronizer;
+  final Map<String, Uint8List> _thumbnailBytesByPath = <String, Uint8List>{};
+  final Set<String> _failedThumbnailPaths = <String>{};
+  final Set<String> _loadingThumbnailPaths = <String>{};
+  final Map<String, Uint8List> _iconBytesByKey = <String, Uint8List>{};
+  final Set<String> _pendingIconKeys = <String>{};
+  final Set<String> _failedIconKeys = <String>{};
+  MapLibreMarkerSynchronizer<Symbol>? _markerSynchronizer;
   PlaybackRouteSynchronizer? _routeSynchronizer;
 
   @override
@@ -80,10 +91,13 @@ class _PlaybackMapViewState extends State<PlaybackMapView> {
     if (oldWidget.cameraCommand != widget.cameraCommand) {
       _cameraAdapter.updateCommand(widget.cameraCommand);
     }
-    _markerSynchronizer?.updateMarkers(
-      _mapMarkers,
-      selectedMarkerId: _currentMarkerId,
-    );
+    if (oldWidget.markers != widget.markers) {
+      _trimThumbnailState();
+    }
+    _startThumbnailLoads();
+    final requests = _iconRequests();
+    _startIconComposition(requests);
+    _syncMarkers(requests);
     _routeSynchronizer?.updateRoute(widget.route);
   }
 
@@ -106,6 +120,8 @@ class _PlaybackMapViewState extends State<PlaybackMapView> {
   @override
   Widget build(BuildContext context) {
     final markerSynchronizer = _markerSynchronizer;
+    _startThumbnailLoads();
+    _startIconComposition(_iconRequests());
 
     return Stack(
       fit: StackFit.expand,
@@ -137,12 +153,14 @@ class _PlaybackMapViewState extends State<PlaybackMapView> {
               MapLibrePlaybackMapCameraPort(controller),
             );
             _routeSynchronizer = PlaybackRouteSynchronizer(
-              controller: _PlaybackLineRouteController(controller),
+              controller: _PlaybackStyleRouteController(controller),
             )..updateRoute(widget.route);
-            _markerSynchronizer = MapLibreMarkerSynchronizer<Circle>(
-              controller: _PlaybackCircleMarkerController(controller),
+            final requests = _iconRequests();
+            _markerSynchronizer = MapLibreMarkerSynchronizer<Symbol>(
+              controller: MapLibreSymbolMarkerController(controller),
             )..updateMarkers(
-                _mapMarkers,
+                _renderMarkers,
+                markerIcons: _markerIcons(requests),
                 selectedMarkerId: _currentMarkerId,
               );
           },
@@ -178,76 +196,275 @@ class _PlaybackMapViewState extends State<PlaybackMapView> {
     return widget.markers.map((marker) => marker.marker).toList(growable: false);
   }
 
+  List<MapMarker> get _renderMarkers {
+    final markers = _mapMarkers;
+    final currentMarkerId = _currentMarkerId;
+    if (currentMarkerId == null) {
+      return markers;
+    }
+
+    return <MapMarker>[
+      ...markers.where((marker) => marker.id != currentMarkerId),
+      ...markers.where((marker) => marker.id == currentMarkerId),
+    ];
+  }
+
   String? get _currentMarkerId {
     return playbackCurrentMarkerId(widget.markers, widget.currentIndex);
   }
+
+  void _syncMarkers([
+    Map<String, PlaybackMarkerIconRequest>? requests,
+  ]) {
+    _markerSynchronizer?.updateMarkers(
+      _renderMarkers,
+      markerIcons: _markerIcons(requests ?? _iconRequests()),
+      selectedMarkerId: _currentMarkerId,
+    );
+  }
+
+  Map<String, MapMarkerIcon> _markerIcons(
+    Map<String, PlaybackMarkerIconRequest> requests,
+  ) {
+    final icons = <String, MapMarkerIcon>{};
+
+    for (final marker in widget.markers) {
+      final request = requests[marker.marker.id];
+      if (request == null) {
+        continue;
+      }
+
+      final imageKey = resolveCompatibleMarkerIconKey(
+        desiredImageKey: request.imageKey,
+        compatibleImageKeys: request.compatibleImageKeys,
+        hasIconBytes: _iconBytesByKey.containsKey,
+      );
+      if (imageKey == null) {
+        continue;
+      }
+
+      final bytes = _iconBytesByKey[imageKey];
+      if (bytes == null) {
+        continue;
+      }
+
+      icons[marker.marker.id] = MapMarkerIcon(
+        imageKey: imageKey,
+        bytes: bytes,
+      );
+    }
+
+    return icons;
+  }
+
+  Map<String, PlaybackMarkerIconRequest> _iconRequests() {
+    final requests = <String, PlaybackMarkerIconRequest>{};
+    final currentMarkerId = _currentMarkerId;
+    final pixelRatio = playbackMarkerPixelRatio(
+      MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    );
+
+    for (final marker in widget.markers) {
+      final preview = marker.previewPhoto;
+      final thumbnailPath = preview?.thumbnailPath;
+      final thumbnailBytes = thumbnailPath == null
+          ? null
+          : _thumbnailBytesByPath[thumbnailPath];
+
+      requests[marker.marker.id] = playbackMarkerIconRequest(
+        sequenceNumber: marker.orderNumber,
+        current: marker.marker.id == currentMarkerId,
+        thumbnailPath: thumbnailPath,
+        thumbnailBytes: thumbnailBytes,
+        pixelRatio: pixelRatio,
+      );
+    }
+
+    return requests;
+  }
+
+  void _startThumbnailLoads() {
+    final paths = _currentThumbnailPaths();
+    for (final path in paths) {
+      if (_thumbnailBytesByPath.containsKey(path) ||
+          _failedThumbnailPaths.contains(path) ||
+          _loadingThumbnailPaths.contains(path)) {
+        continue;
+      }
+
+      _loadingThumbnailPaths.add(path);
+      unawaited(_loadThumbnail(path));
+    }
+  }
+
+  Future<void> _loadThumbnail(String thumbnailPath) async {
+    try {
+      final bytes = await ref
+          .read(mediaRepositoryProvider)
+          .getThumbnailByPath(thumbnailPath);
+      if (!mounted || !_currentThumbnailPaths().contains(thumbnailPath)) {
+        return;
+      }
+
+      setState(() {
+        _loadingThumbnailPaths.remove(thumbnailPath);
+        _thumbnailBytesByPath[thumbnailPath] = bytes;
+      });
+      final requests = _iconRequests();
+      _startIconComposition(requests);
+      _syncMarkers(requests);
+    } catch (_) {
+      if (!mounted || !_currentThumbnailPaths().contains(thumbnailPath)) {
+        return;
+      }
+
+      setState(() {
+        _loadingThumbnailPaths.remove(thumbnailPath);
+        _failedThumbnailPaths.add(thumbnailPath);
+      });
+      final requests = _iconRequests();
+      _startIconComposition(requests);
+      _syncMarkers(requests);
+    }
+  }
+
+  void _startIconComposition(
+    Map<String, PlaybackMarkerIconRequest> requests,
+  ) {
+    for (final request in requests.values) {
+      if (_iconBytesByKey.containsKey(request.imageKey) ||
+          _pendingIconKeys.contains(request.imageKey) ||
+          _failedIconKeys.contains(request.imageKey)) {
+        continue;
+      }
+
+      _pendingIconKeys.add(request.imageKey);
+      unawaited(_composeIcon(request));
+    }
+  }
+
+  Future<void> _composeIcon(PlaybackMarkerIconRequest request) async {
+    try {
+      final bytes = await composePlaybackMarkerIcon(
+        photoBytes: request.photoBytes,
+        sequenceNumber: request.sequenceNumber,
+        current: request.current,
+        pixelRatio: request.pixelRatio,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _pendingIconKeys.remove(request.imageKey);
+        _iconBytesByKey[request.imageKey] = bytes;
+      });
+      _syncMarkers();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _pendingIconKeys.remove(request.imageKey);
+        _failedIconKeys.add(request.imageKey);
+      });
+      _syncMarkers();
+    }
+  }
+
+  Set<String> _currentThumbnailPaths() {
+    return widget.markers
+        .map((marker) => marker.previewPhoto?.thumbnailPath)
+        .whereType<String>()
+        .toSet();
+  }
+
+  void _trimThumbnailState() {
+    final currentPaths = _currentThumbnailPaths();
+    _thumbnailBytesByPath.removeWhere((path, _) => !currentPaths.contains(path));
+    _failedThumbnailPaths.removeWhere((path) => !currentPaths.contains(path));
+    _loadingThumbnailPaths.removeWhere((path) => !currentPaths.contains(path));
+  }
 }
 
-final class _PlaybackLineRouteController
+final class _PlaybackStyleRouteController
     implements PlaybackRouteAnnotationController {
-  _PlaybackLineRouteController(this._controller);
+  _PlaybackStyleRouteController(this._controller);
 
   final MapLibreMapController _controller;
+  bool _hasLayer = false;
+  bool _hasSource = false;
 
   @override
-  Future<void> clearRoute() {
-    return _controller.clearLines();
+  Future<void> clearRoute() async {
+    if (_hasLayer) {
+      try {
+        await _controller.removeLayer(_playbackRouteLayerId);
+      } catch (_) {
+        // A style reload may already have dropped the custom playback layer.
+      } finally {
+        _hasLayer = false;
+      }
+    }
+
+    if (_hasSource) {
+      try {
+        await _controller.removeSource(_playbackRouteSourceId);
+      } catch (_) {
+        // A style reload may already have dropped the custom playback source.
+      } finally {
+        _hasSource = false;
+      }
+    }
   }
 
   @override
   Future<void> addRoute(PlaybackRouteRenderOptions options) async {
-    await _controller.addLine(
-      LineOptions(
-        geometry: options.coordinates
-            .map(mapLibreLatLngFromMapCoordinate)
-            .toList(growable: false),
+    await _controller.addGeoJsonSource(
+      _playbackRouteSourceId,
+      _routeGeoJson(options.coordinates),
+    );
+    _hasSource = true;
+
+    await _controller.addLineLayer(
+      _playbackRouteSourceId,
+      _playbackRouteLayerId,
+      LineLayerProperties(
         lineColor: options.lineColor,
         lineOpacity: options.lineOpacity,
         lineWidth: options.lineWidth,
+        lineDasharray: options.lineDasharray,
+        lineCap: 'round',
         lineJoin: 'round',
       ),
     );
+    _hasLayer = true;
   }
 }
 
-final class _PlaybackCircleMarkerController
-    implements MapMarkerAnnotationController<Circle> {
-  _PlaybackCircleMarkerController(this._controller);
+const String _playbackRouteSourceId = 'memory-map-playback-route-source';
+const String _playbackRouteLayerId = 'memory-map-playback-route-layer';
 
-  final MapLibreMapController _controller;
-
-  @override
-  void addMarkerTapListener(MapMarkerTapHandler<Circle> listener) {
-    _controller.onCircleTapped.add(listener);
-  }
-
-  @override
-  void removeMarkerTapListener(MapMarkerTapHandler<Circle> listener) {
-    _controller.onCircleTapped.remove(listener);
-  }
-
-  @override
-  void handleStyleLoaded() {}
-
-  @override
-  Future<void> clearMarkers() {
-    return _controller.clearCircles();
-  }
-
-  @override
-  Future<List<Circle>> addMarkers(List<MapMarkerRenderOptions> options) {
-    return _controller.addCircles(
-      options.map(_toCircleOptions).toList(growable: false),
-    );
-  }
-}
-
-CircleOptions _toCircleOptions(MapMarkerRenderOptions options) {
-  return CircleOptions(
-    geometry: mapLibreLatLngFromMapCoordinate(options.coordinate),
-    circleColor: options.selected ? '#2F3A4A' : '#FF5D72',
-    circleRadius: options.selected ? 12.0 : 8.0,
-    circleStrokeColor: '#FFFFFF',
-    circleStrokeWidth: options.selected ? 4.0 : 3.0,
-  );
+Map<String, Object> _routeGeoJson(List<MapCoordinate> coordinates) {
+  return <String, Object>{
+    'type': 'FeatureCollection',
+    'features': <Object>[
+      <String, Object>{
+        'type': 'Feature',
+        'properties': <String, Object>{},
+        'geometry': <String, Object>{
+          'type': 'LineString',
+          'coordinates': coordinates
+              .map(
+                (coordinate) => <double>[
+                  coordinate.longitude,
+                  coordinate.latitude,
+                ],
+              )
+              .toList(growable: false),
+        },
+      },
+    ],
+  };
 }

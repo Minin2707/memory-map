@@ -2138,6 +2138,18 @@ abstract class AppLocalizations {
   /// **'Playback'**
   String get playbackTitle;
 
+  /// No description provided for @playbackContextLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Story playback'**
+  String get playbackContextLabel;
+
+  /// No description provided for @playbackProgressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{current} / {total, plural, =1{1 memory} other{{total} memories}}'**
+  String playbackProgressLabel(int current, int total);
+
   /// No description provided for @playbackPreviousAction.
   ///
   /// In en, this message translates to:

@@ -104,7 +104,7 @@ class _MapLibreImageMarkerMapState extends State<MapLibreImageMarkerMap> {
           onMapCreated: (controller) {
             _controller = controller;
             _synchronizer = MapLibreMarkerSynchronizer<Symbol>(
-              controller: _MapLibreSymbolMarkerController(controller),
+              controller: MapLibreSymbolMarkerController(controller),
               onMarkerSelected: widget.onMarkerSelected,
             )..updateMarkers(
                 widget.markers,
@@ -262,9 +262,9 @@ class _MapLibreMarkerMapState extends State<MapLibreMarkerMap> {
   }
 }
 
-final class _MapLibreSymbolMarkerController
+final class MapLibreSymbolMarkerController
     implements MapMarkerAnnotationController<Symbol> {
-  _MapLibreSymbolMarkerController(this._controller);
+  MapLibreSymbolMarkerController(this._controller);
 
   final MapLibreMapController _controller;
   final Set<String> _registeredImageKeys = <String>{};

@@ -455,6 +455,18 @@
   "acceptInviteCancelSemanticsLabel": "Cancel invitation",
   "acceptInviteErrorSemanticsLabel": "Invitation error",
   "playbackTitle": "Playback",
+  "playbackContextLabel": "Story playback",
+  "playbackProgressLabel": "{current} / {total, plural, =1{1 memory} other{{total} memories}}",
+  "@playbackProgressLabel": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "playbackPreviousAction": "Previous",
   "playbackNextAction": "Next",
   "playbackPauseAction": "Pause",

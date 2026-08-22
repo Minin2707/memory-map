@@ -9,6 +9,24 @@ import 'package:memory_map/features/playback/presentation/map/playback_marker_pr
 
 void main() {
   group('Playback marker projection', () {
+    test('shouldReturnNoMarkersForEmptyPlaybackSnapshot', () {
+      final source = <MemoryReadModel>[];
+
+      final markers = playbackMarkersFromSnapshot(source);
+
+      expect(markers, isEmpty);
+      expect(source, isEmpty);
+    });
+
+    test('shouldCreateSingleMarkerWithSequenceNumberOne', () {
+      final markers = playbackMarkersFromSnapshot(<MemoryReadModel>[
+        readModel('memory-a'),
+      ]);
+
+      expect(markers.single.orderNumber, 1);
+      expect(markers.single.marker.id, 'playback-marker-0');
+    });
+
     test('shouldCreateOrderedMarkersFromPlaybackSnapshot', () {
       final markers = playbackMarkersFromSnapshot(<MemoryReadModel>[
         readModel('memory-a', latitude: 41.7151, longitude: 44.8271),
@@ -36,13 +54,16 @@ void main() {
     });
 
     test('shouldProjectPreviewPresenceWithoutLoadingMediaLists', () {
+      final photo = preview('media-a');
       final markers = playbackMarkersFromSnapshot(<MemoryReadModel>[
-        readModel('memory-a', previewPhoto: preview('media-a')),
+        readModel('memory-a', previewPhoto: photo),
         readModel('memory-b'),
       ]);
 
       expect(markers[0].hasPreviewPhoto, isTrue);
+      expect(markers[0].previewPhoto, same(photo));
       expect(markers[1].hasPreviewPhoto, isFalse);
+      expect(markers[1].previewPhoto, isNull);
     });
 
     test('shouldResolveCurrentMarkerIdFromCurrentIndex', () {
@@ -59,9 +80,10 @@ void main() {
     });
 
     test('shouldReturnImmutableMarkerList', () {
-      final markers = playbackMarkersFromSnapshot(<MemoryReadModel>[
+      final source = <MemoryReadModel>[
         readModel('memory-a'),
-      ]);
+      ];
+      final markers = playbackMarkersFromSnapshot(source);
 
       expect(
         () => markers.add(
@@ -71,6 +93,35 @@ void main() {
         ),
         throwsUnsupportedError,
       );
+      expect(source.map((item) => item.memory.id), <String>['memory-a']);
+    });
+
+    test('shouldKeepNumberingDeterministicForSameSnapshotOrder', () {
+      final snapshot = <MemoryReadModel>[
+        readModel('memory-c'),
+        readModel('memory-a'),
+        readModel('memory-b'),
+      ];
+
+      final first = playbackMarkersFromSnapshot(snapshot);
+      final second = playbackMarkersFromSnapshot(snapshot);
+
+      expect(first, second);
+      expect(first.map((marker) => marker.orderNumber), <int>[1, 2, 3]);
+      expect(second.map((marker) => marker.orderNumber), <int>[1, 2, 3]);
+    });
+
+    test('shouldResolveCurrentMarkerIdWithoutMutatingMarkerList', () {
+      final markers = playbackMarkersFromSnapshot(<MemoryReadModel>[
+        readModel('memory-a'),
+        readModel('memory-b'),
+        readModel('memory-c'),
+      ]);
+
+      expect(playbackCurrentMarkerId(markers, 0), 'playback-marker-0');
+      expect(playbackCurrentMarkerId(markers, 1), 'playback-marker-1');
+      expect(playbackCurrentMarkerId(markers, 2), 'playback-marker-2');
+      expect(markers.map((marker) => marker.orderNumber), <int>[1, 2, 3]);
     });
 
     test('shouldUseValueEqualityHashCodeAndSafeToString', () {

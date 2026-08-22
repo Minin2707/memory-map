@@ -455,6 +455,18 @@
   "acceptInviteCancelSemanticsLabel": "Отменить приглашение",
   "acceptInviteErrorSemanticsLabel": "Ошибка приглашения",
   "playbackTitle": "Воспроизведение",
+  "playbackContextLabel": "Воспроизведение истории",
+  "playbackProgressLabel": "{current} / {total, plural, =1{1 воспоминание} few{{total} воспоминания} many{{total} воспоминаний} other{{total} воспоминаний}}",
+  "@playbackProgressLabel": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "playbackPreviousAction": "Назад",
   "playbackNextAction": "Далее",
   "playbackPauseAction": "Пауза",

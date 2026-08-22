@@ -81,6 +81,7 @@ const _memoryDetailsOriginQueryParameter = 'origin';
 const _memoryDetailsMapOrigin = 'map';
 const _memoryDetailsTimelineOrigin = 'timeline';
 const _memoryDetailsDetailsOrigin = 'details';
+const _memoryDetailsPlaybackOrigin = 'playback';
 const _inviteDeepLinkParser = InviteDeepLinkParser();
 
 final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
@@ -303,6 +304,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             storyTitle: _storyTitleFromExtra(state.extra),
             fallbackRouteName: storyDetailsRouteName,
             storyIdPathParameter: _storyIdPathParameter,
+            onMemoryDetailsSelected: (readModel) {
+              context.pushNamed(
+                memoryDetailsRouteName,
+                pathParameters: {
+                  _memoryIdPathParameter: readModel.memory.id,
+                },
+                extra: _MemoryDetailsOrigin.playback,
+                queryParameters: {
+                  _memoryDetailsOriginQueryParameter:
+                      _memoryDetailsPlaybackOrigin,
+                },
+              );
+            },
           );
         },
       ),
@@ -468,6 +482,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
               if (origin == _MemoryDetailsOrigin.map) {
                 _popOrGoToStoryMap(context, memory.storyId);
+                return;
+              }
+
+              if (origin == _MemoryDetailsOrigin.playback) {
+                _popOrGoToStoryPlayback(context, memory.storyId);
                 return;
               }
 
@@ -773,6 +792,19 @@ void _popOrGoToStoryMap(BuildContext context, String storyId) {
   );
 }
 
+void _popOrGoToStoryPlayback(BuildContext context, String storyId) {
+  final router = GoRouter.of(context);
+  if (router.canPop()) {
+    router.pop();
+    return;
+  }
+
+  context.goNamed(
+    storyPlaybackRouteName,
+    pathParameters: {_storyIdPathParameter: storyId},
+  );
+}
+
 void _popOrGoToMemoryDetails(BuildContext context, String memoryId) {
   final router = GoRouter.of(context);
   if (router.canPop()) {
@@ -790,7 +822,8 @@ Object? _memoryDetailsOriginFor(GoRouterState state) {
   final extra = state.extra;
   if (extra == _MemoryDetailsOrigin.details ||
       extra == _MemoryDetailsOrigin.timeline ||
-      extra == _MemoryDetailsOrigin.map) {
+      extra == _MemoryDetailsOrigin.map ||
+      extra == _MemoryDetailsOrigin.playback) {
     return extra;
   }
 
@@ -798,6 +831,7 @@ Object? _memoryDetailsOriginFor(GoRouterState state) {
     _memoryDetailsDetailsOrigin => _MemoryDetailsOrigin.details,
     _memoryDetailsTimelineOrigin => _MemoryDetailsOrigin.timeline,
     _memoryDetailsMapOrigin => _MemoryDetailsOrigin.map,
+    _memoryDetailsPlaybackOrigin => _MemoryDetailsOrigin.playback,
     _ => null,
   };
 }
@@ -832,6 +866,11 @@ Map<String, String> _memoryDetailsOriginQueryParameters(Object? origin) {
   if (origin == _MemoryDetailsOrigin.map) {
     return {
       _memoryDetailsOriginQueryParameter: _memoryDetailsMapOrigin,
+    };
+  }
+  if (origin == _MemoryDetailsOrigin.playback) {
+    return {
+      _memoryDetailsOriginQueryParameter: _memoryDetailsPlaybackOrigin,
     };
   }
 
@@ -898,6 +937,8 @@ void _completeDeletedMemory(
     context.go(_storyTimelinePath(memory.storyId));
   } else if (origin == _MemoryDetailsOrigin.map) {
     context.go(_storyMapPath(memory.storyId));
+  } else if (origin == _MemoryDetailsOrigin.playback) {
+    context.go(_storyPlaybackPath(memory.storyId));
   } else {
     context.go(_storyMemoriesPath(memory.storyId));
   }
@@ -916,10 +957,15 @@ String _storyTimelinePath(String storyId) {
   return '/stories/${Uri.encodeComponent(storyId)}/timeline';
 }
 
+String _storyPlaybackPath(String storyId) {
+  return '/stories/${Uri.encodeComponent(storyId)}/playback';
+}
+
 enum _MemoryDetailsOrigin {
   details,
   timeline,
   map,
+  playback,
 }
 
 AuthSession? _sessionForAuthenticatedRoute(AsyncValue<AuthState> authState) {

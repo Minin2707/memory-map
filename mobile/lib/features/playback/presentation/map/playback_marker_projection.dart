@@ -1,17 +1,20 @@
 import 'package:memory_map/features/map/domain/map_coordinate.dart';
 import 'package:memory_map/features/map/domain/map_marker.dart';
+import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 
 final class PlaybackMapMarker {
   PlaybackMapMarker({
     required this.marker,
     required this.orderNumber,
-    required this.hasPreviewPhoto,
+    this.previewPhoto,
   });
 
   final MapMarker marker;
   final int orderNumber;
-  final bool hasPreviewPhoto;
+  final MemoryPhotoPreview? previewPhoto;
+
+  bool get hasPreviewPhoto => previewPhoto != null;
 
   @override
   bool operator ==(Object other) {
@@ -19,11 +22,11 @@ final class PlaybackMapMarker {
         other is PlaybackMapMarker &&
             marker == other.marker &&
             orderNumber == other.orderNumber &&
-            hasPreviewPhoto == other.hasPreviewPhoto;
+            previewPhoto == other.previewPhoto;
   }
 
   @override
-  int get hashCode => Object.hash(marker, orderNumber, hasPreviewPhoto);
+  int get hashCode => Object.hash(marker, orderNumber, previewPhoto);
 
   @override
   String toString() {
@@ -48,7 +51,7 @@ List<PlaybackMapMarker> playbackMarkersFromSnapshot(
           ),
         ),
         orderNumber: index + 1,
-        hasPreviewPhoto: readModel.hasPreviewPhoto,
+        previewPhoto: readModel.previewPhoto,
       );
     }),
   );

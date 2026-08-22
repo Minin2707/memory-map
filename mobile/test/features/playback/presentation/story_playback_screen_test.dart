@@ -35,6 +35,9 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const ValueKey('story-playback.loading')), findsOneWidget);
+      expect(find.text('Story playback'), findsOneWidget);
+      expect(find.text('Playback'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.close')), findsOneWidget);
       expect(find.textContaining('story-1'), findsNothing);
     });
 
@@ -50,10 +53,11 @@ void main() {
 
       expect(find.byKey(const ValueKey('story-playback.empty')), findsOneWidget);
       expect(find.text('No memories to play yet'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.pause')), findsNothing);
 
       await pressButton(
         tester,
-        find.byKey(const ValueKey('story-playback.close-empty')),
+        find.byKey(const ValueKey('story-playback.close')),
       );
 
       expect(closeCalls, 1);
@@ -118,6 +122,7 @@ void main() {
       );
 
       expect(presentations.last.markers.length, 2);
+      expect(find.text('Story playback'), findsOneWidget);
       expect(presentations.last.route.hasRoute, isTrue);
       expect(presentations.last.route.coordinates, <MapCoordinate>[
         MapCoordinate(
@@ -136,6 +141,13 @@ void main() {
         find.byKey(const ValueKey('story-playback.memory-card')),
         findsNothing,
       );
+      expect(find.text('1 / 2 memories'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.pause')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-playback.previous')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('story-playback.next')), findsNothing);
       expect(mediaRepository.getDisplayByPathCalls, 0);
 
       final command = presentations.last.cameraCommand!;
@@ -154,6 +166,11 @@ void main() {
         find.byKey(const ValueKey('story-playback.display-image')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('story-playback.previous')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('story-playback.next')), findsOneWidget);
       expect(mediaRepository.getMediaCalls, 0);
       expect(mediaRepository.getDisplayByPathCalls, 1);
       expect(mediaRepository.receivedBinaryPaths, <String>[
@@ -174,13 +191,37 @@ void main() {
 
       expect(
         find.byKey(const ValueKey('story-playback.controls')),
-        findsOneWidget,
+        findsNothing,
       );
+      expect(find.byKey(const ValueKey('story-playback.pause')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-playback.previous')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('story-playback.next')), findsNothing);
       expect(
         find.byKey(const ValueKey('story-playback.memory-card')),
         findsNothing,
       );
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
       expect(find.text('Sunrise picnic'), findsNothing);
+    });
+
+    testWidgets('shouldRenderProvidedStoryTitleInOverlayChrome', (
+      tester,
+    ) async {
+      await pumpPlaybackScreen(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[
+            readModel(memoryA),
+          ],
+        storyTitle: 'Our journey',
+      );
+
+      expect(find.text('Story playback'), findsOneWidget);
+      expect(find.text('Our journey'), findsOneWidget);
+      expect(find.textContaining('story-1'), findsNothing);
     });
   });
 
@@ -208,6 +249,7 @@ void main() {
         find.byKey(const ValueKey('story-playback.memory-card')),
         findsNothing,
       );
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
 
       await pressButton(
         tester,
@@ -286,22 +328,43 @@ void main() {
         presentations: presentations,
       );
 
-      expect(find.text('1 / 2'), findsOneWidget);
+      expect(find.text('1 / 2 memories'), findsOneWidget);
+
+      presentations.last.onCameraArrived(
+        presentations.last.cameraCommand!.revision,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('story-playback.next')), findsOneWidget);
 
       await pressButton(
         tester,
         find.byKey(const ValueKey('story-playback.next')),
       );
 
-      expect(find.text('2 / 2'), findsOneWidget);
+      expect(find.text('2 / 2 memories'), findsOneWidget);
       expect(presentations.last.currentIndex, 1);
+      expect(
+        find.byKey(const ValueKey('story-playback.memory-card')),
+        findsNothing,
+      );
+
+      presentations.last.onCameraArrived(
+        presentations.last.cameraCommand!.revision,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('story-playback.previous')),
+        findsOneWidget,
+      );
 
       await pressButton(
         tester,
         find.byKey(const ValueKey('story-playback.previous')),
       );
 
-      expect(find.text('1 / 2'), findsOneWidget);
+      expect(find.text('1 / 2 memories'), findsOneWidget);
       expect(presentations.last.currentIndex, 0);
     });
 
@@ -329,6 +392,23 @@ void main() {
 
       expect(find.byKey(const ValueKey('story-playback.finished')), findsOneWidget);
       expect(find.text('Playback finished'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('Playback finished')).style?.color,
+        Colors.white,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.text('Replay this story journey or close playback.'),
+            )
+            .style
+            ?.color,
+        isNot(const Color(0xFF667085)),
+      );
+      expect(find.text('1 / 1 memory'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.pause')), findsNothing);
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
+      expect(find.byKey(const ValueKey('story-playback.close')), findsOneWidget);
 
       await pressButton(
         tester,
@@ -336,9 +416,83 @@ void main() {
       );
 
       expect(repository.getMemoriesCalls, 1);
-      expect(find.text('1 / 1'), findsOneWidget);
+      expect(find.text('1 / 1 memory'), findsOneWidget);
       expect(presentations.last.currentIndex, 0);
       expect(presentations.last.cameraCommand, isNotNull);
+    });
+
+    testWidgets('shouldPauseBeforeOpeningMemoryDetailsFromPresentingCard', (
+      tester,
+    ) async {
+      final scheduler = FakePlaybackScheduler();
+      final presentations = <PlaybackMapPresentation>[];
+      final selectedMemories = <MemoryReadModel>[];
+
+      await pumpPlaybackScreen(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        scheduler: scheduler,
+        presentations: presentations,
+        onMemoryDetailsSelected: selectedMemories.add,
+      );
+
+      presentations.last.onCameraArrived(
+        presentations.last.cameraCommand!.revision,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('story-playback.details')), findsOneWidget);
+      expect(find.text('Show details'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.pause')), findsOneWidget);
+      expect(scheduler.activeTaskCount, 1);
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.details')),
+      );
+
+      expect(selectedMemories.single.memory.id, memoryA.id);
+      expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
+      expect(scheduler.activeTaskCount, 0);
+    });
+
+    testWidgets('shouldOpenMemoryDetailsFromAlreadyPausedPresentation', (
+      tester,
+    ) async {
+      final scheduler = FakePlaybackScheduler();
+      final presentations = <PlaybackMapPresentation>[];
+      final selectedMemories = <MemoryReadModel>[];
+
+      await pumpPlaybackScreen(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        scheduler: scheduler,
+        presentations: presentations,
+        onMemoryDetailsSelected: selectedMemories.add,
+      );
+
+      presentations.last.onCameraArrived(
+        presentations.last.cameraCommand!.revision,
+      );
+      await tester.pumpAndSettle();
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.pause')),
+      );
+
+      expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
+      expect(scheduler.activeTaskCount, 0);
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.details')),
+      );
+
+      expect(selectedMemories.single.memory.id, memoryA.id);
+      expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
+      expect(scheduler.activeTaskCount, 0);
     });
   });
 
@@ -355,6 +509,7 @@ void main() {
             readModel(memoryA),
           ],
         presentations: presentations,
+        onMemoryDetailsSelected: (_) {},
       );
 
       final failedRevision = presentations.last.cameraCommand!.revision;
@@ -372,6 +527,7 @@ void main() {
         find.byKey(const ValueKey('story-playback.memory-card')),
         findsNothing,
       );
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
 
       await pressButton(
         tester,
@@ -397,6 +553,7 @@ void main() {
             readModel(memoryA),
           ],
         presentations: presentations,
+        onMemoryDetailsSelected: (_) {},
       );
 
       presentations.last.onCameraArrived(
@@ -406,6 +563,7 @@ void main() {
 
       expect(find.byKey(const ValueKey('story-playback.no-photo')), findsOneWidget);
       expect(find.text('No photo'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.details')), findsOneWidget);
     });
 
     testWidgets('shouldRenderSafePhotoFailureWithoutStoppingPlayback', (
@@ -428,6 +586,7 @@ void main() {
         mediaRepository: mediaRepository,
         scheduler: scheduler,
         presentations: presentations,
+        onMemoryDetailsSelected: (_) {},
       );
 
       presentations.last.onCameraArrived(
@@ -439,6 +598,7 @@ void main() {
         find.byKey(const ValueKey('story-playback.photo-unavailable')),
         findsOneWidget,
       );
+      expect(find.byKey(const ValueKey('story-playback.details')), findsOneWidget);
       expect(find.text('Photo unavailable'), findsOneWidget);
       expect(find.textContaining('/api/v1/media'), findsNothing);
       expect(find.textContaining('media-a'), findsNothing);
@@ -508,7 +668,7 @@ void main() {
 
       expect(presentations.last.markers.length, 1);
       expect(presentations.last.route.hasRoute, isFalse);
-      expect(find.text('1 / 1'), findsOneWidget);
+      expect(find.text('1 / 1 memory'), findsOneWidget);
     });
 
     testWidgets('shouldRemainUsableOnSmallPhoneWithLargeText', (
@@ -542,7 +702,9 @@ void main() {
         find.byKey(const ValueKey('story-playback.memory-card')),
         findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('story-playback.controls')), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.controls')), findsNothing);
+      expect(find.byKey(const ValueKey('story-playback.pause')), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.next')), findsOneWidget);
       expect(find.byKey(const ValueKey('story-playback.close')), findsOneWidget);
     });
 
@@ -589,6 +751,7 @@ Future<ProviderContainer> pumpPlaybackScreen(
   FakePlaybackScheduler? scheduler,
   media_fixtures.FakeMediaRepository? mediaRepository,
   List<PlaybackMapPresentation>? presentations,
+  ValueChanged<MemoryReadModel>? onMemoryDetailsSelected,
   Locale locale = const Locale('en'),
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
@@ -623,6 +786,7 @@ Future<ProviderContainer> pumpPlaybackScreen(
           storyId: storyId,
           storyTitle: storyTitle,
           onClose: onClose ?? () {},
+          onMemoryDetailsSelected: onMemoryDetailsSelected,
           mapBuilder: (context, presentation) {
             presentations?.add(presentation);
             return _FakePlaybackMap(presentation: presentation);

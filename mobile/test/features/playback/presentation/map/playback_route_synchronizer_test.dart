@@ -25,6 +25,13 @@ void main() {
         coordinate(41, 44),
         coordinate(42, 45),
       ]);
+      expect(controller.routes.single.lineColor, playbackRouteLineColor);
+      expect(controller.routes.single.lineOpacity, playbackRouteLineOpacity);
+      expect(controller.routes.single.lineWidth, playbackRouteLineWidth);
+      expect(
+        controller.routes.single.lineDasharray,
+        playbackRouteLineDasharray,
+      );
     });
 
     test('shouldNotRenderEmptyOrSinglePointRoutes', () async {
@@ -88,6 +95,29 @@ void main() {
         coordinate(42, 45),
         coordinate(43, 46),
       ]);
+    });
+
+    test('shouldRestoreDottedRouteWhenStyleReloads', () async {
+      final controller = FakePlaybackRouteController();
+      final synchronizer = PlaybackRouteSynchronizer(controller: controller);
+
+      synchronizer
+        ..updateRoute(route(1, 2))
+        ..markStyleLoaded();
+      await pumpQueue();
+
+      final changed = synchronizer.markStyleLoaded();
+      await pumpQueue();
+
+      expect(changed, isFalse);
+      expect(controller.operations, <String>[
+        'clearRoute',
+        'addRoute',
+        'clearRoute',
+        'addRoute',
+      ]);
+      expect(controller.routes.length, 2);
+      expect(controller.routes.last.lineDasharray, playbackRouteLineDasharray);
     });
 
     test('shouldClearOnDisposeAndPreventLateMutation', () async {
@@ -154,6 +184,28 @@ void main() {
       expect(text, isNot(contains('44.827456')));
       expect(text, isNot(contains('-77.0428')));
       expect(text, isNot(contains('memory-id')));
+    });
+
+    test('shouldUseImmutableDottedRouteStyleValueEquality', () {
+      final dasharray = <double>[1.4, 2.2];
+      final first = PlaybackRouteRenderOptions(
+        coordinates: <MapCoordinate>[coordinate(41, 44), coordinate(42, 45)],
+        lineDasharray: dasharray,
+      );
+      final second = PlaybackRouteRenderOptions(
+        coordinates: <MapCoordinate>[coordinate(41, 44), coordinate(42, 45)],
+        lineDasharray: <double>[1.4, 2.2],
+      );
+
+      dasharray.add(9.9);
+
+      expect(first, second);
+      expect(first.hashCode, second.hashCode);
+      expect(first.lineDasharray, <double>[1.4, 2.2]);
+      expect(
+        () => first.lineDasharray.add(3.3),
+        throwsUnsupportedError,
+      );
     });
   });
 }

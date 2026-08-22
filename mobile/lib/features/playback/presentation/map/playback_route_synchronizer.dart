@@ -15,12 +15,15 @@ final class PlaybackRouteRenderOptions {
     this.lineColor = playbackRouteLineColor,
     this.lineOpacity = playbackRouteLineOpacity,
     this.lineWidth = playbackRouteLineWidth,
-  }) : coordinates = List<MapCoordinate>.unmodifiable(coordinates);
+    List<double> lineDasharray = playbackRouteLineDasharray,
+  })  : coordinates = List<MapCoordinate>.unmodifiable(coordinates),
+        lineDasharray = List<double>.unmodifiable(lineDasharray);
 
   final List<MapCoordinate> coordinates;
   final String lineColor;
   final double lineOpacity;
   final double lineWidth;
+  final List<double> lineDasharray;
 
   @override
   bool operator ==(Object other) {
@@ -29,7 +32,8 @@ final class PlaybackRouteRenderOptions {
             _listEquals(coordinates, other.coordinates) &&
             lineColor == other.lineColor &&
             lineOpacity == other.lineOpacity &&
-            lineWidth == other.lineWidth;
+            lineWidth == other.lineWidth &&
+            _listEquals(lineDasharray, other.lineDasharray);
   }
 
   @override
@@ -38,6 +42,7 @@ final class PlaybackRouteRenderOptions {
         lineColor,
         lineOpacity,
         lineWidth,
+        Object.hashAll(lineDasharray),
       );
 
   @override
@@ -46,9 +51,10 @@ final class PlaybackRouteRenderOptions {
   }
 }
 
-const String playbackRouteLineColor = '#2F3A4A';
-const double playbackRouteLineOpacity = 0.58;
-const double playbackRouteLineWidth = 4;
+const String playbackRouteLineColor = '#FF5D72';
+const double playbackRouteLineOpacity = 0.86;
+const double playbackRouteLineWidth = 3.6;
+const List<double> playbackRouteLineDasharray = <double>[1.4, 2.2];
 
 final class PlaybackRouteSynchronizer {
   PlaybackRouteSynchronizer({
@@ -87,6 +93,7 @@ final class PlaybackRouteSynchronizer {
     }
 
     if (_styleLoaded) {
+      _lastRenderedRoute = null;
       unawaited(_scheduleSync());
       return false;
     }
