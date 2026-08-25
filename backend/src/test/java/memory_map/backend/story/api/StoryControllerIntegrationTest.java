@@ -1471,6 +1471,7 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                         ownerId,
                         title,
                         description,
+                        null,
                         currentTime,
                         currentTime
                 )

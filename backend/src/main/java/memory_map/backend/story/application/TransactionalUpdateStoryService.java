@@ -48,6 +48,7 @@ public class TransactionalUpdateStoryService
                 existing.ownerId(),
                 updatedTitle(command, existing),
                 updatedDescription(command, existing),
+                existing.soundtrackId(),
                 existing.createdAt(),
                 command.currentTime()
         );

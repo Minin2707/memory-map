@@ -692,6 +692,114 @@ abstract class AppLocalizations {
   /// **'Playback Story'**
   String get storyDetailsPlaybackStoryAction;
 
+  /// No description provided for @soundtrackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundtrack'**
+  String get soundtrackTitle;
+
+  /// No description provided for @soundtrackNoMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'No music'**
+  String get soundtrackNoMusic;
+
+  /// No description provided for @soundtrackLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading soundtrack...'**
+  String get soundtrackLoading;
+
+  /// No description provided for @soundtrackLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load soundtrack'**
+  String get soundtrackLoadFailureTitle;
+
+  /// No description provided for @soundtrackChooseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose soundtrack'**
+  String get soundtrackChooseTitle;
+
+  /// No description provided for @soundtrackReadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Read-only'**
+  String get soundtrackReadOnly;
+
+  /// No description provided for @soundtrackCurrentSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Current selection'**
+  String get soundtrackCurrentSelection;
+
+  /// No description provided for @soundtrackCurrentlyUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently unavailable'**
+  String get soundtrackCurrentlyUnavailable;
+
+  /// No description provided for @soundtrackUnavailableEditable.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently unavailable. Choose another track or No music.'**
+  String get soundtrackUnavailableEditable;
+
+  /// No description provided for @soundtrackCatalogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Available soundtracks'**
+  String get soundtrackCatalogTitle;
+
+  /// No description provided for @soundtrackCatalogLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load soundtracks'**
+  String get soundtrackCatalogLoadFailureTitle;
+
+  /// No description provided for @soundtrackCatalogEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No soundtracks are available right now.'**
+  String get soundtrackCatalogEmpty;
+
+  /// No description provided for @soundtrackSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get soundtrackSelected;
+
+  /// No description provided for @soundtrackUpdateFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update soundtrack. Please try again.'**
+  String get soundtrackUpdateFailure;
+
+  /// No description provided for @musicFailureUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Music is unavailable. Please try again.'**
+  String get musicFailureUnavailable;
+
+  /// No description provided for @musicFailureNetworkUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection. Check your connection and try again.'**
+  String get musicFailureNetworkUnavailable;
+
+  /// No description provided for @musicFailureRequestTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Please try again.'**
+  String get musicFailureRequestTimedOut;
+
+  /// No description provided for @musicFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get musicFailureUnknown;
+
   /// No description provided for @participantsPageTitle.
   ///
   /// In en, this message translates to:

@@ -445,6 +445,7 @@ class TransactionalAcceptInviteServiceTest {
                 OWNER_ID,
                 "Our Story",
                 "The beginning",
+                null,
                 CREATED_AT,
                 CREATED_AT
         );

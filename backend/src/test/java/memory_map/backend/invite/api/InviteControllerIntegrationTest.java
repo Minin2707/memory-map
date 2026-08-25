@@ -799,6 +799,7 @@ class InviteControllerIntegrationTest extends IntegrationTest {
                         ownerId,
                         title,
                         "The beginning",
+                        null,
                         BASE_TIME,
                         BASE_TIME
                 )

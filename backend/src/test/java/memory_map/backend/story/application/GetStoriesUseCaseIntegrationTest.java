@@ -224,6 +224,7 @@ class GetStoriesUseCaseIntegrationTest extends IntegrationTest {
                         ownerId,
                         title,
                         "The beginning",
+                        null,
                         currentTime,
                         currentTime
                 )

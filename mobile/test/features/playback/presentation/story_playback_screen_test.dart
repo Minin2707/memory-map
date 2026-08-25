@@ -18,8 +18,13 @@ import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_orchestrator.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_provider.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler_provider.dart';
+import 'package:memory_map/features/playback/application/story_playback_provider.dart';
+import 'package:memory_map/features/playback/domain/playback_status.dart';
+import 'package:memory_map/features/playback/presentation/story_playback_route.dart';
 import 'package:memory_map/features/playback/presentation/story_playback_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
@@ -740,6 +745,106 @@ void main() {
       expect(presentations.last.toString(), isNot(contains('/api/v1/media')));
     });
   });
+
+  group('StoryPlaybackRoute app lifecycle', () {
+    testWidgets('shouldPauseVisualAndAudioWhenAppBackgrounds', (
+      tester,
+    ) async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await pumpPlaybackRoute(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+      );
+
+      audioOrchestrator.operations.clear();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      expect(
+        container
+            .read(storyPlaybackProvider('story-1'))
+            .requirePlayback
+            .status,
+        PlaybackStatus.paused,
+      );
+      expect(audioOrchestrator.operations, <String>['pause']);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(
+        container
+            .read(storyPlaybackProvider('story-1'))
+            .requirePlayback
+            .status,
+        PlaybackStatus.paused,
+      );
+      expect(audioOrchestrator.operations, <String>['pause']);
+    });
+
+    testWidgets('shouldKeepAlreadyPausedPlaybackPausedOnBackground', (
+      tester,
+    ) async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await pumpPlaybackRoute(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+      );
+      container.read(storyPlaybackProvider('story-1').notifier).pause();
+      await tester.pump();
+      audioOrchestrator.operations.clear();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+
+      expect(
+        container
+            .read(storyPlaybackProvider('story-1'))
+            .requirePlayback
+            .status,
+        PlaybackStatus.paused,
+      );
+      expect(audioOrchestrator.operations, isEmpty);
+    });
+
+    testWidgets('shouldKeepFinishedPlaybackFinishedOnBackground', (
+      tester,
+    ) async {
+      final scheduler = FakePlaybackScheduler();
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await pumpPlaybackRoute(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        scheduler: scheduler,
+        audioOrchestrator: audioOrchestrator,
+      );
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      final playback = container
+          .read(storyPlaybackProvider('story-1'))
+          .requirePlayback;
+      notifier.cameraArrived(playback.cameraRevision);
+      scheduler.latest.fire();
+      await tester.pump();
+      audioOrchestrator.operations.clear();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      expect(
+        container
+            .read(storyPlaybackProvider('story-1'))
+            .requirePlayback
+            .status,
+        PlaybackStatus.finished,
+      );
+      expect(audioOrchestrator.operations, isEmpty);
+    });
+  });
 }
 
 Future<ProviderContainer> pumpPlaybackScreen(
@@ -764,6 +869,9 @@ Future<ProviderContainer> pumpPlaybackScreen(
       ),
       mediaRepositoryProvider.overrideWithValue(
         mediaRepository ?? media_fixtures.FakeMediaRepository(),
+      ),
+      playbackAudioOrchestratorProvider.overrideWith(
+        (ref, storyId) => FakePlaybackAudioSessionOrchestrator(),
       ),
     ],
   );
@@ -823,6 +931,109 @@ Future<void> pressButton(
     await tester.pumpAndSettle();
   } else {
     await tester.pump();
+  }
+}
+
+Future<ProviderContainer> pumpPlaybackRoute(
+  WidgetTester tester,
+  FakeMemoryRepository repository, {
+  FakePlaybackScheduler? scheduler,
+  FakePlaybackAudioSessionOrchestrator? audioOrchestrator,
+}) async {
+  final container = ProviderContainer(
+    overrides: [
+      memoryRepositoryProvider.overrideWithValue(repository),
+      playbackSchedulerProvider.overrideWithValue(
+        scheduler ?? FakePlaybackScheduler(),
+      ),
+      mediaRepositoryProvider.overrideWithValue(
+        media_fixtures.FakeMediaRepository(),
+      ),
+      storyPlaybackMapBuilderProvider.overrideWithValue(
+        (context, presentation) {
+          return _FakePlaybackMap(presentation: presentation);
+        },
+      ),
+      playbackAudioOrchestratorProvider.overrideWith(
+        (ref, storyId) =>
+            audioOrchestrator ?? FakePlaybackAudioSessionOrchestrator(),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+  addTearDown(() {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  });
+
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const StoryPlaybackRoute(
+          storyId: 'story-1',
+          fallbackRouteName: 'storyDetails',
+          storyIdPathParameter: 'storyId',
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  return container;
+}
+
+final class FakePlaybackAudioSessionOrchestrator
+    implements PlaybackAudioSessionOrchestrator {
+  final List<String> operations = <String>[];
+
+  @override
+  PlaybackAudioSessionStatus status = PlaybackAudioSessionStatus.idle;
+
+  @override
+  Future<void> cameraFailed() async {
+    operations.add('cameraFailed');
+  }
+
+  @override
+  Future<void> close() async {
+    operations.add('close');
+  }
+
+  @override
+  Future<void> finish() async {
+    operations.add('finish');
+  }
+
+  @override
+  void invalidateSession() {
+    operations.add('invalidateSession');
+  }
+
+  @override
+  Future<void> pause() async {
+    operations.add('pause');
+  }
+
+  @override
+  Future<void> playbackStarted() async {
+    operations.add('playbackStarted');
+  }
+
+  @override
+  Future<void> replay() async {
+    operations.add('replay');
+  }
+
+  @override
+  Future<void> resume() async {
+    operations.add('resume');
+  }
+
+  @override
+  Future<void> startSession({required String storyId}) async {
+    operations.add('startSession:$storyId');
   }
 }
 

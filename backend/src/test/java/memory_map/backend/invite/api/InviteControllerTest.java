@@ -555,6 +555,7 @@ class InviteControllerTest {
                             USER_ID,
                             "Accepted Story",
                             "Accepted description",
+                            null,
                             STORY_CREATED_AT,
                             STORY_UPDATED_AT
                     ),

@@ -19,6 +19,7 @@ import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.image.ImageProcessor;
 import memory_map.backend.media.repository.MediaFileRepository;
 import memory_map.backend.media.storage.MediaStorageKeyFactory;
+import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageException;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectNotFoundException;
@@ -772,6 +773,7 @@ class MediaControllerIntegrationTest extends IntegrationTest {
                 ownerId,
                 "Our Story",
                 "The beginning",
+                null,
                 BASE_TIME,
                 BASE_TIME
         ));
@@ -1123,6 +1125,14 @@ class MediaControllerIntegrationTest extends IntegrationTest {
                     object.contentLength(),
                     object.contentType()
             );
+        }
+
+        @Override
+        public StoredObject readRange(
+                StorageKey storageKey,
+                StorageByteRange range
+        ) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

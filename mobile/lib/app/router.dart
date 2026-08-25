@@ -26,6 +26,7 @@ import 'package:memory_map/features/memory/presentation/memory_edit_route.dart';
 import 'package:memory_map/features/memory/presentation/story_map_route.dart';
 import 'package:memory_map/features/memory/presentation/story_memories_route.dart';
 import 'package:memory_map/features/memory/presentation/story_timeline_route.dart';
+import 'package:memory_map/features/music/presentation/soundtrack_selection_screen.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
 import 'package:memory_map/features/playback/presentation/story_playback_route.dart';
@@ -51,6 +52,7 @@ const storyParticipantsRoute = '/stories/:storyId/participants';
 const storyMemoriesRoute = '/stories/:storyId/memories';
 const storyMapRoute = '/stories/:storyId/map';
 const storyTimelineRoute = '/stories/:storyId/timeline';
+const storySoundtrackRoute = '/stories/:storyId/soundtrack';
 const storyPlaybackRoute = '/stories/:storyId/playback';
 const createMemoryRoute = '/stories/:storyId/memories/create';
 const memoryDetailsRoute = '/memories/:memoryId';
@@ -67,6 +69,7 @@ const storyParticipantsRouteName = 'storyParticipants';
 const storyMemoriesRouteName = 'storyMemories';
 const storyMapRouteName = 'storyMap';
 const storyTimelineRouteName = 'storyTimeline';
+const storySoundtrackRouteName = 'storySoundtrack';
 const storyPlaybackRouteName = 'storyPlayback';
 const createMemoryRouteName = 'createMemory';
 const memoryDetailsRouteName = 'memoryDetails';
@@ -264,6 +267,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pathParameters: {_storyIdPathParameter: storyId},
               );
             },
+            onSoundtrackSelected: (_) {
+              context.pushNamed(
+                storySoundtrackRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
             onCreateMemory: () {
               context.pushNamed(
                 createMemoryRouteName,
@@ -288,6 +297,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pathParameters: {_storyIdPathParameter: storyId},
                 extra: userStory.story.title,
               );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: storySoundtrackRouteName,
+        path: storySoundtrackRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          final storyId =
+              state.pathParameters[_storyIdPathParameter] ?? '';
+
+          return SoundtrackSelectionScreen(
+            storyId: storyId,
+            onBack: () {
+              _popOrGoToStoryDetails(context, storyId);
             },
           );
         },

@@ -1,11 +1,13 @@
 package memory_map.backend.story.repository;
 
 import memory_map.backend.IntegrationTest;
+import memory_map.backend.common.database.DatabaseTimestamps;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.domain.MediaType;
 import memory_map.backend.media.repository.MediaFileRepository;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.music.domain.MusicTrackStatus;
 import memory_map.backend.story.application.StoryPhotoPreview;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
@@ -82,7 +84,7 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
     private static final LocalDate BASE_DATE =
             LocalDate.parse("2026-01-01");
     private static final String CLEAN_DATABASE_SQL = """
-        TRUNCATE TABLE users
+        TRUNCATE TABLE users, music_tracks
         RESTART IDENTITY CASCADE
         """;
 
@@ -108,6 +110,33 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
 
         assertThat(found)
                 .contains(new UserStory(story, StoryRole.OWNER));
+    }
+
+    @Test
+    void shouldFindUserStoryWithSoundtrackId() {
+
+        User user = saveUser(USER_ID, "current-google-subject");
+        UUID soundtrackId = UUID.randomUUID();
+        insertMusicTrack(soundtrackId);
+        Story story = storyRepository.save(
+                new Story(
+                        STORY_ID,
+                        user.id(),
+                        "Soundtrack Story",
+                        "The beginning",
+                        soundtrackId,
+                        BASE_TIME,
+                        BASE_TIME
+                )
+        );
+        saveParticipant(story.id(), user.id(), StoryRole.OWNER);
+
+        Optional<UserStory> found =
+                repository.findByStoryIdAndUserId(story.id(), user.id());
+
+        assertThat(found).isPresent();
+        assertThat(found.orElseThrow().story().soundtrackId())
+                .isEqualTo(soundtrackId);
     }
 
     @ParameterizedTest
@@ -692,6 +721,7 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                         ownerId,
                         title,
                         description,
+                        null,
                         BASE_TIME,
                         BASE_TIME
                 )
@@ -720,6 +750,55 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                         joinedAt
                 )
         );
+    }
+
+    private void insertMusicTrack(UUID id) {
+        jdbcClient.sql("""
+                INSERT INTO music_tracks (
+                    id,
+                    title,
+                    artist,
+                    duration_seconds,
+                    status,
+                    sort_order,
+                    storage_key,
+                    mime_type,
+                    file_size,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    :id,
+                    :title,
+                    :artist,
+                    :durationSeconds,
+                    :status,
+                    :sortOrder,
+                    :storageKey,
+                    :mimeType,
+                    :fileSize,
+                    :createdAt,
+                    :updatedAt
+                )
+                """)
+                .param("id", id)
+                .param("title", "Calm Piano")
+                .param("artist", "Memory Story")
+                .param("durationSeconds", 180)
+                .param("status", MusicTrackStatus.ACTIVE.name())
+                .param("sortOrder", 0)
+                .param("storageKey", "music/" + id + ".mp3")
+                .param("mimeType", "audio/mpeg")
+                .param("fileSize", 4_096L)
+                .param(
+                        "createdAt",
+                        DatabaseTimestamps.toOffsetDateTime(BASE_TIME)
+                )
+                .param(
+                        "updatedAt",
+                        DatabaseTimestamps.toOffsetDateTime(BASE_TIME)
+                )
+                .update();
     }
 
     private Memory saveMemory(

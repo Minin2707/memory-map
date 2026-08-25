@@ -354,6 +354,66 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storyDetailsPlaybackStoryAction => 'Воспроизвести историю';
 
   @override
+  String get soundtrackTitle => 'Саундтрек';
+
+  @override
+  String get soundtrackNoMusic => 'Без музыки';
+
+  @override
+  String get soundtrackLoading => 'Загружаем саундтрек...';
+
+  @override
+  String get soundtrackLoadFailureTitle => 'Не удалось загрузить саундтрек';
+
+  @override
+  String get soundtrackChooseTitle => 'Выбрать саундтрек';
+
+  @override
+  String get soundtrackReadOnly => 'Только просмотр';
+
+  @override
+  String get soundtrackCurrentSelection => 'Текущий выбор';
+
+  @override
+  String get soundtrackCurrentlyUnavailable => 'Сейчас недоступен';
+
+  @override
+  String get soundtrackUnavailableEditable =>
+      'Сейчас недоступен. Выберите другой трек или вариант без музыки.';
+
+  @override
+  String get soundtrackCatalogTitle => 'Доступные саундтреки';
+
+  @override
+  String get soundtrackCatalogLoadFailureTitle =>
+      'Не удалось загрузить саундтреки';
+
+  @override
+  String get soundtrackCatalogEmpty => 'Сейчас нет доступных саундтреков.';
+
+  @override
+  String get soundtrackSelected => 'Выбрано';
+
+  @override
+  String get soundtrackUpdateFailure =>
+      'Не удалось обновить саундтрек. Попробуйте ещё раз.';
+
+  @override
+  String get musicFailureUnavailable =>
+      'Музыка сейчас недоступна. Попробуйте ещё раз.';
+
+  @override
+  String get musicFailureNetworkUnavailable =>
+      'Нет подключения к сети. Проверьте соединение и попробуйте ещё раз.';
+
+  @override
+  String get musicFailureRequestTimedOut =>
+      'Время ожидания истекло. Попробуйте ещё раз.';
+
+  @override
+  String get musicFailureUnknown => 'Что-то пошло не так. Попробуйте ещё раз.';
+
+  @override
   String get participantsPageTitle => 'Участники';
 
   @override

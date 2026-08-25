@@ -45,6 +45,7 @@ public class TransactionalCreateStoryService
                 ownerId,
                 command.title(),
                 command.description(),
+                null,
                 currentTime,
                 currentTime
         );

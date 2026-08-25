@@ -1,12 +1,15 @@
 package memory_map.backend.story.repository;
 
 import memory_map.backend.IntegrationTest;
+import memory_map.backend.common.database.DatabaseTimestamps;
+import memory_map.backend.music.domain.MusicTrackStatus;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.user.domain.User;
 import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -46,7 +49,7 @@ class StoryRepositoryTest extends IntegrationTest {
     private int storyTimestampOffsetSeconds;
 
     private static final String CLEAN_DATABASE_SQL = """
-        TRUNCATE TABLE users
+        TRUNCATE TABLE users, music_tracks
         RESTART IDENTITY CASCADE
         """;
 
@@ -78,6 +81,7 @@ class StoryRepositoryTest extends IntegrationTest {
                 ownerId,
                 "Our Story",
                 "The beginning of our journey",
+                null,
                 now,
                 now
         );
@@ -255,6 +259,7 @@ class StoryRepositoryTest extends IntegrationTest {
                 saved.ownerId(),
                 "Updated Story",
                 "Updated description",
+                saved.soundtrackId(),
                 saved.createdAt(),
                 updatedAt
         ));
@@ -283,6 +288,7 @@ class StoryRepositoryTest extends IntegrationTest {
                 saved.ownerId(),
                 saved.title(),
                 null,
+                saved.soundtrackId(),
                 saved.createdAt(),
                 saved.updatedAt().plusSeconds(60)
         ));
@@ -310,6 +316,7 @@ class StoryRepositoryTest extends IntegrationTest {
                 otherUser.id(),
                 "Updated Story",
                 "Updated description",
+                saved.soundtrackId(),
                 saved.createdAt().plusSeconds(120),
                 saved.updatedAt().plusSeconds(60)
         ));
@@ -318,6 +325,132 @@ class StoryRepositoryTest extends IntegrationTest {
         assertThat(updated.createdAt()).isEqualTo(saved.createdAt());
         assertThat(repository.findById(saved.id()))
                 .contains(updated);
+    }
+
+    @Test
+    void shouldSaveAndFindStoryWithSoundtrackId() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        UUID soundtrackId = UUID.randomUUID();
+        insertMusicTrack(soundtrackId);
+        Instant now = Instant.now(clock);
+        Story story = new Story(
+                UUID.randomUUID(),
+                user.id(),
+                "Our Story",
+                "The beginning of our journey",
+                soundtrackId,
+                now,
+                now
+        );
+
+        Story saved = repository.save(story);
+
+        assertThat(saved.soundtrackId()).isEqualTo(soundtrackId);
+        assertThat(repository.findById(saved.id()))
+                .contains(saved);
+    }
+
+    @Test
+    void shouldPreserveSoundtrackIdWhenUpdatingStory() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        UUID soundtrackId = UUID.randomUUID();
+        insertMusicTrack(soundtrackId);
+        Instant now = Instant.now(clock);
+        Story saved = repository.save(new Story(
+                UUID.randomUUID(),
+                user.id(),
+                "Our Story",
+                "The beginning of our journey",
+                soundtrackId,
+                now,
+                now
+        ));
+
+        Story updated = repository.update(new Story(
+                saved.id(),
+                saved.ownerId(),
+                "Updated Story",
+                "Updated description",
+                saved.soundtrackId(),
+                saved.createdAt(),
+                saved.updatedAt().plusSeconds(60)
+        ));
+
+        assertThat(updated.soundtrackId()).isEqualTo(soundtrackId);
+        assertThat(repository.findById(saved.id()))
+                .contains(updated);
+    }
+
+    @Test
+    void shouldRejectStoryWithUnknownSoundtrackId() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Instant now = Instant.now(clock);
+        Story story = new Story(
+                UUID.randomUUID(),
+                user.id(),
+                "Our Story",
+                "The beginning of our journey",
+                UUID.randomUUID(),
+                now,
+                now
+        );
+
+        assertThatThrownBy(() -> repository.save(story))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private void insertMusicTrack(UUID id) {
+        Instant now = Instant.now(clock);
+
+        jdbcClient.sql("""
+                INSERT INTO music_tracks (
+                    id,
+                    title,
+                    artist,
+                    duration_seconds,
+                    status,
+                    sort_order,
+                    storage_key,
+                    mime_type,
+                    file_size,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    :id,
+                    :title,
+                    :artist,
+                    :durationSeconds,
+                    :status,
+                    :sortOrder,
+                    :storageKey,
+                    :mimeType,
+                    :fileSize,
+                    :createdAt,
+                    :updatedAt
+                )
+                """)
+                .param("id", id)
+                .param("title", "Calm Piano")
+                .param("artist", "Memory Story")
+                .param("durationSeconds", 180)
+                .param("status", MusicTrackStatus.ACTIVE.name())
+                .param("sortOrder", 0)
+                .param("storageKey", "music/" + id + ".mp3")
+                .param("mimeType", "audio/mpeg")
+                .param("fileSize", 4_096L)
+                .param("createdAt", DatabaseTimestamps.toOffsetDateTime(now))
+                .param("updatedAt", DatabaseTimestamps.toOffsetDateTime(now))
+                .update();
     }
 
     private static void await(CountDownLatch latch) {

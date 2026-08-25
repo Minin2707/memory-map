@@ -406,6 +406,7 @@ class UpdateStoryUseCaseIntegrationTest extends IntegrationTest {
                         ownerId,
                         title,
                         description,
+                        null,
                         BASE_TIME,
                         BASE_TIME
                 )

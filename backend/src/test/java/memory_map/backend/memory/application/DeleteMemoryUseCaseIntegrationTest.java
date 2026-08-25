@@ -5,6 +5,7 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.domain.MediaType;
 import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectWrite;
 import memory_map.backend.media.storage.StorageService;
@@ -524,6 +525,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 ownerId,
                 "Our Story",
                 "The beginning",
+                null,
                 BASE_TIME,
                 BASE_TIME
         ));
@@ -657,6 +659,14 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
 
         @Override
         public StoredObject read(StorageKey storageKey) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public StoredObject readRange(
+                StorageKey storageKey,
+                StorageByteRange range
+        ) {
             throw new UnsupportedOperationException();
         }
 

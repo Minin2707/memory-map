@@ -125,6 +125,7 @@ class UserStoryResponseTest {
                         OWNER_ID,
                         title,
                         description,
+                        null,
                         CREATED_AT,
                         UPDATED_AT
                 ),
@@ -149,6 +150,7 @@ class UserStoryResponseTest {
                         OWNER_ID,
                         title,
                         description,
+                        null,
                         CREATED_AT,
                         UPDATED_AT
                 ),

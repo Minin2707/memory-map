@@ -3,6 +3,7 @@ package memory_map.backend.memory.application;
 import memory_map.backend.media.application.TransactionCommitCoordinator;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectWrite;
 import memory_map.backend.media.storage.StorageService;
@@ -263,6 +264,14 @@ class MemoryApplicationConfigurationTest {
 
         @Override
         public StoredObject read(StorageKey storageKey) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public StoredObject readRange(
+                StorageKey storageKey,
+                StorageByteRange range
+        ) {
             throw new UnsupportedOperationException();
         }
 

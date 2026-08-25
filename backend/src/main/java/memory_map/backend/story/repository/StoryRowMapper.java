@@ -19,6 +19,7 @@ public class StoryRowMapper implements RowMapper<Story> {
                 rs.getObject("owner_id", UUID.class),
                 rs.getString("title"),
                 rs.getString("description"),
+                rs.getObject("soundtrack_id", UUID.class),
                 rs.getObject("created_at", OffsetDateTime.class).toInstant(),
                 rs.getObject("updated_at", OffsetDateTime.class).toInstant()
         );

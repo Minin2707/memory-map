@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 import 'package:memory_map/features/memory/application/story_memories_state.dart';
 import 'package:memory_map/features/memory/domain/memory_failure.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_orchestrator.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_provider.dart';
 import 'package:memory_map/features/playback/application/playback_camera_failure.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler_provider.dart';
@@ -15,6 +19,7 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
 
   final String _storyId;
   PlaybackScheduler? _scheduler;
+  PlaybackAudioSessionOrchestrator? _audioOrchestrator;
   PlaybackScheduledTask? _presentationTask;
   int? _scheduledPresentationRevision;
   bool _hasCapturedInitialResource = false;
@@ -22,7 +27,14 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
   @override
   PlaybackSessionState build() {
     _scheduler = ref.read(playbackSchedulerProvider);
-    ref.onDispose(_cancelPresentationTask);
+    final audioOrchestrator = ref.watch(
+      playbackAudioOrchestratorProvider(_storyId),
+    );
+    _audioOrchestrator = audioOrchestrator;
+    ref.onDispose(() {
+      _cancelPresentationTask();
+      audioOrchestrator.invalidateSession();
+    });
 
     final memoriesValue = ref.watch(storyMemoriesProvider(_storyId));
     return _stateFromInitialResource(memoriesValue);
@@ -63,6 +75,7 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
       playback,
       cameraFailure: PlaybackCameraFailure(revision: revision),
     );
+    unawaited(_audioOrchestrator!.cameraFailed());
   }
 
   void retryCamera() {
@@ -71,26 +84,41 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
       return;
     }
 
-    _setPlayback(current.requirePlayback.retryCamera());
+    if (_setPlayback(current.requirePlayback.retryCamera())) {
+      unawaited(_audioOrchestrator!.resume());
+    }
   }
 
   void presentationElapsed(int revision) {
-    _transition((playback) => playback.presentationElapsed(revision));
+    final wasFinished = state.playback?.isFinished == true;
+    if (_transition((playback) => playback.presentationElapsed(revision)) &&
+        !wasFinished &&
+        state.playback?.isFinished == true) {
+      unawaited(_audioOrchestrator!.finish());
+    }
   }
 
   void pause() {
-    _transition((playback) => playback.pause());
+    if (_transition((playback) => playback.pause())) {
+      unawaited(_audioOrchestrator!.pause());
+    }
   }
 
   void resume() {
-    _transition((playback) => playback.resume());
+    if (_transition((playback) => playback.resume())) {
+      unawaited(_audioOrchestrator!.resume());
+    }
   }
 
   void next() {
+    final wasFinished = state.playback?.isFinished == true;
     _transition(
       (playback) => playback.next(),
       allowCameraFailure: true,
     );
+    if (!wasFinished && state.playback?.isFinished == true) {
+      unawaited(_audioOrchestrator!.finish());
+    }
   }
 
   void previous() {
@@ -101,17 +129,21 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
   }
 
   void replay() {
-    _transition(
+    if (_transition(
       (playback) => playback.replay(),
       allowCameraFailure: true,
-    );
+    )) {
+      unawaited(_audioOrchestrator!.replay());
+    }
   }
 
   void stop() {
-    _transition(
+    if (_transition(
       (playback) => playback.stop(),
       allowCameraFailure: true,
-    );
+    )) {
+      unawaited(_audioOrchestrator!.close());
+    }
   }
 
   PlaybackSessionState _stateFromInitialResource(
@@ -134,38 +166,47 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
       return PlaybackSessionState.failure(memoriesState.loadFailure!);
     }
 
+    final playback = StoryPlaybackState.start(memoriesState.memoryReadModels);
     _hasCapturedInitialResource = true;
-    return PlaybackSessionState.session(
-      StoryPlaybackState.start(memoriesState.memoryReadModels),
-    );
+    if (playback.hasSnapshot) {
+      unawaited(_audioOrchestrator!.playbackStarted());
+      unawaited(_audioOrchestrator!.startSession(storyId: _storyId));
+    }
+
+    return PlaybackSessionState.session(playback);
   }
 
-  void _transition(
+  bool _transition(
     StoryPlaybackState Function(StoryPlaybackState playback) transition, {
     bool allowCameraFailure = false,
   }) {
     final current = state;
     if (!current.hasSession) {
-      return;
+      return false;
     }
 
     if (current.hasCameraFailure && !allowCameraFailure) {
-      return;
+      return false;
     }
 
     final previousPlayback = current.requirePlayback;
     final nextPlayback = transition(previousPlayback);
     if (current.hasCameraFailure && nextPlayback == previousPlayback) {
-      return;
+      return false;
     }
 
-    _setPlayback(nextPlayback);
+    return _setPlayback(nextPlayback);
   }
 
-  void _setPlayback(StoryPlaybackState nextPlayback) {
+  bool _setPlayback(StoryPlaybackState nextPlayback) {
     final previousPlayback = state.playback;
+    if (previousPlayback == nextPlayback) {
+      return false;
+    }
+
     state = PlaybackSessionState.session(nextPlayback);
     _reconcilePresentationTimer(previousPlayback, nextPlayback);
+    return true;
   }
 
   void _reconcilePresentationTimer(

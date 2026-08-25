@@ -7,11 +7,13 @@ import io.minio.RemoveObjectArgs;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
 import io.minio.errors.ErrorResponseException;
+import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageException;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectNotFoundException;
 import memory_map.backend.media.storage.StorageObjectWrite;
 import memory_map.backend.media.storage.StorageService;
+import memory_map.backend.media.storage.StorageStreamWrite;
 import memory_map.backend.media.storage.StoredObject;
 
 import java.io.ByteArrayInputStream;
@@ -61,6 +63,28 @@ public final class MinioStorageService implements StorageService {
     }
 
     @Override
+    public void store(StorageStreamWrite object) {
+        Objects.requireNonNull(object, "object must not be null");
+
+        try {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(object.storageKey().value())
+                            .stream(
+                                    object.content(),
+                                    object.contentLength(),
+                                    -1L
+                            )
+                            .contentType(object.contentType())
+                            .build()
+            );
+        } catch (Exception exception) {
+            throw new StorageException(exception);
+        }
+    }
+
+    @Override
     public StoredObject read(StorageKey storageKey) {
         Objects.requireNonNull(storageKey, "storageKey must not be null");
 
@@ -81,6 +105,44 @@ public final class MinioStorageService implements StorageService {
             return new StoredObject(
                     content,
                     stat.size(),
+                    stat.contentType()
+            );
+        } catch (Exception exception) {
+            if (isObjectNotFound(exception)) {
+                throw new StorageObjectNotFoundException();
+            }
+
+            throw new StorageException(exception);
+        }
+    }
+
+    @Override
+    public StoredObject readRange(
+            StorageKey storageKey,
+            StorageByteRange range
+    ) {
+        Objects.requireNonNull(storageKey, "storageKey must not be null");
+        Objects.requireNonNull(range, "range must not be null");
+
+        try {
+            StatObjectResponse stat = minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(storageKey.value())
+                            .build()
+            );
+            InputStream content = minioClient.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(storageKey.value())
+                            .offset(range.offset())
+                            .length(range.length())
+                            .build()
+            );
+
+            return new StoredObject(
+                    content,
+                    range.length(),
                     stat.contentType()
             );
         } catch (Exception exception) {

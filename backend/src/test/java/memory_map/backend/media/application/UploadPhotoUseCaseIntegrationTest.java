@@ -14,6 +14,7 @@ import memory_map.backend.media.image.ProcessedPhoto;
 import memory_map.backend.media.repository.JdbcMediaFileRepository;
 import memory_map.backend.media.repository.MediaFileRepository;
 import memory_map.backend.media.storage.MediaStorageKeyFactory;
+import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectWrite;
 import memory_map.backend.media.storage.StorageService;
@@ -450,6 +451,7 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
                 ownerId,
                 "Our Story",
                 "The beginning",
+                null,
                 BASE_TIME,
                 BASE_TIME
         ));
@@ -691,6 +693,14 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
                     object.contentLength(),
                     object.contentType()
             );
+        }
+
+        @Override
+        public StoredObject readRange(
+                StorageKey storageKey,
+                StorageByteRange range
+        ) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

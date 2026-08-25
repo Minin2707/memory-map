@@ -277,6 +277,7 @@ class TransactionalUpdateStoryServiceTest {
                 OWNER_ID,
                 "Repository Story",
                 "Repository description",
+                null,
                 CREATED_AT,
                 UPDATED_AT
         );
@@ -345,6 +346,7 @@ class TransactionalUpdateStoryServiceTest {
                 OWNER_ID,
                 "Our Story",
                 "The beginning",
+                null,
                 CREATED_AT,
                 UPDATED_AT
         );
@@ -359,6 +361,7 @@ class TransactionalUpdateStoryServiceTest {
                 OWNER_ID,
                 title,
                 description,
+                null,
                 CREATED_AT,
                 CURRENT_TIME
         );

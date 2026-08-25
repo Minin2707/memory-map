@@ -9,6 +9,7 @@ import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/memory_failure_message.dart';
+import 'package:memory_map/features/music/presentation/story_soundtrack_summary_card.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/application/participants_state.dart';
 import 'package:memory_map/features/participant/domain/participant_failure.dart';
@@ -33,6 +34,7 @@ class StoryDetailsScreen extends ConsumerWidget {
     this.onParticipantsSelected,
     this.onMapSelected,
     this.onTimelineSelected,
+    this.onSoundtrackSelected,
     this.onCreateMemory,
     this.onMemorySelected,
     this.onPlaybackSelected,
@@ -47,6 +49,7 @@ class StoryDetailsScreen extends ConsumerWidget {
   final ValueChanged<UserStory>? onParticipantsSelected;
   final ValueChanged<UserStory>? onMapSelected;
   final ValueChanged<UserStory>? onTimelineSelected;
+  final ValueChanged<UserStory>? onSoundtrackSelected;
   final VoidCallback? onCreateMemory;
   final ValueChanged<Memory>? onMemorySelected;
   final ValueChanged<UserStory>? onPlaybackSelected;
@@ -217,6 +220,20 @@ class StoryDetailsScreen extends ConsumerWidget {
             onRetry: () {
               ref.read(storyParticipantsProvider(storyId).notifier).retryLoad();
             },
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+        sliver: SliverToBoxAdapter(
+          child: StorySoundtrackSummaryCard(
+            storyId: storyId,
+            editable: _canEditSoundtrack(userStory),
+            onSelected: onSoundtrackSelected == null
+                ? null
+                : () {
+                    onSoundtrackSelected!(userStory);
+                  },
           ),
         ),
       ),
@@ -2048,6 +2065,11 @@ bool _canCreateMemory(UserStory userStory) {
   return userStory.role == StoryRole.owner ||
       userStory.role == StoryRole.coOwner ||
       userStory.role == StoryRole.editor;
+}
+
+bool _canEditSoundtrack(UserStory userStory) {
+  return userStory.role == StoryRole.owner ||
+      userStory.role == StoryRole.coOwner;
 }
 
 List<MemoryReadModel> _recentMemoryReadModels(StoryMemoriesState? state) {

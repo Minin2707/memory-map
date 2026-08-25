@@ -142,6 +142,7 @@ class DefaultGetStoriesServiceTest {
                         USER_ID,
                         "Our Story",
                         "The beginning",
+                        null,
                         CURRENT_TIME,
                         CURRENT_TIME
                 ),

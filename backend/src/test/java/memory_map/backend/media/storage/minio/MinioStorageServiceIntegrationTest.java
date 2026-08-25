@@ -2,10 +2,12 @@ package memory_map.backend.media.storage.minio;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MinioClient;
+import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectNotFoundException;
 import memory_map.backend.media.storage.StorageObjectWrite;
 import memory_map.backend.media.storage.StorageService;
+import memory_map.backend.media.storage.StorageStreamWrite;
 import memory_map.backend.media.storage.StoredObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -87,6 +89,29 @@ class MinioStorageServiceIntegrationTest {
     }
 
     @Test
+    void shouldStoreAndReadStreamObject() throws Exception {
+        StorageKey key = storageKey("audio");
+
+        try (InputStream input = new java.io.ByteArrayInputStream(
+                new byte[] {1, 2, 3}
+        )) {
+            storageService.store(new StorageStreamWrite(
+                    key,
+                    input,
+                    3L,
+                    "audio/mpeg"
+            ));
+        }
+
+        StoredObject stored = storageService.read(key);
+        try (InputStream content = stored.content()) {
+            assertThat(content.readAllBytes()).containsExactly(1, 2, 3);
+        }
+        assertThat(stored.contentLength()).isEqualTo(3L);
+        assertThat(stored.contentType()).isEqualTo("audio/mpeg");
+    }
+
+    @Test
     void shouldKeepObjectsIsolatedByOpaqueKey() throws Exception {
         StorageKey first = storageKey("first");
         StorageKey second = storageKey("second");
@@ -111,6 +136,69 @@ class MinioStorageServiceIntegrationTest {
     }
 
     @Test
+    void shouldReadRangeFromStartWithoutLoadingFullObject() throws Exception {
+        StorageKey key = storageKey("range-start");
+        storageService.store(new StorageObjectWrite(
+                key,
+                new byte[] {1, 2, 3, 4, 5},
+                "audio/mpeg"
+        ));
+
+        StoredObject stored = storageService.readRange(
+                key,
+                new StorageByteRange(0L, 2L)
+        );
+
+        try (InputStream content = stored.content()) {
+            assertThat(content.readAllBytes()).containsExactly(1, 2);
+        }
+        assertThat(stored.contentLength()).isEqualTo(2L);
+        assertThat(stored.contentType()).isEqualTo("audio/mpeg");
+    }
+
+    @Test
+    void shouldReadRangeFromMiddleWithoutLoadingFullObject() throws Exception {
+        StorageKey key = storageKey("range-middle");
+        storageService.store(new StorageObjectWrite(
+                key,
+                new byte[] {1, 2, 3, 4, 5},
+                "audio/mpeg"
+        ));
+
+        StoredObject stored = storageService.readRange(
+                key,
+                new StorageByteRange(2L, 2L)
+        );
+
+        try (InputStream content = stored.content()) {
+            assertThat(content.readAllBytes()).containsExactly(3, 4);
+        }
+        assertThat(stored.contentLength()).isEqualTo(2L);
+        assertThat(stored.contentType()).isEqualTo("audio/mpeg");
+    }
+
+    @Test
+    void shouldReadRangeEndingAtObjectEnd() throws Exception {
+        StorageKey key = storageKey("range-end");
+        storageService.store(new StorageObjectWrite(
+                key,
+                new byte[] {1, 2, 3, 4, 5},
+                "audio/mpeg"
+        ));
+
+        StoredObject stored = storageService.readRange(
+                key,
+                new StorageByteRange(3L, 2L)
+        );
+
+        try (InputStream content = stored.content()) {
+            assertThat(content.readAllBytes()).containsExactly(4, 5);
+        }
+        assertThat(stored.contentLength()).isEqualTo(2L);
+        assertThat(stored.contentType()).isEqualTo("audio/mpeg");
+    }
+
+    @Test
     void shouldDeleteObjectAndTreatRepeatedDeleteAsNoOp() {
         StorageKey key = storageKey("delete");
         storageService.store(new StorageObjectWrite(
@@ -132,6 +220,24 @@ class MinioStorageServiceIntegrationTest {
         StorageKey key = storageKey("missing");
 
         Throwable thrown = catchThrowable(() -> storageService.read(key));
+
+        assertThat(thrown)
+                .isInstanceOf(StorageObjectNotFoundException.class)
+                .hasMessage("Storage object was not found");
+        assertThat(thrown.getMessage())
+                .doesNotContain(key.value())
+                .doesNotContain(endpoint())
+                .doesNotContain(SECRET_KEY);
+    }
+
+    @Test
+    void shouldMapMissingRangedReadToStorageObjectNotFound() {
+        StorageKey key = storageKey("missing-range");
+
+        Throwable thrown = catchThrowable(() -> storageService.readRange(
+                key,
+                new StorageByteRange(0L, 1L)
+        ));
 
         assertThat(thrown)
                 .isInstanceOf(StorageObjectNotFoundException.class)

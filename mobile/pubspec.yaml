@@ -42,6 +42,7 @@ dependencies:
   image: 4.8.0
   image_picker: 1.2.2
   flutter_svg: ^2.0.17
+  just_audio: 0.10.6
   maplibre_gl: ^0.26.2
   intl: ^0.20.2
 

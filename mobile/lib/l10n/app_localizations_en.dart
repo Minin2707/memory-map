@@ -351,6 +351,66 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyDetailsPlaybackStoryAction => 'Playback Story';
 
   @override
+  String get soundtrackTitle => 'Soundtrack';
+
+  @override
+  String get soundtrackNoMusic => 'No music';
+
+  @override
+  String get soundtrackLoading => 'Loading soundtrack...';
+
+  @override
+  String get soundtrackLoadFailureTitle => 'Could not load soundtrack';
+
+  @override
+  String get soundtrackChooseTitle => 'Choose soundtrack';
+
+  @override
+  String get soundtrackReadOnly => 'Read-only';
+
+  @override
+  String get soundtrackCurrentSelection => 'Current selection';
+
+  @override
+  String get soundtrackCurrentlyUnavailable => 'Currently unavailable';
+
+  @override
+  String get soundtrackUnavailableEditable =>
+      'Currently unavailable. Choose another track or No music.';
+
+  @override
+  String get soundtrackCatalogTitle => 'Available soundtracks';
+
+  @override
+  String get soundtrackCatalogLoadFailureTitle => 'Could not load soundtracks';
+
+  @override
+  String get soundtrackCatalogEmpty =>
+      'No soundtracks are available right now.';
+
+  @override
+  String get soundtrackSelected => 'Selected';
+
+  @override
+  String get soundtrackUpdateFailure =>
+      'Could not update soundtrack. Please try again.';
+
+  @override
+  String get musicFailureUnavailable =>
+      'Music is unavailable. Please try again.';
+
+  @override
+  String get musicFailureNetworkUnavailable =>
+      'No network connection. Check your connection and try again.';
+
+  @override
+  String get musicFailureRequestTimedOut =>
+      'The request timed out. Please try again.';
+
+  @override
+  String get musicFailureUnknown => 'Something went wrong. Please try again.';
+
+  @override
   String get participantsPageTitle => 'Participants';
 
   @override

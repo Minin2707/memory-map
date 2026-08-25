@@ -266,6 +266,7 @@ class TransactionalCreateStoryServiceTest {
                 USER_ID,
                 title,
                 description,
+                null,
                 CURRENT_TIME,
                 CURRENT_TIME
         );

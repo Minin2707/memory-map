@@ -1434,6 +1434,7 @@ class StoryParticipantControllerIntegrationTest extends IntegrationTest {
                         ownerId,
                         "Our Story",
                         "The beginning",
+                        null,
                         BASE_TIME,
                         BASE_TIME
                 )

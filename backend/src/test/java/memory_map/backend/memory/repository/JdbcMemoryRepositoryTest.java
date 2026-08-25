@@ -85,6 +85,7 @@ class JdbcMemoryRepositoryTest extends IntegrationTest {
                 ownerId,
                 "Our Story",
                 "The beginning of our journey",
+                null,
                 BASE_TIME,
                 BASE_TIME
         );

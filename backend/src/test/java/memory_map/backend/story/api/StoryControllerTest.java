@@ -896,6 +896,7 @@ class StoryControllerTest {
                     command.authenticatedUser().userId(),
                     "Returned Story",
                     "Returned description",
+                    null,
                     RETURNED_CREATED_AT,
                     RETURNED_UPDATED_AT
             );
@@ -1123,6 +1124,7 @@ class StoryControllerTest {
                         USER_ID,
                         title,
                         description,
+                        null,
                         createdAt,
                         updatedAt
                 ),

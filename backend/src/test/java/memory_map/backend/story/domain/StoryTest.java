@@ -30,6 +30,7 @@ class StoryTest {
                 OWNER_ID,
                 "Our Story",
                 "The beginning of our journey",
+                null,
                 CREATED_AT,
                 UPDATED_AT
         );
@@ -38,6 +39,7 @@ class StoryTest {
         assertThat(story.ownerId()).isEqualTo(OWNER_ID);
         assertThat(story.title()).isEqualTo("Our Story");
         assertThat(story.description()).isEqualTo("The beginning of our journey");
+        assertThat(story.soundtrackId()).isNull();
         assertThat(story.createdAt()).isEqualTo(CREATED_AT);
         assertThat(story.updatedAt()).isEqualTo(UPDATED_AT);
     }
@@ -50,11 +52,31 @@ class StoryTest {
                 OWNER_ID,
                 "Our Story",
                 null,
+                null,
                 CREATED_AT,
                 UPDATED_AT
         );
 
         assertThat(story.description()).isNull();
+    }
+
+    @Test
+    void shouldAllowNullableSoundtrackId() {
+
+        UUID soundtrackId =
+                UUID.fromString("00000000-0000-0000-0000-000000000003");
+
+        Story story = new Story(
+                STORY_ID,
+                OWNER_ID,
+                "Our Story",
+                null,
+                soundtrackId,
+                CREATED_AT,
+                UPDATED_AT
+        );
+
+        assertThat(story.soundtrackId()).isEqualTo(soundtrackId);
     }
 
     @Test
@@ -64,6 +86,7 @@ class StoryTest {
                 null,
                 OWNER_ID,
                 "Our Story",
+                null,
                 null,
                 CREATED_AT,
                 UPDATED_AT
@@ -80,6 +103,7 @@ class StoryTest {
                 null,
                 "Our Story",
                 null,
+                null,
                 CREATED_AT,
                 UPDATED_AT
         ))
@@ -93,6 +117,7 @@ class StoryTest {
         assertThatThrownBy(() -> new Story(
                 STORY_ID,
                 OWNER_ID,
+                null,
                 null,
                 null,
                 CREATED_AT,
@@ -110,6 +135,7 @@ class StoryTest {
                 OWNER_ID,
                 "",
                 null,
+                null,
                 CREATED_AT,
                 UPDATED_AT
         ))
@@ -120,6 +146,7 @@ class StoryTest {
                 STORY_ID,
                 OWNER_ID,
                 "   ",
+                null,
                 null,
                 CREATED_AT,
                 UPDATED_AT
@@ -137,6 +164,7 @@ class StoryTest {
                 "Our Story",
                 null,
                 null,
+                null,
                 UPDATED_AT
         ))
                 .isInstanceOf(NullPointerException.class)
@@ -150,6 +178,7 @@ class StoryTest {
                 STORY_ID,
                 OWNER_ID,
                 "Our Story",
+                null,
                 null,
                 CREATED_AT,
                 null

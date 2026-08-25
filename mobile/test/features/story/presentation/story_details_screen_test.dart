@@ -15,6 +15,12 @@ import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
 import 'package:memory_map/features/participant/application/participant_application_exception.dart';
+import 'package:memory_map/features/music/application/music_application_exception.dart';
+import 'package:memory_map/features/music/application/music_application_providers.dart';
+import 'package:memory_map/features/music/domain/music_failure.dart';
+import 'package:memory_map/features/music/domain/music_track.dart';
+import 'package:memory_map/features/music/domain/story_soundtrack.dart';
+import 'package:memory_map/features/music/domain/story_soundtrack_repository.dart';
 import 'package:memory_map/features/participant/application/participant_application_providers.dart';
 import 'package:memory_map/features/participant/domain/leave_story_input.dart';
 import 'package:memory_map/features/participant/domain/participant_failure.dart';
@@ -193,6 +199,129 @@ void main() {
       expect(avatars.first.foregroundImage, isA<NetworkImage>());
       expect(avatars.last.foregroundImage, isNull);
       expect((avatars.last.child! as Text).data, 'AL');
+    });
+
+    testWidgets('shouldRenderNoMusicSoundtrackSummaryForOwner', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        soundtrackRepository: FakeStorySoundtrackRepository()
+          ..getResult = StorySoundtrack.noMusic(),
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.soundtrack-summary')),
+      );
+
+      expect(find.text('Soundtrack'), findsOneWidget);
+      expect(find.text('No music'), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderSelectedSoundtrackSummary', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        soundtrackRepository: FakeStorySoundtrackRepository()
+          ..getResult = StorySoundtrack(
+            selectedSoundtrack: soundtrackTrack,
+            effectiveSoundtrack: soundtrackTrack,
+          ),
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.soundtrack-summary')),
+      );
+
+      expect(find.text('Autumn Leaves'), findsOneWidget);
+      expect(find.text('LofCosmos'), findsOneWidget);
+      expect(find.textContaining('Currently unavailable'), findsNothing);
+    });
+
+    testWidgets('shouldRenderSelectedUnavailableSoundtrackSummary', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        soundtrackRepository: FakeStorySoundtrackRepository()
+          ..getResult = StorySoundtrack(selectedSoundtrack: soundtrackTrack),
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.soundtrack-summary')),
+      );
+
+      expect(find.text('Autumn Leaves'), findsOneWidget);
+      expect(find.textContaining('Currently unavailable'), findsOneWidget);
+      expect(find.textContaining('DISABLED'), findsNothing);
+    });
+
+    testWidgets('shouldExposeSoundtrackNavigationOnlyForOwnerAndCoOwner', (
+      WidgetTester tester,
+    ) async {
+      var navigationCount = 0;
+
+      for (final role in StoryRole.values) {
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = userStory(role: role),
+          onSoundtrackSelected: (_) {
+            navigationCount += 1;
+          },
+        );
+
+        await scrollDownUntilFound(
+          tester,
+          find.byKey(const ValueKey('story-details.soundtrack-summary')),
+        );
+        await pressButton(
+          tester,
+          find.byKey(const ValueKey('story-details.soundtrack-summary')),
+        );
+      }
+
+      expect(navigationCount, 2);
+    });
+
+    testWidgets('shouldRenderSoundtrackFailureRetryWithoutBlockingDetails', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStorySoundtrackRepository()
+        ..getFailures.add(
+          const MusicApplicationException(MusicNetworkUnavailable()),
+        )
+        ..getResult = StorySoundtrack.noMusic();
+
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        soundtrackRepository: repository,
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.soundtrack-summary')),
+      );
+
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+      expect(find.textContaining('Could not load soundtrack'), findsOneWidget);
+
+      await pressButton(
+        tester,
+        find.byKey(
+          const ValueKey('story-details.soundtrack-summary.retry-action'),
+        ),
+      );
+
+      expect(repository.getCalls, 2);
+      expect(find.text('No music'), findsOneWidget);
     });
 
     testWidgets('shouldRenderParticipantPreviewLimitAndRemainingCount', (
@@ -1195,12 +1324,14 @@ Future<ProviderContainer> pumpScreen(
   ValueChanged<UserStory>? onParticipantsSelected,
   ValueChanged<UserStory>? onMapSelected,
   ValueChanged<UserStory>? onTimelineSelected,
+  ValueChanged<UserStory>? onSoundtrackSelected,
   VoidCallback? onCreateMemory,
   ValueChanged<Memory>? onMemorySelected,
   ValueChanged<UserStory>? onPlaybackSelected,
   media_fixtures.FakeMediaRepository? mediaRepository,
   FakeMemoryRepository? memoryRepository,
   FakeStoryParticipantRepository? participantRepository,
+  FakeStorySoundtrackRepository? soundtrackRepository,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
 }) async {
@@ -1215,6 +1346,9 @@ Future<ProviderContainer> pumpScreen(
       ),
       storyParticipantRepositoryProvider.overrideWithValue(
         participantRepository ?? FakeStoryParticipantRepository(),
+      ),
+      storySoundtrackRepositoryProvider.overrideWithValue(
+        soundtrackRepository ?? FakeStorySoundtrackRepository(),
       ),
     ],
   );
@@ -1242,6 +1376,7 @@ Future<ProviderContainer> pumpScreen(
           onParticipantsSelected: onParticipantsSelected,
           onMapSelected: onMapSelected,
           onTimelineSelected: onTimelineSelected,
+          onSoundtrackSelected: onSoundtrackSelected,
           onCreateMemory: onCreateMemory,
           onMemorySelected: onMemorySelected,
           onPlaybackSelected: onPlaybackSelected,
@@ -1397,6 +1532,13 @@ MemoryPhotoPreview memoryPreviewPhoto(String mediaId) {
   );
 }
 
+final MusicTrack soundtrackTrack = MusicTrack(
+  id: 'track-a',
+  title: 'Autumn Leaves',
+  artist: 'LofCosmos',
+  durationSeconds: 270,
+);
+
 StoryParticipant participant({
   String? userId,
   String displayName = 'Anna',
@@ -1500,6 +1642,36 @@ final class FakeStoryParticipantRepository implements StoryParticipantRepository
 
   @override
   Future<void> removeParticipant(RemoveStoryParticipantInput input) async {
+    throw UnimplementedError();
+  }
+}
+
+final class FakeStorySoundtrackRepository
+    implements StorySoundtrackRepository {
+  int getCalls = 0;
+  StorySoundtrack getResult = StorySoundtrack.noMusic();
+  final List<Object> getFailures = <Object>[];
+
+  @override
+  Future<StorySoundtrack> getStorySoundtrack(String storyId) async {
+    getCalls += 1;
+    if (getFailures.isNotEmpty) {
+      throw getFailures.removeAt(0);
+    }
+
+    return getResult;
+  }
+
+  @override
+  Future<StorySoundtrack> setStorySoundtrack(
+    String storyId,
+    String musicTrackId,
+  ) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<StorySoundtrack> removeStorySoundtrack(String storyId) async {
     throw UnimplementedError();
   }
 }

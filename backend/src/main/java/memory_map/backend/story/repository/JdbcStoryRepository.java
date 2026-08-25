@@ -19,6 +19,7 @@ public class JdbcStoryRepository implements StoryRepository {
                 owner_id,
                 title,
                 description,
+                soundtrack_id,
                 created_at,
                 updated_at
             )
@@ -27,6 +28,7 @@ public class JdbcStoryRepository implements StoryRepository {
                 :ownerId,
                 :title,
                 :description,
+                :soundtrackId,
                 :createdAt,
                 :updatedAt
             )
@@ -35,6 +37,7 @@ public class JdbcStoryRepository implements StoryRepository {
                 owner_id,
                 title,
                 description,
+                soundtrack_id,
                 created_at,
                 updated_at
             """;
@@ -45,6 +48,7 @@ public class JdbcStoryRepository implements StoryRepository {
                 owner_id,
                 title,
                 description,
+                soundtrack_id,
                 created_at,
                 updated_at
             FROM stories
@@ -62,6 +66,7 @@ public class JdbcStoryRepository implements StoryRepository {
             UPDATE stories
             SET title = :title,
                 description = :description,
+                soundtrack_id = :soundtrackId,
                 updated_at = :updatedAt
             WHERE id = :id
             RETURNING
@@ -69,6 +74,7 @@ public class JdbcStoryRepository implements StoryRepository {
                 owner_id,
                 title,
                 description,
+                soundtrack_id,
                 created_at,
                 updated_at
             """;
@@ -79,6 +85,7 @@ public class JdbcStoryRepository implements StoryRepository {
                 owner_id,
                 title,
                 description,
+                soundtrack_id,
                 created_at,
                 updated_at
             FROM stories
@@ -105,6 +112,7 @@ public class JdbcStoryRepository implements StoryRepository {
                 .param("ownerId", story.ownerId())
                 .param("title", story.title())
                 .param("description", story.description())
+                .param("soundtrackId", story.soundtrackId())
                 .param(
                         "createdAt",
                         DatabaseTimestamps.toOffsetDateTime(story.createdAt())
@@ -124,6 +132,7 @@ public class JdbcStoryRepository implements StoryRepository {
                 .param("id", story.id())
                 .param("title", story.title())
                 .param("description", story.description())
+                .param("soundtrackId", story.soundtrackId())
                 .param(
                         "updatedAt",
                         DatabaseTimestamps.toOffsetDateTime(story.updatedAt())

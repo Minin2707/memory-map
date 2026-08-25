@@ -14,6 +14,8 @@ public record Story(
 
         String description,
 
+        UUID soundtrackId,
+
         Instant createdAt,
 
         Instant updatedAt

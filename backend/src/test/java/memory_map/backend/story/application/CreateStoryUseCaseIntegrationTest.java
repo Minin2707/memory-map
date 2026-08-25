@@ -145,6 +145,7 @@ class CreateStoryUseCaseIntegrationTest extends IntegrationTest {
                 ownerId,
                 "Our Story",
                 "The beginning of our journey",
+                null,
                 CURRENT_TIME,
                 CURRENT_TIME
         );

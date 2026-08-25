@@ -41,6 +41,11 @@ import 'package:memory_map/features/memory/presentation/memory_details_route.dar
 import 'package:memory_map/features/memory/presentation/memory_details_screen.dart';
 import 'package:memory_map/features/memory/presentation/story_map_route.dart';
 import 'package:memory_map/features/memory/presentation/story_map_screen.dart';
+import 'package:memory_map/features/music/application/music_application_providers.dart';
+import 'package:memory_map/features/music/domain/music_repository.dart';
+import 'package:memory_map/features/music/domain/music_track.dart';
+import 'package:memory_map/features/music/domain/story_soundtrack.dart';
+import 'package:memory_map/features/music/domain/story_soundtrack_repository.dart';
 import 'package:memory_map/features/participant/application/participant_application_exception.dart';
 import 'package:memory_map/features/participant/application/participant_application_providers.dart';
 import 'package:memory_map/features/participant/domain/leave_story_input.dart';
@@ -48,6 +53,8 @@ import 'package:memory_map/features/participant/domain/participant_failure.dart'
 import 'package:memory_map/features/participant/domain/remove_story_participant_input.dart';
 import 'package:memory_map/features/participant/domain/story_participant.dart';
 import 'package:memory_map/features/participant/domain/story_participant_repository.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_orchestrator.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_provider.dart';
 import 'package:memory_map/features/playback/presentation/story_playback_route.dart';
 import 'package:memory_map/features/playback/presentation/story_playback_screen.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
@@ -824,6 +831,85 @@ void main() {
       );
 
       expect(storyDetailsScreenFinder(), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenSoundtrackSelectionFromDetailsAndBack', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeSoundtrackRepository = FakeStorySoundtrackRepository()
+        ..getResult = StorySoundtrack.noMusic()
+        ..setResult = StorySoundtrack(
+          selectedSoundtrack: soundtrackTrack,
+          effectiveSoundtrack: soundtrackTrack,
+        );
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        musicRepository: FakeMusicRepository()
+          ..tracksResult = <MusicTrack>[soundtrackTrack],
+        soundtrackRepository: fakeSoundtrackRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+      await scrollToStoryDetailsSoundtrackSummary(tester);
+      await tapButton(tester, storyDetailsSoundtrackSummaryFinder());
+
+      expect(find.text('Choose soundtrack'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('soundtrack-selection.screen')),
+        findsOneWidget,
+      );
+      expect(storyDetailsScreenFinder(), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('soundtrack-selection.track.track-a')),
+      );
+      expect(fakeSoundtrackRepository.operations, <String>[
+        'get:story-1',
+        'set:story-1:track-a',
+      ]);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('soundtrack-selection.back-action')),
+      );
+
+      expect(storyDetailsScreenFinder(), findsOneWidget);
+      await scrollToStoryDetailsSoundtrackSummary(tester);
+      expect(find.text('Autumn Leaves'), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenSoundtrackSelectionDirectRouteFromStoryState', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storyResult = userStory(role: StoryRole.viewer);
+
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        musicRepository: FakeMusicRepository()
+          ..tracksResult = <MusicTrack>[soundtrackTrack],
+        soundtrackRepository: FakeStorySoundtrackRepository()
+          ..getResult = StorySoundtrack.noMusic(),
+      );
+      await tester.pumpAndSettle();
+
+      container.read(appRouterProvider).goNamed(
+        storySoundtrackRouteName,
+        pathParameters: {'storyId': ownerStory.story.id},
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose soundtrack'), findsOneWidget);
+      expect(find.text('Read-only'), findsOneWidget);
+      expect(fakeStoryRepository.receivedGetStoryIds, <String>['story-1']);
     });
 
     testWidgets('shouldSynchronizeStoriesAndGoToStoriesAfterLeaveSuccess', (
@@ -2776,6 +2862,17 @@ Future<void> scrollToStoryDetailsPlaybackAction(
   await tester.pumpAndSettle();
 }
 
+Future<void> scrollToStoryDetailsSoundtrackSummary(
+  WidgetTester tester,
+) async {
+  await tester.scrollUntilVisible(
+    storyDetailsSoundtrackSummaryFinder(),
+    120,
+    scrollable: storyDetailsScrollableFinder(),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> scrollDownUntilFound(
   WidgetTester tester,
   Finder finder, {
@@ -2867,6 +2964,10 @@ Finder storyDetailsPlaybackActionFinder() {
   return find.byKey(const ValueKey('story-details.playback-action'));
 }
 
+Finder storyDetailsSoundtrackSummaryFinder() {
+  return find.byKey(const ValueKey('story-details.soundtrack-summary'));
+}
+
 Finder memoryDetailsDeleteActionFinder() {
   return find.byKey(const ValueKey('memory-details.delete-action'));
 }
@@ -2889,6 +2990,8 @@ Future<ProviderContainer> pumpApp(
   FakeInviteRepository? inviteRepository,
   FakeStoryParticipantRepository? participantRepository,
   FakeMemoryRepository? memoryRepository,
+  FakeMusicRepository? musicRepository,
+  FakeStorySoundtrackRepository? soundtrackRepository,
   media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
   PlaybackMapBuilder? storyPlaybackMapBuilder,
@@ -2899,6 +3002,8 @@ Future<ProviderContainer> pumpApp(
     inviteRepository: inviteRepository,
     participantRepository: participantRepository,
     memoryRepository: memoryRepository,
+    musicRepository: musicRepository,
+    soundtrackRepository: soundtrackRepository,
     mediaRepository: mediaRepository,
     storyMapBuilder: storyMapBuilder,
     storyPlaybackMapBuilder: storyPlaybackMapBuilder,
@@ -2922,6 +3027,8 @@ ProviderContainer createContainer(
   FakeInviteRepository? inviteRepository,
   FakeStoryParticipantRepository? participantRepository,
   FakeMemoryRepository? memoryRepository,
+  FakeMusicRepository? musicRepository,
+  FakeStorySoundtrackRepository? soundtrackRepository,
   media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
   PlaybackMapBuilder? storyPlaybackMapBuilder,
@@ -2941,6 +3048,12 @@ ProviderContainer createContainer(
       memoryRepositoryProvider.overrideWithValue(
         memoryRepository ?? FakeMemoryRepository(),
       ),
+      musicRepositoryProvider.overrideWithValue(
+        musicRepository ?? FakeMusicRepository(),
+      ),
+      storySoundtrackRepositoryProvider.overrideWithValue(
+        soundtrackRepository ?? FakeStorySoundtrackRepository(),
+      ),
       mediaRepositoryProvider.overrideWithValue(
         mediaRepository ??
             (media_fixtures.FakeMediaRepository()..mediaResult = <Media>[]),
@@ -2957,6 +3070,9 @@ ProviderContainer createContainer(
         storyPlaybackMapBuilderProvider.overrideWithValue(
           storyPlaybackMapBuilder,
         ),
+      playbackAudioOrchestratorProvider.overrideWith(
+        (ref, storyId) => FakePlaybackAudioSessionOrchestrator(),
+      ),
     ],
   );
 }
@@ -3091,6 +3207,13 @@ final StoryParticipant viewerParticipant = StoryParticipant(
   avatarUrl: null,
   role: StoryRole.viewer,
   joinedAt: DateTime.utc(2026, 8, 9, 11),
+);
+
+final MusicTrack soundtrackTrack = MusicTrack(
+  id: 'track-a',
+  title: 'Autumn Leaves',
+  artist: 'LofCosmos',
+  durationSeconds: 270,
 );
 
 final class FakeAuthRepository implements AuthRepository {
@@ -3262,6 +3385,47 @@ final class FakeStoryParticipantRepository
     if (failure != null) {
       throw failure;
     }
+  }
+}
+
+final class FakeMusicRepository implements MusicRepository {
+  int getAvailableTracksCalls = 0;
+  List<MusicTrack> tracksResult = const <MusicTrack>[];
+
+  @override
+  Future<List<MusicTrack>> getAvailableTracks() async {
+    getAvailableTracksCalls += 1;
+    return tracksResult;
+  }
+}
+
+final class FakeStorySoundtrackRepository
+    implements StorySoundtrackRepository {
+  final List<String> operations = <String>[];
+  StorySoundtrack getResult = StorySoundtrack.noMusic();
+  StorySoundtrack setResult = StorySoundtrack.noMusic();
+
+  @override
+  Future<StorySoundtrack> getStorySoundtrack(String storyId) async {
+    operations.add('get:$storyId');
+    return getResult;
+  }
+
+  @override
+  Future<StorySoundtrack> setStorySoundtrack(
+    String storyId,
+    String musicTrackId,
+  ) async {
+    operations.add('set:$storyId:$musicTrackId');
+    getResult = setResult;
+    return setResult;
+  }
+
+  @override
+  Future<StorySoundtrack> removeStorySoundtrack(String storyId) async {
+    operations.add('remove:$storyId');
+    getResult = StorySoundtrack.noMusic();
+    return getResult;
   }
 }
 
@@ -3490,4 +3654,37 @@ Widget controllableStoryPlaybackMapBuilder(
       ),
     ),
   );
+}
+
+final class FakePlaybackAudioSessionOrchestrator
+    implements PlaybackAudioSessionOrchestrator {
+  @override
+  PlaybackAudioSessionStatus status = PlaybackAudioSessionStatus.idle;
+
+  @override
+  Future<void> cameraFailed() async {}
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Future<void> finish() async {}
+
+  @override
+  void invalidateSession() {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> playbackStarted() async {}
+
+  @override
+  Future<void> replay() async {}
+
+  @override
+  Future<void> resume() async {}
+
+  @override
+  Future<void> startSession({required String storyId}) async {}
 }

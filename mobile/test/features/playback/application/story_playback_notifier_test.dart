@@ -2,6 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/music/application/music_application_providers.dart';
+import 'package:memory_map/features/music/domain/music_track.dart';
+import 'package:memory_map/features/music/domain/story_soundtrack.dart';
+import 'package:memory_map/features/music/domain/story_soundtrack_repository.dart';
 import 'package:memory_map/features/memory/application/memory_application_exception.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
@@ -15,6 +19,10 @@ import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/domain/memory_repository.dart';
 import 'package:memory_map/features/memory/domain/update_memory_input.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_controller.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_orchestrator.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_provider.dart';
+import 'package:memory_map/features/playback/application/audio/playback_audio_state.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler_provider.dart';
 import 'package:memory_map/features/playback/application/playback_session_state.dart';
@@ -122,6 +130,375 @@ void main() {
 
       expect(state.loadFailure, const UnknownMemoryFailure());
       expect(state.toString(), isNot(contains('UnexpectedMemoryException')));
+    });
+  });
+
+  group('StoryPlaybackNotifier audio session initialization', () {
+    test('shouldResolveFreshSoundtrackOnceWhenVisualPlaybackStarts', () async {
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)];
+      final soundtrackRepository = FakeStorySoundtrackRepository()
+        ..results.add(
+          StorySoundtrack(
+            selectedSoundtrack: trackA,
+            effectiveSoundtrack: trackA,
+          ),
+        );
+      final audioController = FakePlaybackAudioController();
+      final container = createContainer(
+        memoryRepository,
+        FakePlaybackScheduler(),
+        useRealAudioOrchestrator: true,
+        soundtrackRepository: soundtrackRepository,
+        audioController: audioController,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      final state = await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      expect(state.requirePlayback.status, PlaybackStatus.playing);
+      expect(state.requirePlayback.phase, PlaybackPhase.moving);
+      expect(soundtrackRepository.operations, <String>['get:story-1']);
+      expect(audioController.prepareStoryIds, <String>['story-1']);
+    });
+
+    test('shouldNotWaitForSoundtrackResolutionBeforeStartingVisualPlayback',
+        () async {
+      final soundtrackCompleter = Completer<StorySoundtrack>();
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)];
+      final soundtrackRepository = FakeStorySoundtrackRepository()
+        ..completers.add(soundtrackCompleter);
+      final audioController = FakePlaybackAudioController();
+      final container = createContainer(
+        memoryRepository,
+        FakePlaybackScheduler(),
+        useRealAudioOrchestrator: true,
+        soundtrackRepository: soundtrackRepository,
+        audioController: audioController,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      final state = await waitForPlaybackSession(container, 'story-1');
+
+      expect(state.requirePlayback.status, PlaybackStatus.playing);
+      expect(state.requirePlayback.phase, PlaybackPhase.moving);
+      expect(soundtrackRepository.operations, <String>['get:story-1']);
+      expect(audioController.prepareStoryIds, isEmpty);
+
+      soundtrackCompleter.complete(StorySoundtrack.noMusic());
+      await pumpEventQueue();
+    });
+
+    test('shouldKeepVisualPlaybackWhenSoundtrackResolutionFails', () async {
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)];
+      final soundtrackRepository = FakeStorySoundtrackRepository()
+        ..failures.add(const PrivateMusicException());
+      final audioController = FakePlaybackAudioController();
+      final container = createContainer(
+        memoryRepository,
+        FakePlaybackScheduler(),
+        useRealAudioOrchestrator: true,
+        soundtrackRepository: soundtrackRepository,
+        audioController: audioController,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      final state = await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      expect(state.requirePlayback.status, PlaybackStatus.playing);
+      expect(state.requirePlayback.phase, PlaybackPhase.moving);
+      expect(soundtrackRepository.operations, <String>['get:story-1']);
+      expect(audioController.prepareStoryIds, isEmpty);
+    });
+
+    test('shouldKeepVisualPlaybackWhenAudioPrepareFails', () async {
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)];
+      final soundtrackRepository = FakeStorySoundtrackRepository()
+        ..results.add(
+          StorySoundtrack(
+            selectedSoundtrack: trackA,
+            effectiveSoundtrack: trackA,
+          ),
+        );
+      final audioController = FakePlaybackAudioController()
+        ..prepareFailure = const PrivateAudioException();
+      final container = createContainer(
+        memoryRepository,
+        FakePlaybackScheduler(),
+        useRealAudioOrchestrator: true,
+        soundtrackRepository: soundtrackRepository,
+        audioController: audioController,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      final state = await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      expect(state.requirePlayback.status, PlaybackStatus.playing);
+      expect(state.requirePlayback.phase, PlaybackPhase.moving);
+      expect(soundtrackRepository.operations, <String>['get:story-1']);
+      expect(audioController.prepareStoryIds, <String>['story-1']);
+    });
+
+    test('shouldNotResolveSoundtrackPerMemoryTransition', () async {
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[
+          readModel(memoryA),
+          readModel(memoryB),
+        ];
+      final soundtrackRepository = FakeStorySoundtrackRepository()
+        ..results.add(
+          StorySoundtrack(
+            selectedSoundtrack: trackA,
+            effectiveSoundtrack: trackA,
+          ),
+        );
+      final audioController = FakePlaybackAudioController();
+      final scheduler = FakePlaybackScheduler();
+      final container = createContainer(
+        memoryRepository,
+        scheduler,
+        useRealAudioOrchestrator: true,
+        soundtrackRepository: soundtrackRepository,
+        audioController: audioController,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+      await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      notifier.cameraArrived(playback(container).cameraRevision);
+      scheduler.latest.fire();
+      notifier.next();
+      await pumpEventQueue();
+
+      expect(soundtrackRepository.operations, <String>['get:story-1']);
+      expect(audioController.prepareStoryIds, <String>['story-1']);
+      expect(playback(container).currentMemory?.memory.id, memoryB.id);
+    });
+
+    test('shouldNotResolveSoundtrackForEmptyVisualSession', () async {
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelsResult = const <MemoryReadModel>[];
+      final soundtrackRepository = FakeStorySoundtrackRepository();
+      final audioController = FakePlaybackAudioController();
+      final container = createContainer(
+        memoryRepository,
+        FakePlaybackScheduler(),
+        useRealAudioOrchestrator: true,
+        soundtrackRepository: soundtrackRepository,
+        audioController: audioController,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      final state = await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      expect(state.requirePlayback.status, PlaybackStatus.idle);
+      expect(soundtrackRepository.operations, isEmpty);
+      expect(audioController.prepareStoryIds, isEmpty);
+    });
+
+    test('shouldSignalAudioPlayingIntentBeforeStartingAudioSession', () async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final memoryRepository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)];
+      final container = createContainer(
+        memoryRepository,
+        FakePlaybackScheduler(),
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      expect(
+        audioOrchestrator.operations
+            .where((operation) => operation != 'invalidateSession')
+            .toList(),
+        <String>[
+          'playbackStarted',
+          'startSession:story-1',
+        ],
+      );
+    });
+  });
+
+  group('StoryPlaybackNotifier audio lifecycle mapping', () {
+    test('shouldMapPauseAndResumeMovingToAudioPauseAndResume', () async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      audioOrchestrator.operations.clear();
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+
+      notifier.pause();
+      notifier.resume();
+      await pumpEventQueue();
+
+      expect(audioOrchestrator.operations, <String>['pause', 'resume']);
+      expect(playback(container).status, PlaybackStatus.playing);
+      expect(playback(container).phase, PlaybackPhase.moving);
+    });
+
+    test('shouldMapPauseAndResumePresentingToAudioPauseAndResume', () async {
+      final scheduler = FakePlaybackScheduler();
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await readyContainer(
+        scheduler,
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      notifier.cameraArrived(playback(container).cameraRevision);
+      audioOrchestrator.operations.clear();
+
+      notifier.pause();
+      notifier.resume();
+      await pumpEventQueue();
+
+      expect(audioOrchestrator.operations, <String>['pause', 'resume']);
+      expect(playback(container).status, PlaybackStatus.playing);
+      expect(playback(container).phase, PlaybackPhase.presenting);
+      expect(scheduler.activeTaskCount, 1);
+    });
+
+    test('shouldPauseAudioOnCameraFailureAndResumeAfterRetry', () async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      final revision = playback(container).cameraRevision;
+      audioOrchestrator.operations.clear();
+
+      notifier.cameraFailed(revision);
+      notifier.retryCamera();
+      await pumpEventQueue();
+
+      expect(audioOrchestrator.operations, <String>[
+        'cameraFailed',
+        'resume',
+      ]);
+      expect(container.read(storyPlaybackProvider('story-1')).hasCameraFailure,
+          isFalse);
+      expect(playback(container).status, PlaybackStatus.playing);
+      expect(playback(container).phase, PlaybackPhase.moving);
+    });
+
+    test('shouldStopAudioWhenVisualPlaybackFinishesFromTimer', () async {
+      final scheduler = FakePlaybackScheduler();
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await readyContainer(
+        scheduler,
+        memories: [readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      notifier.cameraArrived(playback(container).cameraRevision);
+      audioOrchestrator.operations.clear();
+
+      scheduler.latest.fire();
+      await pumpEventQueue();
+
+      expect(audioOrchestrator.operations, <String>['finish']);
+      expect(playback(container).status, PlaybackStatus.finished);
+    });
+
+    test('shouldStopAudioWhenNextFinishesLastPresentingMemory', () async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        memories: [readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      notifier.cameraArrived(playback(container).cameraRevision);
+      audioOrchestrator.operations.clear();
+
+      notifier.next();
+      await pumpEventQueue();
+
+      expect(audioOrchestrator.operations, <String>['finish']);
+      expect(playback(container).status, PlaybackStatus.finished);
+    });
+
+    test('shouldReplayAudioWithoutStartingNewSoundtrackSession', () async {
+      final scheduler = FakePlaybackScheduler();
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await readyContainer(
+        scheduler,
+        memories: [readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      notifier.cameraArrived(playback(container).cameraRevision);
+      scheduler.latest.fire();
+      audioOrchestrator.operations.clear();
+
+      notifier.replay();
+      await pumpEventQueue();
+
+      expect(audioOrchestrator.operations, <String>['replay']);
+      expect(playback(container).status, PlaybackStatus.playing);
+      expect(playback(container).phase, PlaybackPhase.moving);
+    });
+
+    test('shouldCloseAudioOnStop', () async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      audioOrchestrator.operations.clear();
+
+      notifier.stop();
+      await pumpEventQueue();
+
+      expect(audioOrchestrator.operations, <String>['close']);
+      expect(playback(container).status, PlaybackStatus.idle);
+    });
+
+    test('shouldNotRestartAudioOnNextOrPreviousMemoryNavigation', () async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        memories: [readModel(memoryA), readModel(memoryB), readModel(memoryC)],
+        audioOrchestrator: audioOrchestrator,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+      audioOrchestrator.operations.clear();
+
+      notifier.next();
+      notifier.previous();
+      await pumpEventQueue();
+
+      expect(audioOrchestrator.operations, isEmpty);
+      expect(playback(container).currentMemory?.memory.id, memoryA.id);
     });
   });
 
@@ -691,12 +1068,28 @@ void main() {
 
 ProviderContainer createContainer(
   FakeMemoryRepository repository,
-  FakePlaybackScheduler scheduler,
-) {
+  FakePlaybackScheduler scheduler, {
+  bool useRealAudioOrchestrator = false,
+  FakeStorySoundtrackRepository? soundtrackRepository,
+  FakePlaybackAudioController? audioController,
+  FakePlaybackAudioSessionOrchestrator? audioOrchestrator,
+}) {
   return ProviderContainer(
     overrides: [
       memoryRepositoryProvider.overrideWithValue(repository),
       playbackSchedulerProvider.overrideWithValue(scheduler),
+      if (useRealAudioOrchestrator) ...[
+        storySoundtrackRepositoryProvider.overrideWithValue(
+          soundtrackRepository ?? FakeStorySoundtrackRepository(),
+        ),
+        playbackAudioControllerProvider.overrideWith(
+          (ref, storyId) => audioController ?? FakePlaybackAudioController(),
+        ),
+      ] else
+        playbackAudioOrchestratorProvider.overrideWith(
+          (ref, storyId) =>
+              audioOrchestrator ?? FakePlaybackAudioSessionOrchestrator(),
+        ),
     ],
   );
 }
@@ -704,6 +1097,7 @@ ProviderContainer createContainer(
 Future<ProviderContainer> readyContainer(
   FakePlaybackScheduler scheduler, {
   List<MemoryReadModel>? memories,
+  FakePlaybackAudioSessionOrchestrator? audioOrchestrator,
 }) async {
   final repository = FakeMemoryRepository()
     ..memoryReadModelsResult = memories ??
@@ -711,7 +1105,11 @@ Future<ProviderContainer> readyContainer(
           readModel(memoryA),
           readModel(memoryB),
         ];
-  final container = createContainer(repository, scheduler);
+  final container = createContainer(
+    repository,
+    scheduler,
+    audioOrchestrator: audioOrchestrator,
+  );
   holdPlaybackSession(container, 'story-1');
   await waitForPlaybackSession(container, 'story-1');
   return container;
@@ -809,6 +1207,163 @@ final Memory memoryC = memory(
   title: 'C',
   day: 30,
 );
+
+final MusicTrack trackA = MusicTrack(
+  id: 'track-a',
+  title: 'Autumn Leaves',
+  artist: 'LofCosmos',
+  durationSeconds: 270,
+);
+
+final class FakePlaybackAudioSessionOrchestrator
+    implements PlaybackAudioSessionOrchestrator {
+  final List<String> startedStoryIds = <String>[];
+  final List<String> operations = <String>[];
+  int invalidateCalls = 0;
+
+  @override
+  PlaybackAudioSessionStatus status = PlaybackAudioSessionStatus.idle;
+
+  @override
+  Future<void> cameraFailed() async {
+    operations.add('cameraFailed');
+  }
+
+  @override
+  Future<void> close() async {
+    operations.add('close');
+  }
+
+  @override
+  Future<void> finish() async {
+    operations.add('finish');
+  }
+
+  @override
+  Future<void> startSession({required String storyId}) async {
+    operations.add('startSession:$storyId');
+    startedStoryIds.add(storyId);
+  }
+
+  @override
+  Future<void> pause() async {
+    operations.add('pause');
+  }
+
+  @override
+  Future<void> playbackStarted() async {
+    operations.add('playbackStarted');
+  }
+
+  @override
+  Future<void> replay() async {
+    operations.add('replay');
+  }
+
+  @override
+  Future<void> resume() async {
+    operations.add('resume');
+  }
+
+  @override
+  void invalidateSession() {
+    operations.add('invalidateSession');
+    invalidateCalls++;
+  }
+}
+
+final class FakeStorySoundtrackRepository
+    implements StorySoundtrackRepository {
+  final List<String> operations = <String>[];
+  final List<Object> failures = <Object>[];
+  final List<StorySoundtrack> results = <StorySoundtrack>[];
+  final List<Completer<StorySoundtrack>> completers =
+      <Completer<StorySoundtrack>>[];
+
+  @override
+  Future<StorySoundtrack> getStorySoundtrack(String storyId) {
+    operations.add('get:$storyId');
+    if (failures.isNotEmpty) {
+      throw failures.removeAt(0);
+    }
+
+    if (completers.isNotEmpty) {
+      return completers.removeAt(0).future;
+    }
+
+    if (results.isNotEmpty) {
+      return Future.value(results.removeAt(0));
+    }
+
+    return Future.value(StorySoundtrack.noMusic());
+  }
+
+  @override
+  Future<StorySoundtrack> removeStorySoundtrack(String storyId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<StorySoundtrack> setStorySoundtrack(
+    String storyId,
+    String musicTrackId,
+  ) {
+    throw UnimplementedError();
+  }
+}
+
+final class FakePlaybackAudioController implements PlaybackAudioController {
+  final List<String> prepareStoryIds = <String>[];
+  final StreamController<PlaybackAudioState> _stateController =
+      StreamController<PlaybackAudioState>.broadcast();
+
+  Object? prepareFailure;
+  PlaybackAudioState stateAfterPrepare = PlaybackAudioState.ready();
+  PlaybackAudioState _state = PlaybackAudioState.idle();
+
+  @override
+  PlaybackAudioState get state => _state;
+
+  @override
+  Stream<PlaybackAudioState> get stateStream => _stateController.stream;
+
+  @override
+  Future<void> prepare({required String storyId}) async {
+    prepareStoryIds.add(storyId);
+    final failure = prepareFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    _state = stateAfterPrepare;
+    _stateController.add(_state);
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _stateController.close();
+  }
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> play() async {}
+
+  @override
+  Future<void> restart() async {}
+
+  @override
+  Future<void> stop() async {}
+}
+
+final class PrivateMusicException implements Exception {
+  const PrivateMusicException();
+}
+
+final class PrivateAudioException implements Exception {
+  const PrivateAudioException();
+}
 
 final class FakePlaybackScheduler implements PlaybackScheduler {
   final List<FakePlaybackScheduledTask> tasks = <FakePlaybackScheduledTask>[];
