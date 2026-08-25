@@ -12,7 +12,7 @@ abstract interface class MapMarkerAnnotationController<T extends Object> {
 
   void removeMarkerTapListener(MapMarkerTapHandler<T> listener);
 
-  void handleStyleLoaded();
+  Future<void> handleStyleLoaded();
 
   Future<void> clearMarkers();
 
@@ -118,6 +118,13 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
   List<MapMarker> _markers = const <MapMarker>[];
   Map<String, MapMarkerIcon> _markerIcons = const <String, MapMarkerIcon>{};
   String? _selectedMarkerId;
+  List<MapMarker> _lastRenderedMarkers = const <MapMarker>[];
+  Map<String, MapMarkerIcon> _lastRenderedMarkerIcons =
+      const <String, MapMarkerIcon>{};
+  String? _lastRenderedSelectedMarkerId;
+  int? _lastRenderedStyleGeneration;
+  Future<void>? _styleConfiguration;
+  int _styleGeneration = 0;
   bool _styleLoaded = false;
   bool _syncInProgress = false;
   bool _syncRequested = false;
@@ -155,7 +162,8 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
       return false;
     }
 
-    _controller.handleStyleLoaded();
+    _styleGeneration += 1;
+    _styleConfiguration = _controller.handleStyleLoaded();
 
     if (_styleLoaded) {
       unawaited(_scheduleSync());
@@ -175,6 +183,9 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
     _disposed = true;
     _controller.removeMarkerTapListener(_handleMarkerTapped);
     _markerIdsByAnnotation.clear();
+    while (_syncInProgress) {
+      await Future<void>.delayed(Duration.zero);
+    }
     await _controller.clearMarkers();
   }
 
@@ -200,13 +211,35 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
   }
 
   Future<void> _syncMarkersOnce() async {
+    await _awaitStyleConfiguration();
+    if (_disposed) {
+      return;
+    }
+
     final markers = _markers;
+    final markerIcons = _markerIcons;
     final selectedMarkerId = _selectedMarkerId;
+    final styleGeneration = _styleGeneration;
+
+    if (_hasSameRenderedInput(
+      markers,
+      markerIcons,
+      selectedMarkerId,
+      styleGeneration,
+    )) {
+      return;
+    }
 
     _markerIdsByAnnotation.clear();
     await _controller.clearMarkers();
 
     if (_disposed || markers.isEmpty) {
+      _rememberRenderedInput(
+        markers,
+        markerIcons,
+        selectedMarkerId,
+        styleGeneration,
+      );
       return;
     }
 
@@ -215,7 +248,7 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
           (marker) => MapMarkerRenderOptions(
             coordinate: marker.coordinate,
             selected: marker.id == selectedMarkerId,
-            icon: _markerIcons[marker.id],
+            icon: markerIcons[marker.id],
           ),
         )
         .toList(growable: false);
@@ -231,6 +264,26 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
         : markers.length;
     for (var index = 0; index < count; index += 1) {
       _markerIdsByAnnotation[annotations[index]] = markers[index].id;
+    }
+    _rememberRenderedInput(
+      markers,
+      markerIcons,
+      selectedMarkerId,
+      styleGeneration,
+    );
+  }
+
+  Future<void> _awaitStyleConfiguration() async {
+    while (!_disposed) {
+      final styleConfiguration = _styleConfiguration;
+      if (styleConfiguration == null) {
+        return;
+      }
+
+      await styleConfiguration;
+      if (identical(_styleConfiguration, styleConfiguration)) {
+        return;
+      }
     }
   }
 
@@ -266,6 +319,62 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
 
     for (final entry in markerIcons.entries) {
       if (_markerIcons[entry.key] != entry.value) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool _hasSameRenderedInput(
+    List<MapMarker> markers,
+    Map<String, MapMarkerIcon> markerIcons,
+    String? selectedMarkerId,
+    int styleGeneration,
+  ) {
+    return _lastRenderedStyleGeneration == styleGeneration &&
+        _lastRenderedSelectedMarkerId == selectedMarkerId &&
+        _hasSameMarkers(_lastRenderedMarkers, markers) &&
+        _hasSameMarkerIcons(_lastRenderedMarkerIcons, markerIcons);
+  }
+
+  void _rememberRenderedInput(
+    List<MapMarker> markers,
+    Map<String, MapMarkerIcon> markerIcons,
+    String? selectedMarkerId,
+    int styleGeneration,
+  ) {
+    _lastRenderedMarkers = List<MapMarker>.unmodifiable(markers);
+    _lastRenderedMarkerIcons =
+        Map<String, MapMarkerIcon>.unmodifiable(markerIcons);
+    _lastRenderedSelectedMarkerId = selectedMarkerId;
+    _lastRenderedStyleGeneration = styleGeneration;
+  }
+
+  bool _hasSameMarkers(List<MapMarker> left, List<MapMarker> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool _hasSameMarkerIcons(
+    Map<String, MapMarkerIcon> left,
+    Map<String, MapMarkerIcon> right,
+  ) {
+    if (left.length != right.length) {
+      return false;
+    }
+
+    for (final entry in right.entries) {
+      if (left[entry.key] != entry.value) {
         return false;
       }
     }

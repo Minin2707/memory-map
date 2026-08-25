@@ -110,7 +110,10 @@ void main() {
       expect(state.cameraCommand?.memoryIndex, 0);
       expect(state.cameraCommand?.target.latitude, 3);
       expect(state.cameraCommand?.target.longitude, 4);
-      expect(state.cameraCommand?.duration, const Duration(seconds: 2));
+      expect(
+        state.cameraCommand?.duration,
+        const Duration(milliseconds: 2500),
+      );
       expect(state.progress.currentPosition, 1);
       expect(state.progress.total, 2);
     });
@@ -158,6 +161,61 @@ void main() {
       expect(next.cameraCommand?.revision, 2);
       expect(next.progress.currentPosition, 2);
       expect(next.progress.total, 2);
+    });
+
+    test('shouldEnterDismissingBeforeAutoplayMovesToNextMemory', () {
+      final presenting = started().cameraArrived(1);
+
+      final dismissing = presenting.beginPresentationDismissal(
+        presenting.presentationRevision,
+      );
+      final next = dismissing.presentationElapsed(
+        dismissing.presentationRevision,
+      );
+
+      expect(dismissing.status, PlaybackStatus.playing);
+      expect(dismissing.phase, PlaybackPhase.dismissing);
+      expect(dismissing.currentMemory?.memory.id, 'memory-a');
+      expect(dismissing.cameraCommand, isNull);
+      expect(next.phase, PlaybackPhase.moving);
+      expect(next.currentMemory?.memory.id, 'memory-b');
+      expect(next.cameraCommand?.revision, next.cameraRevision);
+    });
+
+    test('shouldNotDismissFinalMemoryBeforeFinish', () {
+      final presenting = StoryPlaybackState.start(<MemoryReadModel>[
+        readModel(memory(id: 'memory-a')),
+      ]).cameraArrived(1);
+
+      final dismissing = presenting.beginPresentationDismissal(
+        presenting.presentationRevision,
+      );
+
+      expect(dismissing, presenting);
+    });
+
+    test('shouldUseDistanceAwareCameraDurationForNextMemory', () {
+      final firstMoving = StoryPlaybackState.start(<MemoryReadModel>[
+        readModel(memory(id: 'memory-a', latitude: 0, longitude: 0, day: 10)),
+        readModel(memory(id: 'memory-b', latitude: 0, longitude: 0.9, day: 20)),
+      ]);
+      final firstPresenting = firstMoving.cameraArrived(
+        firstMoving.cameraRevision,
+      );
+
+      final next = firstPresenting.presentationElapsed(
+        firstPresenting.presentationRevision,
+      );
+
+      expect(next.currentMemory?.memory.id, 'memory-b');
+      expect(
+        next.cameraCommand?.duration,
+        greaterThan(const Duration(seconds: 4)),
+      );
+      expect(
+        next.cameraCommand?.duration,
+        lessThan(const Duration(seconds: 6)),
+      );
     });
 
     test('shouldFinishAfterLastPresentationElapsed', () {

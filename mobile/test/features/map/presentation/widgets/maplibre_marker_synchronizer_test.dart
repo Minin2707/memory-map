@@ -53,6 +53,55 @@ void main() {
       ]);
     });
 
+    test('shouldWaitForStyleSetupBeforeMarkerSync', () async {
+      final controller = FakeAnnotationController()..pauseNextStyleLoad();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      );
+
+      synchronizer
+        ..updateMarkers(<MapMarker>[markerA])
+        ..markStyleLoaded();
+      await flushMicrotasks();
+
+      expect(controller.styleLoadedCalls, 1);
+      expect(controller.clearCalls, 0);
+      expect(controller.addCalls, 0);
+
+      controller.resumePausedStyleLoad();
+      await flushMicrotasks();
+
+      expect(controller.operations, <String>[
+        'styleLoaded',
+        'clearMarkers',
+        'addMarkers',
+      ]);
+    });
+
+    test('shouldCoalesceRepeatedStyleCallbacksWhileSetupIsPending', () async {
+      final controller = FakeAnnotationController()..pauseNextStyleLoad();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      );
+
+      synchronizer
+        ..updateMarkers(<MapMarker>[markerA])
+        ..markStyleLoaded();
+      await flushMicrotasks();
+      synchronizer.markStyleLoaded();
+      await flushMicrotasks();
+
+      expect(controller.styleLoadedCalls, 2);
+      expect(controller.clearCalls, 0);
+      expect(controller.addCalls, 0);
+
+      controller.resumePausedStyleLoad();
+      await flushMicrotasks();
+
+      expect(controller.addCalls, 1);
+      expect(controller.annotations.length, 1);
+    });
+
     test('shouldNotCreateAnnotationsBeforeStyleLoaded', () async {
       final controller = FakeAnnotationController();
       final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
@@ -569,6 +618,64 @@ void main() {
       expect(controller.clearCalls, 3);
       expect(selectedIds, isEmpty);
     });
+
+    test('shouldClearAfterInFlightMarkerRenderDuringDispose', () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+
+      controller.pauseNextAdd();
+      synchronizer.updateMarkers(<MapMarker>[markerA]);
+      await flushMicrotasks();
+
+      final disposeFuture = synchronizer.dispose();
+      await flushMicrotasks();
+
+      expect(controller.operations, <String>[
+        'styleLoaded',
+        'clearMarkers',
+        'clearMarkers',
+        'addMarkers',
+      ]);
+
+      controller.resumePausedAdd();
+      await disposeFuture;
+
+      expect(controller.operations, <String>[
+        'styleLoaded',
+        'clearMarkers',
+        'clearMarkers',
+        'addMarkers',
+        'clearMarkers',
+      ]);
+      expect(controller.annotations, isEmpty);
+    });
+
+    test('shouldIgnoreStaleSyncWhenDisposedDuringStyleSetup', () async {
+      final controller = FakeAnnotationController()..pauseNextStyleLoad();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      );
+
+      synchronizer
+        ..updateMarkers(<MapMarker>[markerA])
+        ..markStyleLoaded();
+      await flushMicrotasks();
+
+      final disposeFuture = synchronizer.dispose();
+      await flushMicrotasks();
+
+      controller.resumePausedStyleLoad();
+      await disposeFuture;
+
+      expect(controller.operations, <String>[
+        'styleLoaded',
+        'clearMarkers',
+      ]);
+      expect(controller.addCalls, 0);
+    });
   });
 
   group('MapMarkerRenderOptions', () {
@@ -716,6 +823,8 @@ final class FakeAnnotationController
   int clearCalls = 0;
   int addCalls = 0;
   int styleLoadedCalls = 0;
+  final List<String> operations = <String>[];
+  Completer<void>? _pausedStyleLoad;
   Completer<List<FakeAnnotation>>? _pausedAdd;
 
   int get listenerCount => _listeners.length;
@@ -731,13 +840,23 @@ final class FakeAnnotationController
   }
 
   @override
-  void handleStyleLoaded() {
+  Future<void> handleStyleLoaded() async {
     styleLoadedCalls += 1;
+    operations.add('styleLoaded');
+
+    final pausedStyleLoad = _pausedStyleLoad;
+    if (pausedStyleLoad != null) {
+      await pausedStyleLoad.future;
+      if (identical(_pausedStyleLoad, pausedStyleLoad)) {
+        _pausedStyleLoad = null;
+      }
+    }
   }
 
   @override
   Future<void> clearMarkers() async {
     clearCalls += 1;
+    operations.add('clearMarkers');
     annotations.clear();
   }
 
@@ -746,6 +865,7 @@ final class FakeAnnotationController
     List<MapMarkerRenderOptions> options,
   ) async {
     addCalls += 1;
+    operations.add('addMarkers');
     addedBatches.add(List<MapMarkerRenderOptions>.unmodifiable(options));
 
     final created = List<FakeAnnotation>.generate(
@@ -774,6 +894,14 @@ final class FakeAnnotationController
 
   void resumePausedAdd() {
     _pausedAdd?.complete(const <FakeAnnotation>[]);
+  }
+
+  void pauseNextStyleLoad() {
+    _pausedStyleLoad = Completer<void>();
+  }
+
+  void resumePausedStyleLoad() {
+    _pausedStyleLoad?.complete();
   }
 
   void tap(FakeAnnotation annotation) {

@@ -280,12 +280,10 @@ final class MapLibreSymbolMarkerController
   }
 
   @override
-  void handleStyleLoaded() {
+  Future<void> handleStyleLoaded() async {
     _registeredImageKeys.clear();
-    unawaited(_controller.setSymbolIconAllowOverlap(true).catchError((_) {}));
-    unawaited(
-      _controller.setSymbolIconIgnorePlacement(true).catchError((_) {}),
-    );
+    await _controller.setSymbolIconAllowOverlap(true);
+    await _controller.setSymbolIconIgnorePlacement(true);
   }
 
   @override
@@ -338,7 +336,7 @@ final class _MapLibreCircleMarkerController
   }
 
   @override
-  void handleStyleLoaded() {}
+  Future<void> handleStyleLoaded() async {}
 
   @override
   Future<void> clearMarkers() {

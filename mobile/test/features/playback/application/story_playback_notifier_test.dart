@@ -665,14 +665,22 @@ void main() {
       expect(scheduler.latest, same(firstTask));
     });
 
-    test('shouldAdvanceToNextMovingWhenTimerFires', () async {
+    test('shouldDismissPresentationBeforeAdvancingToNextMoving', () async {
       final scheduler = FakePlaybackScheduler();
       final container = await readyContainer(scheduler);
       addTearDown(container.dispose);
       final notifier = container.read(storyPlaybackProvider('story-1').notifier);
       notifier.cameraArrived(playback(container).cameraRevision);
+      final presentationRevision = playback(container).presentationRevision;
 
       scheduler.latest.fire();
+
+      expect(playback(container).phase, PlaybackPhase.dismissing);
+      expect(playback(container).currentMemory?.memory.id, memoryA.id);
+      expect(playback(container).cameraCommand, isNull);
+      expect(scheduler.activeTaskCount, 0);
+
+      notifier.presentationDismissed(presentationRevision);
 
       expect(playback(container).phase, PlaybackPhase.moving);
       expect(playback(container).currentMemory?.memory.id, memoryB.id);
@@ -754,6 +762,7 @@ void main() {
       expect(playback(container).phase, PlaybackPhase.presenting);
 
       scheduler.latest.fire();
+      notifier.presentationDismissed(playback(container).presentationRevision);
       notifier.cameraArrived(playback(container).cameraRevision);
       final staleThird = scheduler.latest;
       notifier.replay();
@@ -1082,8 +1091,8 @@ ProviderContainer createContainer(
         storySoundtrackRepositoryProvider.overrideWithValue(
           soundtrackRepository ?? FakeStorySoundtrackRepository(),
         ),
-        playbackAudioControllerProvider.overrideWith(
-          (ref, storyId) => audioController ?? FakePlaybackAudioController(),
+        playbackAudioControllerFactoryProvider.overrideWithValue(
+          (_) => audioController ?? FakePlaybackAudioController(),
         ),
       ] else
         playbackAudioOrchestratorProvider.overrideWith(
@@ -1349,6 +1358,9 @@ final class FakePlaybackAudioController implements PlaybackAudioController {
 
   @override
   Future<void> play() async {}
+
+  @override
+  Future<void> setVolume(double volume) async {}
 
   @override
   Future<void> restart() async {}

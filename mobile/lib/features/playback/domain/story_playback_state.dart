@@ -41,6 +41,7 @@ final class StoryPlaybackState {
       cameraCommand: _cameraCommandFor(
         snapshot: snapshot,
         index: 0,
+        originIndex: null,
         revision: 1,
         policy: policy,
       ),
@@ -81,6 +82,8 @@ final class StoryPlaybackState {
   bool get isMoving => phase == PlaybackPhase.moving;
 
   bool get isPresenting => phase == PlaybackPhase.presenting;
+
+  bool get isDismissing => phase == PlaybackPhase.dismissing;
 
   MemoryReadModel? get currentMemory {
     final index = currentIndex;
@@ -123,7 +126,8 @@ final class StoryPlaybackState {
 
   StoryPlaybackState presentationElapsed(int revision) {
     if (status != PlaybackStatus.playing ||
-        phase != PlaybackPhase.presenting ||
+        (phase != PlaybackPhase.presenting &&
+            phase != PlaybackPhase.dismissing) ||
         revision != presentationRevision ||
         currentIndex == null) {
       return this;
@@ -141,6 +145,18 @@ final class StoryPlaybackState {
     return _moveTo(currentIndex! + 1, status: PlaybackStatus.playing);
   }
 
+  StoryPlaybackState beginPresentationDismissal(int revision) {
+    if (status != PlaybackStatus.playing ||
+        phase != PlaybackPhase.presenting ||
+        revision != presentationRevision ||
+        currentIndex == null ||
+        currentIndex == snapshot.length - 1) {
+      return this;
+    }
+
+    return _copyWith(phase: PlaybackPhase.dismissing);
+  }
+
   StoryPlaybackState pause() {
     if (status != PlaybackStatus.playing) {
       return this;
@@ -148,9 +164,10 @@ final class StoryPlaybackState {
 
     return _copyWith(
       status: PlaybackStatus.paused,
-      presentationRevision: phase == PlaybackPhase.presenting
-          ? presentationRevision + 1
-          : presentationRevision,
+      presentationRevision:
+          phase == PlaybackPhase.presenting || phase == PlaybackPhase.dismissing
+              ? presentationRevision + 1
+              : presentationRevision,
     );
   }
 
@@ -168,6 +185,10 @@ final class StoryPlaybackState {
         status: PlaybackStatus.playing,
         presentationRevision: presentationRevision + 1,
       );
+    }
+
+    if (phase == PlaybackPhase.dismissing) {
+      return _copyWith(status: PlaybackStatus.playing);
     }
 
     return this;
@@ -259,6 +280,7 @@ final class StoryPlaybackState {
           ? _cameraCommandFor(
               snapshot: snapshot,
               index: index,
+              originIndex: currentIndex,
               revision: nextCameraRevision,
               policy: policy,
             )
@@ -362,19 +384,37 @@ int _comparePlaybackReadModels(
 PlaybackCameraCommand _cameraCommandFor({
   required List<MemoryReadModel> snapshot,
   required int index,
+  required int? originIndex,
   required int revision,
   required PlaybackPolicy policy,
 }) {
   final memory = snapshot[index].memory;
+  final target = MapCoordinate(
+    latitude: memory.location.latitude,
+    longitude: memory.location.longitude,
+  );
+  final origin = _cameraOriginFor(snapshot: snapshot, originIndex: originIndex);
 
   return PlaybackCameraCommand(
     revision: revision,
     memoryIndex: index,
-    target: MapCoordinate(
-      latitude: memory.location.latitude,
-      longitude: memory.location.longitude,
-    ),
-    duration: policy.cameraDuration,
+    target: target,
+    duration: policy.cameraDurationFor(from: origin, to: target),
+  );
+}
+
+MapCoordinate? _cameraOriginFor({
+  required List<MemoryReadModel> snapshot,
+  required int? originIndex,
+}) {
+  if (originIndex == null || originIndex < 0 || originIndex >= snapshot.length) {
+    return null;
+  }
+
+  final memory = snapshot[originIndex].memory;
+  return MapCoordinate(
+    latitude: memory.location.latitude,
+    longitude: memory.location.longitude,
   );
 }
 

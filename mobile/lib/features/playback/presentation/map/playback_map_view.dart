@@ -67,6 +67,8 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   final Set<String> _failedIconKeys = <String>{};
   MapLibreMarkerSynchronizer<Symbol>? _markerSynchronizer;
   PlaybackRouteSynchronizer? _routeSynchronizer;
+  Future<void> _synchronizerLifecycle = Future<void>.value();
+  int _mapLifecycleGeneration = 0;
 
   @override
   void initState() {
@@ -103,6 +105,7 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
 
   @override
   void dispose() {
+    _mapLifecycleGeneration += 1;
     _cameraAdapter.dispose();
     final markerSynchronizer = _markerSynchronizer;
     _markerSynchronizer = null;
@@ -141,38 +144,16 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
               playbackMapInteractionPolicy.rotateGesturesEnabled,
           tiltGesturesEnabled: playbackMapInteractionPolicy.tiltGesturesEnabled,
           onMapCreated: (controller) {
-            final previousSynchronizer = _markerSynchronizer;
-            if (previousSynchronizer != null) {
-              unawaited(previousSynchronizer.dispose());
-            }
-            final previousRouteSynchronizer = _routeSynchronizer;
-            if (previousRouteSynchronizer != null) {
-              unawaited(previousRouteSynchronizer.dispose());
-            }
-            _cameraAdapter.attachCamera(
-              MapLibrePlaybackMapCameraPort(controller),
+            final generation = _mapLifecycleGeneration + 1;
+            _mapLifecycleGeneration = generation;
+            final lifecycle = _synchronizerLifecycle.then(
+              (_) => _replaceMapSynchronizers(controller, generation),
             );
-            _routeSynchronizer = PlaybackRouteSynchronizer(
-              controller: _PlaybackStyleRouteController(controller),
-            )..updateRoute(widget.route);
-            final requests = _iconRequests();
-            _markerSynchronizer = MapLibreMarkerSynchronizer<Symbol>(
-              controller: MapLibreSymbolMarkerController(controller),
-            )..updateMarkers(
-                _renderMarkers,
-                markerIcons: _markerIcons(requests),
-                selectedMarkerId: _currentMarkerId,
-              );
+            _synchronizerLifecycle = lifecycle;
+            unawaited(lifecycle);
           },
           onStyleLoadedCallback: () {
-            final routeChanged =
-                _routeSynchronizer?.markStyleLoaded() ?? false;
-            final markerChanged =
-                _markerSynchronizer?.markStyleLoaded() ?? false;
-            _cameraAdapter.markStyleReady();
-            if ((routeChanged || markerChanged) && mounted) {
-              setState(() {});
-            }
+            unawaited(_handleStyleLoaded(_mapLifecycleGeneration));
           },
         ),
         if (markerSynchronizer == null || markerSynchronizer.isLoading)
@@ -194,6 +175,54 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
 
   List<MapMarker> get _mapMarkers {
     return widget.markers.map((marker) => marker.marker).toList(growable: false);
+  }
+
+  Future<void> _replaceMapSynchronizers(
+    MapLibreMapController controller,
+    int generation,
+  ) async {
+    final previousMarkerSynchronizer = _markerSynchronizer;
+    final previousRouteSynchronizer = _routeSynchronizer;
+    _markerSynchronizer = null;
+    _routeSynchronizer = null;
+
+    await previousMarkerSynchronizer?.dispose();
+    await previousRouteSynchronizer?.dispose();
+    if (!mounted || generation != _mapLifecycleGeneration) {
+      return;
+    }
+
+    _cameraAdapter.attachCamera(
+      MapLibrePlaybackMapCameraPort(controller),
+    );
+    _routeSynchronizer = PlaybackRouteSynchronizer(
+      controller: _PlaybackStyleRouteController(controller),
+    )..updateRoute(widget.route);
+
+    final requests = _iconRequests();
+    _markerSynchronizer = MapLibreMarkerSynchronizer<Symbol>(
+      controller: MapLibreSymbolMarkerController(controller),
+    )..updateMarkers(
+        _renderMarkers,
+        markerIcons: _markerIcons(requests),
+        selectedMarkerId: _currentMarkerId,
+      );
+  }
+
+  Future<void> _handleStyleLoaded(int generation) async {
+    await _synchronizerLifecycle;
+    if (!mounted || generation != _mapLifecycleGeneration) {
+      return;
+    }
+
+    final routeChanged = _routeSynchronizer?.markStyleLoaded() ?? false;
+    final markerChanged = _markerSynchronizer?.markStyleLoaded() ?? false;
+    _cameraAdapter.markStyleReady();
+    if ((routeChanged || markerChanged) &&
+        mounted &&
+        generation == _mapLifecycleGeneration) {
+      setState(() {});
+    }
   }
 
   List<MapMarker> get _renderMarkers {
@@ -421,9 +450,15 @@ final class _PlaybackStyleRouteController
 
   @override
   Future<void> addRoute(PlaybackRouteRenderOptions options) async {
+    final route = PlaybackRouteProjection(coordinates: options.coordinates);
+    if (!route.hasRoute) {
+      await clearRoute();
+      return;
+    }
+
     await _controller.addGeoJsonSource(
       _playbackRouteSourceId,
-      _routeGeoJson(options.coordinates),
+      _routeGeoJson(route.coordinates),
     );
     _hasSource = true;
 
@@ -445,6 +480,15 @@ final class _PlaybackStyleRouteController
 
 const String _playbackRouteSourceId = 'memory-map-playback-route-source';
 const String _playbackRouteLayerId = 'memory-map-playback-route-layer';
+
+@visibleForTesting
+Map<String, Object> playbackRouteGeoJsonForTesting(
+  List<MapCoordinate> coordinates,
+) {
+  return _routeGeoJson(PlaybackRouteProjection(
+    coordinates: coordinates,
+  ).coordinates);
+}
 
 Map<String, Object> _routeGeoJson(List<MapCoordinate> coordinates) {
   return <String, Object>{

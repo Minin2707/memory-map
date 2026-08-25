@@ -11,6 +11,8 @@ abstract interface class PlaybackAudioController {
 
   Future<void> play();
 
+  Future<void> setVolume(double volume);
+
   Future<void> pause();
 
   Future<void> stop();

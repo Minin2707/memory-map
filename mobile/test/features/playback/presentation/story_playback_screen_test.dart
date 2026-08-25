@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/map/domain/map_coordinate.dart';
 import 'package:memory_map/features/memory/application/memory_application_exception.dart';
@@ -108,13 +109,20 @@ void main() {
       final mediaRepository = media_fixtures.FakeMediaRepository()
         ..displayResult = media_fixtures.validPngBytes;
       final presentations = <PlaybackMapPresentation>[];
+      final routeMemoryB = memory(
+        id: memoryB.id,
+        day: 20,
+        createdHour: 11,
+        latitude: -12.0464,
+        longitude: -77.0428,
+      );
 
       await pumpPlaybackScreen(
         tester,
         FakeMemoryRepository()
           ..memoryReadModelsResult = <MemoryReadModel>[
             readModel(
-              memoryB,
+              routeMemoryB,
               previewPhoto: previewPhoto(mediaId: 'media-b'),
             ),
             readModel(
@@ -135,8 +143,8 @@ void main() {
           longitude: memoryA.location.longitude,
         ),
         MapCoordinate(
-          latitude: memoryB.location.latitude,
-          longitude: memoryB.location.longitude,
+          latitude: routeMemoryB.location.latitude,
+          longitude: routeMemoryB.location.longitude,
         ),
       ]);
       expect(presentations.last.currentIndex, 0);
@@ -181,6 +189,79 @@ void main() {
       expect(mediaRepository.receivedBinaryPaths, <String>[
         '/api/v1/media/media-a/display',
       ]);
+    });
+
+    testWidgets('shouldDelayInitialCameraCommandUntilOpeningCompletes', (
+      tester,
+    ) async {
+      final presentations = <PlaybackMapPresentation>[];
+
+      await pumpPlaybackScreen(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        presentations: presentations,
+        settle: false,
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('story-playback.opening-overlay')),
+        findsOneWidget,
+      );
+      expect(presentations.last.cameraCommand, isNull);
+
+      await tester.pump(const Duration(milliseconds: 1999));
+
+      expect(presentations.last.cameraCommand, isNull);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('story-playback.opening-overlay')),
+        findsNothing,
+      );
+      expect(presentations.last.cameraCommand, isNotNull);
+      expect(presentations.last.currentIndex, 0);
+    });
+
+    testWidgets('shouldKeepInitialCameraPausedWhenOpeningCompletesWhilePaused', (
+      tester,
+    ) async {
+      final presentations = <PlaybackMapPresentation>[];
+
+      await pumpPlaybackScreen(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        presentations: presentations,
+        settle: false,
+      );
+      await tester.pump();
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.pause')),
+        settle: false,
+      );
+
+      expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 2000));
+      await tester.pump();
+
+      expect(presentations.last.cameraCommand, isNull);
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.resume')),
+        settle: false,
+      );
+      await tester.pump(const Duration(milliseconds: 2000));
+      await tester.pump();
+
+      expect(presentations.last.cameraCommand, isNotNull);
     });
 
     testWidgets('shouldKeepPresentationCardHiddenWhileMoving', (
@@ -345,7 +426,13 @@ void main() {
       await pressButton(
         tester,
         find.byKey(const ValueKey('story-playback.next')),
+        settle: false,
       );
+
+      expect(find.text('1 / 2 memories'), findsOneWidget);
+      expect(presentations.last.currentIndex, 0);
+
+      await tester.pumpAndSettle();
 
       expect(find.text('2 / 2 memories'), findsOneWidget);
       expect(presentations.last.currentIndex, 1);
@@ -367,7 +454,13 @@ void main() {
       await pressButton(
         tester,
         find.byKey(const ValueKey('story-playback.previous')),
+        settle: false,
       );
+
+      expect(find.text('2 / 2 memories'), findsOneWidget);
+      expect(presentations.last.currentIndex, 1);
+
+      await tester.pumpAndSettle();
 
       expect(find.text('1 / 2 memories'), findsOneWidget);
       expect(presentations.last.currentIndex, 0);
@@ -418,11 +511,21 @@ void main() {
       await pressButton(
         tester,
         find.byKey(const ValueKey('story-playback.replay')),
+        settle: false,
       );
 
       expect(repository.getMemoriesCalls, 1);
       expect(find.text('1 / 1 memory'), findsOneWidget);
       expect(presentations.last.currentIndex, 0);
+      expect(presentations.last.cameraCommand, isNull);
+      expect(
+        find.byKey(const ValueKey('story-playback.opening-overlay')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 2000));
+      await tester.pump();
+
       expect(presentations.last.cameraCommand, isNotNull);
     });
 
@@ -844,6 +947,111 @@ void main() {
       );
       expect(audioOrchestrator.operations, isEmpty);
     });
+
+    testWidgets('shouldRequestShutdownOnceWhenCloseThenRouteDisposes', (
+      tester,
+    ) async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      await pumpPlaybackRouteWithRouter(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+      );
+
+      audioOrchestrator.operations.clear();
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.close')),
+      );
+
+      expect(find.text('Story details fallback'), findsOneWidget);
+      expect(audioOrchestrator.operations, <String>['close']);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+
+      expect(audioOrchestrator.operations, <String>['close']);
+    });
+
+    testWidgets('shouldRequestShutdownOnceWhenBackThenRouteDisposes', (
+      tester,
+    ) async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      await pumpPlaybackRouteWithRouter(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+      );
+
+      audioOrchestrator.operations.clear();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Story details fallback'), findsOneWidget);
+      expect(audioOrchestrator.operations, <String>['close']);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+
+      expect(audioOrchestrator.operations, <String>['close']);
+    });
+
+    testWidgets('shouldRequestShutdownWhenRouteDisposesWithoutClose', (
+      tester,
+    ) async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      await pumpPlaybackRoute(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+      );
+
+      audioOrchestrator.operations.clear();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+
+      expect(audioOrchestrator.operations, <String>['close']);
+    });
+
+    testWidgets('shouldNotShutdownWhenMemoryDetailsTemporarilyCoversPlayback', (
+      tester,
+    ) async {
+      final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
+      final presentations = <PlaybackMapPresentation>[];
+      await pumpPlaybackRoute(
+        tester,
+        FakeMemoryRepository()
+          ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
+        audioOrchestrator: audioOrchestrator,
+        presentations: presentations,
+        onMemoryDetailsSelected: (_) {
+          Navigator.of(tester.element(find.byType(StoryPlaybackRoute))).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(
+                body: Text('Memory details overlay'),
+              ),
+            ),
+          );
+        },
+      );
+      presentations.last.onCameraArrived(
+        presentations.last.cameraCommand!.revision,
+      );
+      await tester.pumpAndSettle();
+
+      audioOrchestrator.operations.clear();
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-playback.details')),
+      );
+
+      expect(find.text('Memory details overlay'), findsOneWidget);
+      expect(audioOrchestrator.operations, <String>['pause']);
+      expect(audioOrchestrator.operations, isNot(contains('close')));
+    });
   });
 }
 
@@ -939,6 +1147,8 @@ Future<ProviderContainer> pumpPlaybackRoute(
   FakeMemoryRepository repository, {
   FakePlaybackScheduler? scheduler,
   FakePlaybackAudioSessionOrchestrator? audioOrchestrator,
+  List<PlaybackMapPresentation>? presentations,
+  ValueChanged<MemoryReadModel>? onMemoryDetailsSelected,
 }) async {
   final container = ProviderContainer(
     overrides: [
@@ -951,6 +1161,7 @@ Future<ProviderContainer> pumpPlaybackRoute(
       ),
       storyPlaybackMapBuilderProvider.overrideWithValue(
         (context, presentation) {
+          presentations?.add(presentation);
           return _FakePlaybackMap(presentation: presentation);
         },
       ),
@@ -971,11 +1182,77 @@ Future<ProviderContainer> pumpPlaybackRoute(
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const StoryPlaybackRoute(
+        home: StoryPlaybackRoute(
           storyId: 'story-1',
           fallbackRouteName: 'storyDetails',
           storyIdPathParameter: 'storyId',
+          onMemoryDetailsSelected: onMemoryDetailsSelected,
         ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  return container;
+}
+
+Future<ProviderContainer> pumpPlaybackRouteWithRouter(
+  WidgetTester tester,
+  FakeMemoryRepository repository, {
+  required FakePlaybackAudioSessionOrchestrator audioOrchestrator,
+  FakePlaybackScheduler? scheduler,
+}) async {
+  final container = ProviderContainer(
+    overrides: [
+      memoryRepositoryProvider.overrideWithValue(repository),
+      playbackSchedulerProvider.overrideWithValue(
+        scheduler ?? FakePlaybackScheduler(),
+      ),
+      mediaRepositoryProvider.overrideWithValue(
+        media_fixtures.FakeMediaRepository(),
+      ),
+      storyPlaybackMapBuilderProvider.overrideWithValue(
+        (context, presentation) {
+          return _FakePlaybackMap(presentation: presentation);
+        },
+      ),
+      playbackAudioOrchestratorProvider.overrideWith(
+        (ref, storyId) => audioOrchestrator,
+      ),
+    ],
+  );
+  final router = GoRouter(
+    initialLocation: '/stories/story-1/playback',
+    routes: [
+      GoRoute(
+        path: '/stories/:storyId',
+        name: 'storyDetails',
+        builder: (_, _) {
+          return const Scaffold(body: Text('Story details fallback'));
+        },
+      ),
+      GoRoute(
+        path: '/stories/:storyId/playback',
+        builder: (_, state) {
+          return StoryPlaybackRoute(
+            storyId: state.pathParameters['storyId']!,
+            fallbackRouteName: 'storyDetails',
+            storyIdPathParameter: 'storyId',
+          );
+        },
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+  addTearDown(container.dispose);
+
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
       ),
     ),
   );

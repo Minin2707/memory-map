@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/music/domain/music_track.dart';
 import 'package:memory_map/features/music/domain/story_soundtrack.dart';
 import 'package:memory_map/features/music/domain/story_soundtrack_repository.dart';
+import 'package:memory_map/features/playback/application/playback_scheduler.dart';
 import 'package:memory_map/features/playback/application/audio/playback_audio_controller.dart';
 import 'package:memory_map/features/playback/application/audio/playback_audio_orchestrator.dart';
 import 'package:memory_map/features/playback/application/audio/playback_audio_state.dart';
@@ -181,13 +182,19 @@ void main() {
       final repository = FakeStorySoundtrackRepository()
         ..results.add(effectiveSoundtrack());
       final controller = FakePlaybackAudioController();
-      final orchestrator = createOrchestrator(repository, controller);
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
 
       await orchestrator.playbackStarted();
       await orchestrator.startSession(storyId: 'story-1');
 
       expect(controller.operations, <String>[
         'prepare:story-1',
+        'setVolume:0.0',
         'play',
       ]);
       expect(orchestrator.status, PlaybackAudioSessionStatus.playing);
@@ -212,7 +219,11 @@ void main() {
 
       await orchestrator.resume();
 
-      expect(controller.operations, <String>['prepare:story-1', 'play']);
+      expect(controller.operations, <String>[
+        'prepare:story-1',
+        'setVolume:0.0',
+        'play',
+      ]);
     });
 
     test('shouldNotPlayWhenPrepareCompletesAfterFinish', () async {
@@ -258,7 +269,12 @@ void main() {
       final repository = FakeStorySoundtrackRepository()
         ..results.add(effectiveSoundtrack());
       final controller = FakePlaybackAudioController();
-      final orchestrator = createOrchestrator(repository, controller);
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
 
       await orchestrator.playbackStarted();
       await orchestrator.startSession(storyId: 'story-1');
@@ -266,19 +282,28 @@ void main() {
       await orchestrator.resume();
       await orchestrator.cameraFailed();
       await orchestrator.resume();
-      await orchestrator.finish();
+      final finish = orchestrator.finish();
+      await pumpEventQueue();
+      await envelopeScheduler.fireAll();
+      await finish;
       await orchestrator.replay();
 
-      expect(controller.operations, <String>[
+      expect(controller.operations.take(7).toList(), <String>[
         'prepare:story-1',
+        'setVolume:0.0',
         'play',
         'pause',
         'play',
         'pause',
-        'play',
-        'stop',
         'play',
       ]);
+      expect(controller.operations.where((operation) => operation == 'stop'),
+          hasLength(1));
+      expect(controller.operations, containsAllInOrder(<String>[
+        'stop',
+        'setVolume:0.0',
+        'play',
+      ]));
       expect(repository.operations, <String>['get:story-1']);
     });
 
@@ -326,7 +351,11 @@ void main() {
 
       expect(orchestrator.status, PlaybackAudioSessionStatus.disabled);
       expect(repository.operations, <String>['get:story-1']);
-      expect(controller.operations, <String>['prepare:story-1', 'play']);
+      expect(controller.operations, <String>[
+        'prepare:story-1',
+        'setVolume:0.0',
+        'play',
+      ]);
     });
 
     test('shouldMarkSessionCompletedWhenAudioCompletesFirst', () async {
@@ -357,7 +386,11 @@ void main() {
       await orchestrator.resume();
 
       expect(orchestrator.status, PlaybackAudioSessionStatus.completed);
-      expect(controller.operations, <String>['prepare:story-1', 'play']);
+      expect(controller.operations, <String>[
+        'prepare:story-1',
+        'setVolume:0.0',
+        'play',
+      ]);
     });
 
     test('shouldRestartNaturallyCompletedAudioOnReplayWithoutRefetching',
@@ -377,7 +410,9 @@ void main() {
       expect(repository.operations, <String>['get:story-1']);
       expect(controller.operations, <String>[
         'prepare:story-1',
+        'setVolume:0.0',
         'play',
+        'setVolume:0.0',
         'restart',
       ]);
     });
@@ -401,7 +436,11 @@ void main() {
 
       expect(orchestrator.status, PlaybackAudioSessionStatus.disabled);
       expect(repository.operations, <String>['get:story-1']);
-      expect(controller.operations, <String>['prepare:story-1', 'play']);
+      expect(controller.operations, <String>[
+        'prepare:story-1',
+        'setVolume:0.0',
+        'play',
+      ]);
     });
 
     test('shouldAllowNewSessionToRetryAfterPreviousAudioFailure', () async {
@@ -426,7 +465,11 @@ void main() {
       expect(failed.status, PlaybackAudioSessionStatus.disabled);
       expect(fresh.status, PlaybackAudioSessionStatus.playing);
       expect(repository.operations, <String>['get:story-1', 'get:story-1']);
-      expect(freshController.operations, <String>['prepare:story-1', 'play']);
+      expect(freshController.operations, <String>[
+        'prepare:story-1',
+        'setVolume:0.0',
+        'play',
+      ]);
     });
 
     test('shouldSerializeRapidPauseResumePauseToFinalPausedAudioState',
@@ -447,6 +490,7 @@ void main() {
       expect(orchestrator.status, PlaybackAudioSessionStatus.prepared);
       expect(controller.operations, <String>[
         'prepare:story-1',
+        'setVolume:0.0',
         'play',
         'pause',
         'play',
@@ -471,24 +515,416 @@ void main() {
         ..results.add(effectiveSoundtrack());
       final stopController = FakePlaybackAudioController()
         ..stopFailure = const PrivateAudioException();
-      final stopOrchestrator =
-          createOrchestrator(stopRepository, stopController);
+      final stopEnvelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final stopOrchestrator = createOrchestrator(
+        stopRepository,
+        stopController,
+        envelopeScheduler: stopEnvelopeScheduler,
+      );
 
       await stopOrchestrator.playbackStarted();
       await stopOrchestrator.startSession(storyId: 'story-1');
-      await stopOrchestrator.finish();
+      final finish = stopOrchestrator.finish();
+      await pumpEventQueue();
+      await stopEnvelopeScheduler.fireAll();
+      await finish;
       expect(stopOrchestrator.status, PlaybackAudioSessionStatus.disabled);
+    });
+  });
+
+  group('PlaybackAudioOrchestrator soundtrack envelope', () {
+    test('shouldExposeApprovedEnvelopePolicy', () {
+      expect(playbackSoundtrackTargetVolume, 0.72);
+      expect(
+        playbackSoundtrackFadeInDuration,
+        const Duration(milliseconds: 2000),
+      );
+      expect(
+        playbackSoundtrackFinishFadeOutDuration,
+        const Duration(milliseconds: 2800),
+      );
+      expect(
+        playbackSoundtrackCloseFadeOutDuration,
+        const Duration(milliseconds: 800),
+      );
+      expect(
+        playbackSoundtrackEnvelopeStepDuration,
+        const Duration(milliseconds: 100),
+      );
+    });
+
+    test('shouldStartAtZeroAndFadeInToTargetVolume', () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+
+      expect(controller.volumes, <double>[0]);
+      expect(controller.operations, containsAllInOrder(<String>[
+        'prepare:story-1',
+        'setVolume:0.0',
+        'play',
+      ]));
+      expect(envelopeScheduler.activeTaskCount, 1);
+      expect(
+        envelopeScheduler.latest.delay,
+        playbackSoundtrackEnvelopeStepDuration,
+      );
+
+      await envelopeScheduler.fireLatest();
+      expect(controller.volumes.last, greaterThan(0));
+      expect(controller.volumes.last, lessThan(playbackSoundtrackTargetVolume));
+
+      await envelopeScheduler.fireAll();
+
+      expect(controller.volumes.last, playbackSoundtrackTargetVolume);
+      expect(envelopeScheduler.activeTaskCount, 0);
+      expect(orchestrator.status, PlaybackAudioSessionStatus.playing);
+    });
+
+    test('shouldFadeOutBeforeNormalFinishStopsAudio', () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+      await envelopeScheduler.fireAll();
+
+      final finish = orchestrator.finish();
+      await pumpEventQueue();
+
+      expect(envelopeScheduler.activeTaskCount, 1);
+      expect(
+        controller.operations.where((operation) => operation == 'stop'),
+        isEmpty,
+      );
+
+      await envelopeScheduler.fireAll();
+      await finish;
+
+      expect(controller.volumes.last, 0);
+      expect(controller.operations.last, 'stop');
+      expect(orchestrator.status, PlaybackAudioSessionStatus.prepared);
+    });
+
+    test('shouldUseShortFadeOutBeforeExplicitCloseInvalidatesSession',
+        () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+      await envelopeScheduler.fireAll();
+
+      final close = orchestrator.close();
+      await pumpEventQueue();
+
+      expect(envelopeScheduler.activeTaskCount, 1);
+      expect(
+        envelopeScheduler.tasks.lastWhere((task) => task.isActive).delay,
+        playbackSoundtrackEnvelopeStepDuration,
+      );
+
+      await envelopeScheduler.fireAll();
+      await close;
+
+      expect(controller.operations, contains('stop'));
+      expect(controller.volumes.last, 0);
+      expect(orchestrator.status, PlaybackAudioSessionStatus.idle);
+    });
+
+    test('shouldDisposeControllerOnlyAfterPendingExplicitCloseCompletes',
+        () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+      await envelopeScheduler.fireAll();
+
+      final close = orchestrator.close();
+      await pumpEventQueue();
+      final dispose = orchestrator.dispose();
+      await pumpEventQueue();
+
+      expect(controller.disposeCalls, 0);
+      expect(controller.operations.where((operation) => operation == 'stop'),
+          isEmpty);
+
+      await envelopeScheduler.fireAll();
+      await close;
+      await dispose;
+
+      expect(controller.operations, containsAllInOrder(<String>[
+        'stop',
+        'dispose',
+      ]));
+      expect(controller.disposeCalls, 1);
+    });
+
+    test('shouldMakeDuplicateExplicitCloseShareOneStop', () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+      await envelopeScheduler.fireAll();
+
+      final firstClose = orchestrator.close();
+      final secondClose = orchestrator.close();
+      await pumpEventQueue();
+      await envelopeScheduler.fireAll();
+      await Future.wait(<Future<void>>[firstClose, secondClose]);
+
+      expect(controller.operations.where((operation) => operation == 'stop'),
+          hasLength(1));
+      expect(orchestrator.status, PlaybackAudioSessionStatus.idle);
+    });
+
+    test('shouldCancelFadeInAndStopImmediatelyWhenDisposedWithoutClose',
+        () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+
+      expect(envelopeScheduler.activeTaskCount, 1);
+
+      await orchestrator.dispose();
+
+      expect(envelopeScheduler.activeTaskCount, 0);
+      expect(controller.operations, containsAllInOrder(<String>[
+        'stop',
+        'dispose',
+      ]));
+      expect(controller.disposeCalls, 1);
+      final volumeCountAfterDispose = controller.volumes.length;
+      await envelopeScheduler.fireAll();
+      expect(controller.volumes, hasLength(volumeCountAfterDispose));
+    });
+
+    test('shouldWaitForPendingPrepareBeforeControllerDispose', () async {
+      final prepareCompleter = Completer<void>();
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController()
+        ..prepareCompleter = prepareCompleter;
+      final orchestrator = createOrchestrator(repository, controller);
+
+      await orchestrator.playbackStarted();
+      final session = orchestrator.startSession(storyId: 'story-1');
+      await pumpEventQueue();
+
+      final dispose = orchestrator.dispose();
+      await pumpEventQueue();
+
+      expect(controller.disposeCalls, 0);
+
+      prepareCompleter.complete();
+      await session;
+      await dispose;
+
+      expect(controller.operations, <String>[
+        'prepare:story-1',
+        'dispose',
+      ]);
+      expect(controller.disposeCalls, 1);
+      expect(orchestrator.status, PlaybackAudioSessionStatus.idle);
+    });
+
+    test('shouldCancelFadeInOnPauseAndResumeFromCurrentVolume', () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+      await envelopeScheduler.fireLatest();
+      final pausedVolume = controller.volumes.last;
+
+      await orchestrator.pause();
+
+      expect(envelopeScheduler.activeTaskCount, 0);
+      expect(controller.operations.last, 'pause');
+
+      await orchestrator.resume();
+
+      expect(controller.operations.where((operation) => operation == 'play'),
+          hasLength(2));
+      expect(
+        controller.operations.where(
+          (operation) => operation == 'setVolume:0.0',
+        ),
+        hasLength(1),
+      );
+      expect(controller.volumes.last, pausedVolume);
+      expect(envelopeScheduler.activeTaskCount, 1);
+
+      await envelopeScheduler.fireAll();
+
+      expect(controller.volumes.last, playbackSoundtrackTargetVolume);
+    });
+
+    test('shouldNotStartDuplicateFadeAfterCompletedFadePauseResume',
+        () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+      await envelopeScheduler.fireAll();
+
+      await orchestrator.pause();
+      await orchestrator.resume();
+
+      expect(controller.volumes.last, playbackSoundtrackTargetVolume);
+      expect(envelopeScheduler.activeTaskCount, 0);
+    });
+
+    test('shouldReplayAfterFadeOutFromSilentVolumeAndFadeInAgain', () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+      await envelopeScheduler.fireAll();
+      final finish = orchestrator.finish();
+      await pumpEventQueue();
+      await envelopeScheduler.fireAll();
+      await finish;
+
+      await orchestrator.replay();
+
+      expect(controller.operations, containsAllInOrder(<String>[
+        'stop',
+        'setVolume:0.0',
+        'play',
+      ]));
+      expect(controller.volumes.last, 0);
+
+      await envelopeScheduler.fireAll();
+
+      expect(controller.volumes.last, playbackSoundtrackTargetVolume);
+    });
+
+    test('shouldDisableSessionWithoutThrowingWhenVolumeChangeFails',
+        () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController()
+        ..setVolumeFailure = const PrivateAudioException();
+      final orchestrator = createOrchestrator(repository, controller);
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+
+      expect(orchestrator.status, PlaybackAudioSessionStatus.disabled);
+      expect(controller.operations, <String>[
+        'prepare:story-1',
+        'setVolume:0.0',
+      ]);
+    });
+
+    test('shouldCancelActiveFadeOnDispose', () async {
+      final repository = FakeStorySoundtrackRepository()
+        ..results.add(effectiveSoundtrack());
+      final controller = FakePlaybackAudioController();
+      final envelopeScheduler = FakePlaybackAudioEnvelopeScheduler();
+      final orchestrator = createOrchestrator(
+        repository,
+        controller,
+        envelopeScheduler: envelopeScheduler,
+      );
+
+      await orchestrator.playbackStarted();
+      await orchestrator.startSession(storyId: 'story-1');
+
+      expect(envelopeScheduler.activeTaskCount, 1);
+
+      await orchestrator.dispose();
+
+      expect(envelopeScheduler.activeTaskCount, 0);
+      expect(controller.disposeCalls, 1);
+      final volumeCountAfterDispose = controller.volumes.length;
+      await envelopeScheduler.fireAll();
+      expect(controller.volumes, hasLength(volumeCountAfterDispose));
     });
   });
 }
 
 PlaybackAudioOrchestrator createOrchestrator(
   FakeStorySoundtrackRepository repository,
-  FakePlaybackAudioController controller,
-) {
+  FakePlaybackAudioController controller, {
+  FakePlaybackAudioEnvelopeScheduler? envelopeScheduler,
+}) {
   return PlaybackAudioOrchestrator(
     storySoundtrackRepository: repository,
     audioController: controller,
+    envelopeScheduler: envelopeScheduler ?? FakePlaybackAudioEnvelopeScheduler(),
   );
 }
 
@@ -549,14 +985,17 @@ final class FakeStorySoundtrackRepository
 final class FakePlaybackAudioController implements PlaybackAudioController {
   final List<String> operations = <String>[];
   final List<String> prepareStoryIds = <String>[];
+  final List<double> volumes = <double>[];
   final StreamController<PlaybackAudioState> _stateController =
       StreamController<PlaybackAudioState>.broadcast();
 
   Object? prepareFailure;
   Object? playFailure;
+  Object? setVolumeFailure;
   Object? pauseFailure;
   Object? restartFailure;
   Object? stopFailure;
+  int disposeCalls = 0;
   Completer<void>? prepareCompleter;
   PlaybackAudioState stateAfterPrepare = PlaybackAudioState.ready();
   PlaybackAudioState stateAfterPlay = PlaybackAudioState.playing();
@@ -585,6 +1024,8 @@ final class FakePlaybackAudioController implements PlaybackAudioController {
 
   @override
   Future<void> dispose() async {
+    disposeCalls += 1;
+    operations.add('dispose');
     await _stateController.close();
   }
 
@@ -610,6 +1051,16 @@ final class FakePlaybackAudioController implements PlaybackAudioController {
 
     _state = stateAfterPlay;
     _stateController.add(_state);
+  }
+
+  @override
+  Future<void> setVolume(double volume) async {
+    operations.add('setVolume:$volume');
+    volumes.add(volume);
+    final failure = setVolumeFailure;
+    if (failure != null) {
+      throw failure;
+    }
   }
 
   @override
@@ -639,6 +1090,68 @@ final class FakePlaybackAudioController implements PlaybackAudioController {
   void emitState(PlaybackAudioState state) {
     _state = state;
     _stateController.add(state);
+  }
+}
+
+final class FakePlaybackAudioEnvelopeScheduler implements PlaybackScheduler {
+  final List<FakePlaybackAudioEnvelopeTask> tasks =
+      <FakePlaybackAudioEnvelopeTask>[];
+
+  int get activeTaskCount => tasks.where((task) => task.isActive).length;
+
+  FakePlaybackAudioEnvelopeTask get latest => tasks.last;
+
+  @override
+  PlaybackScheduledTask schedule(
+    Duration delay,
+    void Function() callback,
+  ) {
+    final task = FakePlaybackAudioEnvelopeTask(
+      delay: delay,
+      callback: callback,
+    );
+    tasks.add(task);
+    return task;
+  }
+
+  Future<void> fireLatest() async {
+    latest.fire();
+    await pumpEventQueue();
+  }
+
+  Future<void> fireAll() async {
+    while (tasks.any((task) => task.isActive)) {
+      tasks.lastWhere((task) => task.isActive).fire();
+      await pumpEventQueue();
+    }
+  }
+}
+
+final class FakePlaybackAudioEnvelopeTask implements PlaybackScheduledTask {
+  FakePlaybackAudioEnvelopeTask({
+    required this.delay,
+    required this.callback,
+  });
+
+  final Duration delay;
+  final void Function() callback;
+  bool isCanceled = false;
+  bool hasFired = false;
+
+  bool get isActive => !isCanceled && !hasFired;
+
+  @override
+  void cancel() {
+    isCanceled = true;
+  }
+
+  void fire() {
+    if (!isActive) {
+      return;
+    }
+
+    hasFired = true;
+    callback();
   }
 }
 

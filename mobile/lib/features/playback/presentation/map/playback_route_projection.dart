@@ -4,7 +4,9 @@ import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 final class PlaybackRouteProjection {
   PlaybackRouteProjection({
     List<MapCoordinate> coordinates = const <MapCoordinate>[],
-  }) : coordinates = List<MapCoordinate>.unmodifiable(coordinates);
+  }) : coordinates = List<MapCoordinate>.unmodifiable(
+          _validRouteCoordinates(coordinates),
+        );
 
   final List<MapCoordinate> coordinates;
 
@@ -62,4 +64,19 @@ bool _listEquals<T>(List<T> left, List<T> right) {
   }
 
   return true;
+}
+
+List<MapCoordinate> _validRouteCoordinates(List<MapCoordinate> coordinates) {
+  final normalized = <MapCoordinate>[];
+  for (final coordinate in coordinates) {
+    if (normalized.isEmpty || normalized.last != coordinate) {
+      normalized.add(coordinate);
+    }
+  }
+
+  if (normalized.length < 2) {
+    return const <MapCoordinate>[];
+  }
+
+  return normalized;
 }

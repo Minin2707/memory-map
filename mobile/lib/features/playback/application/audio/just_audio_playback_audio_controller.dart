@@ -8,6 +8,9 @@ import 'package:memory_map/features/playback/application/audio/playback_audio_co
 import 'package:memory_map/features/playback/application/audio/playback_audio_state.dart';
 
 typedef JustAudioPlayerPortFactory = JustAudioPlayerPort Function();
+typedef JustAudioAudioPlayerFactory = AudioPlayer Function({
+  required bool useProxyForRequestHeaders,
+});
 
 enum JustAudioPlayerProcessingState {
   idle,
@@ -37,6 +40,8 @@ abstract interface class JustAudioPlayerPort {
 
   Future<void> play();
 
+  Future<void> setVolume(double volume);
+
   Future<void> pause();
 
   Future<void> seek(Duration position);
@@ -47,7 +52,10 @@ abstract interface class JustAudioPlayerPort {
 final class DefaultJustAudioPlayerPort implements JustAudioPlayerPort {
   DefaultJustAudioPlayerPort({
     AudioPlayer? player,
-  }) : _player = player ?? AudioPlayer();
+    JustAudioAudioPlayerFactory audioPlayerFactory =
+        _defaultAudioPlayerFactory,
+  }) : _player = player ??
+            audioPlayerFactory(useProxyForRequestHeaders: false);
 
   final AudioPlayer _player;
 
@@ -75,6 +83,11 @@ final class DefaultJustAudioPlayerPort implements JustAudioPlayerPort {
   }
 
   @override
+  Future<void> setVolume(double volume) {
+    return _player.setVolume(volume);
+  }
+
+  @override
   Future<void> pause() {
     return _player.pause();
   }
@@ -88,6 +101,14 @@ final class DefaultJustAudioPlayerPort implements JustAudioPlayerPort {
   Future<void> dispose() {
     return _player.dispose();
   }
+}
+
+AudioPlayer _defaultAudioPlayerFactory({
+  required bool useProxyForRequestHeaders,
+}) {
+  return AudioPlayer(
+    useProxyForRequestHeaders: useProxyForRequestHeaders,
+  );
 }
 
 final class JustAudioPlaybackAudioController
@@ -181,6 +202,19 @@ final class JustAudioPlaybackAudioController
     }
 
     unawaited(_playAndCaptureFailure());
+  }
+
+  @override
+  Future<void> setVolume(double volume) async {
+    if (!_canUsePreparedSource) {
+      return;
+    }
+
+    try {
+      await _player.setVolume(volume.clamp(0.0, 1.0).toDouble());
+    } on Object {
+      _fail(const PlaybackAudioUnavailableFailure());
+    }
   }
 
   @override

@@ -10,6 +10,26 @@ import 'package:memory_map/features/playback/application/audio/just_audio_playba
 import 'package:memory_map/features/playback/application/audio/playback_audio_state.dart';
 
 void main() {
+  group('DefaultJustAudioPlayerPort construction', () {
+    test('shouldDisableProxyForRequestHeadersInProductionPlayer', () {
+      bool? configuredUseProxyForRequestHeaders;
+
+      expect(
+        () => DefaultJustAudioPlayerPort(
+          audioPlayerFactory: ({
+            required bool useProxyForRequestHeaders,
+          }) {
+            configuredUseProxyForRequestHeaders = useProxyForRequestHeaders;
+            throw const StopAudioPlayerConstruction();
+          },
+        ),
+        throwsA(isA<StopAudioPlayerConstruction>()),
+      );
+
+      expect(configuredUseProxyForRequestHeaders, isFalse);
+    });
+  });
+
   group('JustAudioPlaybackAudioController prepare', () {
     test('shouldStartIdleAndPrepareStoryScopedAuthenticatedSource', () async {
       final sessions = FakeAuthorizedSessionManager();
@@ -33,6 +53,7 @@ void main() {
         player.latestHeaders,
         <String, String>{'Authorization': 'Bearer refreshed-token'},
       );
+      expect(player.latestHeaders!.containsKey('Range'), isFalse);
     });
 
     test('shouldExposeValidationFailureForBlankStoryId', () async {
@@ -160,6 +181,24 @@ void main() {
       expect(controller.state, PlaybackAudioState.ready());
     });
 
+    test('shouldClampVolumeAndForwardToPlayer', () async {
+      final player = FakeJustAudioPlayerPort();
+      final controller = await preparedController(player: player);
+      addTearDown(controller.dispose);
+
+      await controller.setVolume(-0.5);
+      await controller.setVolume(0.72);
+      await controller.setVolume(1.4);
+
+      expect(player.volumes, <double>[0, 0.72, 1]);
+      expect(player.operations, <String>[
+        'setAudioSource',
+        'setVolume:0.0',
+        'setVolume:0.72',
+        'setVolume:1.0',
+      ]);
+    });
+
     test('shouldObserveCompletion', () async {
       final player = FakeJustAudioPlayerPort();
       final controller = await preparedController(player: player);
@@ -277,6 +316,7 @@ final class FakeJustAudioPlayerPort implements JustAudioPlayerPort {
       StreamController<JustAudioPlayerState>.broadcast();
   final List<String> operations = <String>[];
   final List<Duration> seekPositions = <Duration>[];
+  final List<double> volumes = <double>[];
   Uri? latestUri;
   Map<String, String>? latestHeaders;
   Object? setAudioSourceFailure;
@@ -318,6 +358,12 @@ final class FakeJustAudioPlayerPort implements JustAudioPlayerPort {
   }
 
   @override
+  Future<void> setVolume(double volume) async {
+    operations.add('setVolume:$volume');
+    volumes.add(volume);
+  }
+
+  @override
   Future<void> pause() async {
     operations.add('pause');
   }
@@ -347,4 +393,8 @@ final class PrivateAudioException implements Exception {
   String toString() {
     return 'PrivateAudioException(Bearer private-token, storageKey=secret)';
   }
+}
+
+final class StopAudioPlayerConstruction implements Exception {
+  const StopAudioPlayerConstruction();
 }

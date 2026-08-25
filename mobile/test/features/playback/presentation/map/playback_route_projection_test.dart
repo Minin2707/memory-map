@@ -24,6 +24,16 @@ void main() {
       expect(route.hasRoute, isFalse);
     });
 
+    test('shouldReturnNoRouteForTwoIdenticalCoordinates', () {
+      final route = playbackRouteFromSnapshot(<MemoryReadModel>[
+        readModel('memory-a', latitude: 41.7151, longitude: 44.8271),
+        readModel('memory-b', latitude: 41.7151, longitude: 44.8271),
+      ]);
+
+      expect(route.coordinates, isEmpty);
+      expect(route.hasRoute, isFalse);
+    });
+
     test('shouldCreateOrderedCoordinatesForMultipleMemories', () {
       final route = playbackRouteFromSnapshot(<MemoryReadModel>[
         readModel('memory-a', latitude: 41.7151, longitude: 44.8271),
@@ -37,6 +47,49 @@ void main() {
         coordinate(-12.0464, -77.0428),
         coordinate(55.751244, 37.618423),
       ]);
+    });
+
+    test('shouldRemoveOnlyConsecutiveDuplicateCoordinates', () {
+      final route = playbackRouteFromSnapshot(<MemoryReadModel>[
+        readModel('memory-a', latitude: 41.7151, longitude: 44.8271),
+        readModel('memory-b', latitude: 41.7151, longitude: 44.8271),
+        readModel('memory-c', latitude: -12.0464, longitude: -77.0428),
+        readModel('memory-d', latitude: -12.0464, longitude: -77.0428),
+        readModel('memory-e', latitude: 55.751244, longitude: 37.618423),
+      ]);
+
+      expect(route.hasRoute, isTrue);
+      expect(route.coordinates, <MapCoordinate>[
+        coordinate(41.7151, 44.8271),
+        coordinate(-12.0464, -77.0428),
+        coordinate(55.751244, 37.618423),
+      ]);
+    });
+
+    test('shouldPreserveReturnToEarlierCoordinate', () {
+      final route = playbackRouteFromSnapshot(<MemoryReadModel>[
+        readModel('memory-a', latitude: 41.7151, longitude: 44.8271),
+        readModel('memory-b', latitude: -12.0464, longitude: -77.0428),
+        readModel('memory-c', latitude: 41.7151, longitude: 44.8271),
+      ]);
+
+      expect(route.hasRoute, isTrue);
+      expect(route.coordinates, <MapCoordinate>[
+        coordinate(41.7151, 44.8271),
+        coordinate(-12.0464, -77.0428),
+        coordinate(41.7151, 44.8271),
+      ]);
+    });
+
+    test('shouldReturnNoRouteForMultipleIdenticalCoordinates', () {
+      final route = playbackRouteFromSnapshot(<MemoryReadModel>[
+        readModel('memory-a', latitude: 41.7151, longitude: 44.8271),
+        readModel('memory-b', latitude: 41.7151, longitude: 44.8271),
+        readModel('memory-c', latitude: 41.7151, longitude: 44.8271),
+      ]);
+
+      expect(route.coordinates, isEmpty);
+      expect(route.hasRoute, isFalse);
     });
 
     test('shouldReturnImmutableCoordinateList', () {

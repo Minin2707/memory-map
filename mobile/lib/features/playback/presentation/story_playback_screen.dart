@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -106,6 +107,7 @@ class StoryPlaybackScreen extends ConsumerWidget {
       mapBuilder: mapBuilder,
       onCameraArrived: notifier.cameraArrived,
       onCameraFailed: notifier.cameraFailed,
+      onPresentationDismissed: notifier.presentationDismissed,
       onRetryCamera: notifier.retryCamera,
       onPrevious: notifier.previous,
       onNext: notifier.next,
@@ -123,7 +125,7 @@ class StoryPlaybackScreen extends ConsumerWidget {
   }
 }
 
-class _PlaybackSessionView extends StatelessWidget {
+class _PlaybackSessionView extends StatefulWidget {
   const _PlaybackSessionView({
     required this.playback,
     required this.hasCameraFailure,
@@ -131,6 +133,7 @@ class _PlaybackSessionView extends StatelessWidget {
     required this.mapBuilder,
     required this.onCameraArrived,
     required this.onCameraFailed,
+    required this.onPresentationDismissed,
     required this.onRetryCamera,
     required this.onPrevious,
     required this.onNext,
@@ -147,6 +150,7 @@ class _PlaybackSessionView extends StatelessWidget {
   final PlaybackMapBuilder? mapBuilder;
   final ValueChanged<int> onCameraArrived;
   final ValueChanged<int> onCameraFailed;
+  final ValueChanged<int> onPresentationDismissed;
   final VoidCallback onRetryCamera;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
@@ -157,16 +161,117 @@ class _PlaybackSessionView extends StatelessWidget {
   final ValueChanged<MemoryReadModel>? onMemoryDetailsSelected;
 
   @override
+  State<_PlaybackSessionView> createState() => _PlaybackSessionViewState();
+}
+
+class _PlaybackSessionViewState extends State<_PlaybackSessionView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _openingController;
+  late final Animation<double> _openingAnimation;
+  bool _openingComplete = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _openingController = AnimationController(
+      vsync: this,
+      duration: widget.playback.policy.cinematicOpeningDuration,
+    );
+    _openingAnimation = CurvedAnimation(
+      parent: _openingController,
+      curve: Curves.easeOutCubic,
+    );
+    _openingController.addListener(_handleOpeningTick);
+    _openingController.addStatusListener(_handleOpeningStatus);
+    _openingComplete = !_usesCinematicOpening(widget.playback);
+    _syncOpeningAnimation();
+  }
+
+  @override
+  void didUpdateWidget(_PlaybackSessionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.playback.policy.cinematicOpeningDuration !=
+        widget.playback.policy.cinematicOpeningDuration) {
+      _openingController.duration =
+          widget.playback.policy.cinematicOpeningDuration;
+    }
+
+    if (oldWidget.playback.isFinished &&
+        _usesCinematicOpening(widget.playback)) {
+      _restartOpening();
+    }
+
+    if (!_usesCinematicOpening(widget.playback)) {
+      _openingComplete = true;
+      _openingController.value = 1;
+    }
+
+    _syncOpeningAnimation();
+  }
+
+  @override
+  void dispose() {
+    _openingController
+      ..removeListener(_handleOpeningTick)
+      ..removeStatusListener(_handleOpeningStatus)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleOpeningTick() {
+    if (_openingComplete || !_hasOpeningAnimationCompleted || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _openingComplete = true;
+    });
+  }
+
+  void _handleOpeningStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || _openingComplete || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _openingComplete = true;
+    });
+  }
+
+  void _restartOpening() {
+    _openingComplete = false;
+    _openingController.value = 0;
+  }
+
+  void _syncOpeningAnimation() {
+    if (_isOpeningComplete || !_usesCinematicOpening(widget.playback)) {
+      return;
+    }
+
+    if (widget.playback.status == PlaybackStatus.playing) {
+      _openingController.forward();
+      return;
+    }
+
+    _openingController.stop();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final playback = widget.playback;
+    final isOpeningComplete = _isOpeningComplete;
     final markers = playbackMarkersFromSnapshot(playback.snapshot);
     final route = playbackRouteFromSnapshot(playback.snapshot);
     final mapPresentation = PlaybackMapPresentation(
       markers: markers,
       route: route,
       currentIndex: playback.currentIndex,
-      cameraCommand: playback.cameraCommand,
-      onCameraArrived: onCameraArrived,
-      onCameraFailed: onCameraFailed,
+      cameraCommand: _effectiveCameraCommand(
+        playback,
+        isOpeningComplete: isOpeningComplete,
+      ),
+      onCameraArrived: widget.onCameraArrived,
+      onCameraFailed: widget.onCameraFailed,
     );
 
     return Scaffold(
@@ -184,8 +289,8 @@ class _PlaybackSessionView extends StatelessWidget {
                 children: [
                   _PlaybackTopBar(
                     label: AppLocalizations.of(context).playbackContextLabel,
-                    title: title,
-                    onClose: onClose,
+                    title: widget.title,
+                    onClose: widget.onClose,
                   ),
                   const SizedBox(height: 10),
                   Expanded(
@@ -200,13 +305,37 @@ class _PlaybackSessionView extends StatelessWidget {
               ),
             ),
           ),
+          if (!isOpeningComplete)
+            _PlaybackOpeningOverlay(animation: _openingAnimation),
         ],
       ),
     );
   }
 
+  bool get _isOpeningComplete =>
+      _openingComplete || _hasOpeningAnimationCompleted;
+
+  bool get _hasOpeningAnimationCompleted =>
+      _openingController.isCompleted || _openingController.value >= 1;
+
+  PlaybackCameraCommand? _effectiveCameraCommand(
+    StoryPlaybackState playback, {
+    required bool isOpeningComplete,
+  }) {
+    if (!_usesCinematicOpening(playback)) {
+      return playback.cameraCommand;
+    }
+
+    if (isOpeningComplete && playback.status == PlaybackStatus.playing) {
+      return playback.cameraCommand;
+    }
+
+    return null;
+  }
+
   Widget _bottomOverlay(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final playback = widget.playback;
 
     if (playback.isIdle) {
       return _PlaybackMessage(
@@ -216,7 +345,7 @@ class _PlaybackSessionView extends StatelessWidget {
       );
     }
 
-    if (hasCameraFailure) {
+    if (widget.hasCameraFailure) {
       return _PlaybackMessage(
         key: const ValueKey('story-playback.camera-failure'),
         title: l10n.playbackCameraFailureTitle,
@@ -225,7 +354,7 @@ class _PlaybackSessionView extends StatelessWidget {
           buttonKey: const ValueKey('story-playback.retry-camera'),
           label: l10n.playbackRetryAction,
           icon: Icons.refresh_rounded,
-          onPressed: onRetryCamera,
+          onPressed: widget.onRetryCamera,
         ),
       );
     }
@@ -250,7 +379,7 @@ class _PlaybackSessionView extends StatelessWidget {
             buttonKey: const ValueKey('story-playback.replay'),
             label: l10n.playbackReplayAction,
             icon: Icons.replay_rounded,
-            onPressed: onReplay,
+            onPressed: widget.onReplay,
           ),
         ],
       );
@@ -259,25 +388,45 @@ class _PlaybackSessionView extends StatelessWidget {
     final progressLabel = _progressLabel(l10n, playback);
     final progressValue = _progressValue(playback);
     final currentMemory = playback.currentMemory;
-    final onMemoryDetailsSelected = this.onMemoryDetailsSelected;
+    final onMemoryDetailsSelected = widget.onMemoryDetailsSelected;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (playback.phase == PlaybackPhase.presenting && currentMemory != null)
-          _CurrentMemoryCard(
+        if ((playback.phase == PlaybackPhase.presenting ||
+                playback.phase == PlaybackPhase.dismissing) &&
+            currentMemory != null)
+          _CinematicMemoryCard(
             readModel: currentMemory,
-            showPrevious: (playback.currentIndex ?? 0) > 0,
-            showNext: playback.currentIndex != null,
-            onPrevious: onPrevious,
-            onNext: onNext,
-            onDetails: onMemoryDetailsSelected == null
-                ? null
-                : () {
-                    onMemoryDetailsSelected(currentMemory);
-                  },
+            presentationRevision: playback.presentationRevision,
+            status: playback.status,
+            phase: playback.phase!,
+            arrivalPauseDuration: playback.policy.arrivalPauseDuration,
+            revealDuration: playback.policy.memoryRevealDuration,
+            dismissalDuration: playback.policy.memoryDismissalDuration,
+            onDismissed: widget.onPresentationDismissed,
+            childBuilder: (dismissThen) {
+              return _CurrentMemoryCard(
+                readModel: currentMemory,
+                showPrevious: (playback.currentIndex ?? 0) > 0,
+                showNext: playback.currentIndex != null,
+                onPrevious: () {
+                  dismissThen(widget.onPrevious);
+                },
+                onNext: () {
+                  dismissThen(widget.onNext);
+                },
+                onDetails: onMemoryDetailsSelected == null
+                    ? null
+                    : () {
+                        onMemoryDetailsSelected(currentMemory);
+                      },
+              );
+            },
           ),
-        if (playback.phase == PlaybackPhase.presenting && currentMemory != null)
+        if ((playback.phase == PlaybackPhase.presenting ||
+                playback.phase == PlaybackPhase.dismissing) &&
+            currentMemory != null)
           const SizedBox(height: 16),
         if (progressLabel != null && progressValue != null)
           _PlaybackProgressOverlay(
@@ -295,8 +444,9 @@ class _PlaybackSessionView extends StatelessWidget {
           icon: playback.status == PlaybackStatus.paused
               ? Icons.play_arrow_rounded
               : Icons.pause_rounded,
-          onPressed:
-              playback.status == PlaybackStatus.paused ? onResume : onPause,
+          onPressed: playback.status == PlaybackStatus.paused
+              ? widget.onResume
+              : widget.onPause,
         ),
       ],
     );
@@ -306,7 +456,7 @@ class _PlaybackSessionView extends StatelessWidget {
     BuildContext context,
     PlaybackMapPresentation presentation,
   ) {
-    final builder = mapBuilder;
+    final builder = widget.mapBuilder;
     if (builder != null) {
       return builder(context, presentation);
     }
@@ -321,6 +471,37 @@ class _PlaybackSessionView extends StatelessWidget {
       onCameraFailed: presentation.onCameraFailed,
     );
   }
+}
+
+class _PlaybackOpeningOverlay extends StatelessWidget {
+  const _PlaybackOpeningOverlay({
+    required this.animation,
+  });
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (context, child) {
+          return Opacity(
+            key: const ValueKey('story-playback.opening-overlay'),
+            opacity: 1 - animation.value,
+            child: child,
+          );
+        },
+        child: const ColoredBox(color: Colors.black),
+      ),
+    );
+  }
+}
+
+bool _usesCinematicOpening(StoryPlaybackState playback) {
+  return playback.phase == PlaybackPhase.moving &&
+      playback.currentIndex == 0 &&
+      playback.cameraCommand?.memoryIndex == 0;
 }
 
 class _PlaybackFrame extends StatelessWidget {
@@ -476,6 +657,182 @@ class _PlaybackPhotoArrowButton extends StatelessWidget {
           elevation: 6,
         ),
         icon: Icon(icon, size: 28),
+      ),
+    );
+  }
+}
+
+typedef _DismissThen = void Function(VoidCallback action);
+typedef _CinematicMemoryCardBuilder = Widget Function(_DismissThen dismissThen);
+
+class _CinematicMemoryCard extends StatefulWidget {
+  const _CinematicMemoryCard({
+    required this.readModel,
+    required this.presentationRevision,
+    required this.status,
+    required this.phase,
+    required this.arrivalPauseDuration,
+    required this.revealDuration,
+    required this.dismissalDuration,
+    required this.onDismissed,
+    required this.childBuilder,
+  });
+
+  final MemoryReadModel readModel;
+  final int presentationRevision;
+  final PlaybackStatus status;
+  final PlaybackPhase phase;
+  final Duration arrivalPauseDuration;
+  final Duration revealDuration;
+  final Duration dismissalDuration;
+  final ValueChanged<int> onDismissed;
+  final _CinematicMemoryCardBuilder childBuilder;
+
+  @override
+  State<_CinematicMemoryCard> createState() => _CinematicMemoryCardState();
+}
+
+class _CinematicMemoryCardState extends State<_CinematicMemoryCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _opacity;
+  late Animation<double> _scale;
+  late Animation<Offset> _offset;
+  Timer? _arrivalTimer;
+  bool _dismissalNotified = false;
+  bool _manualDismissalPending = false;
+  VoidCallback? _pendingAction;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.revealDuration,
+      reverseDuration: widget.dismissalDuration,
+    );
+    _configureAnimations();
+    _syncAnimationForState();
+  }
+
+  @override
+  void didUpdateWidget(_CinematicMemoryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.revealDuration != widget.revealDuration ||
+        oldWidget.dismissalDuration != widget.dismissalDuration) {
+      _controller
+        ..duration = widget.revealDuration
+        ..reverseDuration = widget.dismissalDuration;
+    }
+
+    if (oldWidget.readModel.memory.id != widget.readModel.memory.id) {
+      _dismissalNotified = false;
+      _manualDismissalPending = false;
+      _pendingAction = null;
+      _controller.value = 0;
+    }
+
+    _syncAnimationForState();
+  }
+
+  @override
+  void dispose() {
+    _arrivalTimer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _configureAnimations() {
+    final curved = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _opacity = Tween<double>(begin: 0, end: 1).animate(curved);
+    _scale = Tween<double>(begin: 0.82, end: 1).animate(curved);
+    _offset = Tween<Offset>(
+      begin: const Offset(0, -0.22),
+      end: Offset.zero,
+    ).animate(curved);
+  }
+
+  void _syncAnimationForState() {
+    _arrivalTimer?.cancel();
+
+    if (widget.status == PlaybackStatus.paused) {
+      _controller.stop();
+      return;
+    }
+
+    if (widget.phase == PlaybackPhase.dismissing) {
+      _startDismissal(notifyWhenComplete: true);
+      return;
+    }
+
+    if (widget.phase != PlaybackPhase.presenting) {
+      return;
+    }
+
+    if (_controller.value >= 1) {
+      return;
+    }
+
+    _arrivalTimer = Timer(widget.arrivalPauseDuration, () {
+      if (!mounted ||
+          widget.status != PlaybackStatus.playing ||
+          widget.phase != PlaybackPhase.presenting) {
+        return;
+      }
+
+      _controller.forward();
+    });
+  }
+
+  void _dismissThen(VoidCallback action) {
+    if (_manualDismissalPending) {
+      return;
+    }
+
+    _manualDismissalPending = true;
+    _pendingAction = action;
+    _arrivalTimer?.cancel();
+    _startDismissal(notifyWhenComplete: false);
+  }
+
+  void _startDismissal({required bool notifyWhenComplete}) {
+    _arrivalTimer?.cancel();
+    _controller.reverse().then((_) {
+      if (!mounted) {
+        return;
+      }
+
+      final action = _pendingAction;
+      _pendingAction = null;
+      if (action != null) {
+        action();
+        return;
+      }
+
+      if (notifyWhenComplete && !_dismissalNotified) {
+        _dismissalNotified = true;
+        widget.onDismissed(widget.presentationRevision);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: widget.phase == PlaybackPhase.dismissing,
+      child: FadeTransition(
+        opacity: _opacity,
+        child: SlideTransition(
+          position: _offset,
+          child: ScaleTransition(
+            scale: _scale,
+            child: widget.childBuilder(_dismissThen),
+          ),
+        ),
       ),
     );
   }

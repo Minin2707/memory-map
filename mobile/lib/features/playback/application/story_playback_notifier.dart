@@ -33,7 +33,6 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
     _audioOrchestrator = audioOrchestrator;
     ref.onDispose(() {
       _cancelPresentationTask();
-      audioOrchestrator.invalidateSession();
     });
 
     final memoriesValue = ref.watch(storyMemoriesProvider(_storyId));
@@ -96,6 +95,10 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
         state.playback?.isFinished == true) {
       unawaited(_audioOrchestrator!.finish());
     }
+  }
+
+  void presentationDismissed(int revision) {
+    presentationElapsed(revision);
   }
 
   void pause() {
@@ -241,10 +244,27 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
           return;
         }
 
-        presentationElapsed(revision);
+        _presentationDurationElapsed(revision);
       },
     );
     _presentationTask = scheduledTask;
+  }
+
+  void _presentationDurationElapsed(int revision) {
+    final current = state.playback;
+    if (current == null ||
+        current.status != PlaybackStatus.playing ||
+        current.phase != PlaybackPhase.presenting ||
+        current.presentationRevision != revision) {
+      return;
+    }
+
+    if (current.currentIndex == current.snapshot.length - 1) {
+      presentationElapsed(revision);
+      return;
+    }
+
+    _setPlayback(current.beginPresentationDismissal(revision));
   }
 
   bool _needsPresentationTimer(StoryPlaybackState? playback) {

@@ -36,4 +36,24 @@ void main() {
       expect(view.route.hasRoute, isFalse);
     });
   });
+
+  group('PlaybackMapView route GeoJSON boundary', () {
+    test('shouldUseLongitudeLatitudeCoordinateOrderForRouteLineString', () {
+      final geoJson = playbackRouteGeoJsonForTesting(<MapCoordinate>[
+        MapCoordinate(latitude: 41.7151, longitude: 44.8271),
+        MapCoordinate(latitude: -12.0464, longitude: -77.0428),
+      ]);
+      final features = geoJson['features']! as List<Object>;
+      final feature = features.single as Map<String, Object>;
+      final geometry = feature['geometry']! as Map<String, Object>;
+
+      expect(
+        geometry['coordinates'],
+        <List<double>>[
+          <double>[44.8271, 41.7151],
+          <double>[-77.0428, -12.0464],
+        ],
+      );
+    });
+  });
 }
