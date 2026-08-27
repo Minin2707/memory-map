@@ -85,6 +85,7 @@ class RefreshTokenLogoutServiceIntegrationTest extends IntegrationTest {
         assertThat(loaded.tokenHash()).isEqualTo(refreshToken.tokenHash());
         assertThat(loaded.createdAt()).isEqualTo(refreshToken.createdAt());
         assertThat(loaded.expiresAt()).isEqualTo(refreshToken.expiresAt());
+        assertThat(loaded.consumedAt()).isNull();
         assertThat(loaded.revokedAt()).isEqualTo(CURRENT_TIME);
     }
 

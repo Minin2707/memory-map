@@ -13,6 +13,7 @@ import memory_map.backend.media.application.UploadPhotoUseCase;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.image.ImageProcessingInput;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,6 +42,9 @@ import java.util.UUID;
         havingValue = "true"
 )
 public class MediaController {
+
+    private static final String PRIVATE_MEDIA_CACHE_CONTROL =
+            "private, no-store";
 
     private final UploadPhotoUseCase uploadPhotoUseCase;
     private final ListMemoryMediaUseCase listMemoryMediaUseCase;
@@ -194,6 +198,7 @@ public class MediaController {
                         downloadedMedia.contentType()
                 ))
                 .contentLength(downloadedMedia.contentLength())
+                .header(HttpHeaders.CACHE_CONTROL, PRIVATE_MEDIA_CACHE_CONTROL)
                 .body(body);
     }
 }

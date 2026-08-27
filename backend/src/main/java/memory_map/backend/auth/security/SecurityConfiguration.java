@@ -25,6 +25,11 @@ public class SecurityConfiguration {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessionManagement -> sessionManagement
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .headers(headers -> headers.httpStrictTransportSecurity(
+                        hsts -> hsts
+                                .maxAgeInSeconds(31_536_000)
+                                .includeSubDomains(false)
+                ))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .anyRequest().authenticated())

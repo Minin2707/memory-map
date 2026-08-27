@@ -20,6 +20,10 @@ class DefaultRefreshTokenIssuerTest {
             UUID.fromString(
                     "00000000-0000-0000-0000-000000000002"
             );
+    private static final UUID FAMILY_ID =
+            UUID.fromString(
+                    "00000000-0000-0000-0000-000000000003"
+            );
     private static final Instant ISSUED_AT =
             Instant.parse("2026-01-01T10:00:00Z");
     private static final Duration TTL =
@@ -65,6 +69,31 @@ class DefaultRefreshTokenIssuerTest {
         );
 
         assertThat(issued.refreshToken().userId()).isEqualTo(USER_ID);
+    }
+
+    @Test
+    void shouldUseProvidedFamilyId() {
+
+        IssuedRefreshToken issued = issuer().issue(
+                TOKEN_ID,
+                FAMILY_ID,
+                USER_ID,
+                ISSUED_AT
+        );
+
+        assertThat(issued.refreshToken().familyId()).isEqualTo(FAMILY_ID);
+    }
+
+    @Test
+    void shouldUseTokenIdAsDefaultFamilyId() {
+
+        IssuedRefreshToken issued = issuer().issue(
+                TOKEN_ID,
+                USER_ID,
+                ISSUED_AT
+        );
+
+        assertThat(issued.refreshToken().familyId()).isEqualTo(TOKEN_ID);
     }
 
     @Test
@@ -116,6 +145,7 @@ class DefaultRefreshTokenIssuerTest {
         );
 
         assertThat(issued.refreshToken().revokedAt()).isNull();
+        assertThat(issued.refreshToken().consumedAt()).isNull();
     }
 
     @Test
@@ -159,6 +189,16 @@ class DefaultRefreshTokenIssuerTest {
         )
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("userId must not be null");
+    }
+
+    @Test
+    void shouldRejectNullFamilyId() {
+
+        assertThatThrownBy(
+                () -> issuer().issue(TOKEN_ID, null, USER_ID, ISSUED_AT)
+        )
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("familyId must not be null");
     }
 
     @Test

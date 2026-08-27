@@ -677,6 +677,7 @@ class TransactionalGoogleLoginTransactionTest {
         @Override
         public IssuedRefreshToken issue(
                 UUID tokenId,
+                UUID familyId,
                 UUID userId,
                 Instant issuedAt
         ) {
@@ -743,6 +744,22 @@ class TransactionalGoogleLoginTransactionTest {
         @Override
         public boolean revokeIfActive(
                 UUID id,
+                Instant revokedAt
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean consumeIfActive(
+                UUID id,
+                Instant consumedAt
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int revokeActiveFamily(
+                UUID familyId,
                 Instant revokedAt
         ) {
             throw new UnsupportedOperationException();

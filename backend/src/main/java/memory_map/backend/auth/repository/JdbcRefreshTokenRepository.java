@@ -17,9 +17,11 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
             SELECT
                 id,
                 user_id,
+                family_id,
                 token_hash,
                 created_at,
                 expires_at,
+                consumed_at,
                 revoked_at
             FROM refresh_tokens
             """;
@@ -41,24 +43,29 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
             INSERT INTO refresh_tokens (
                 id,
                 user_id,
+                family_id,
                 token_hash,
                 created_at,
                 expires_at,
+                consumed_at,
                 revoked_at
             )
             VALUES (
                 :id,
                 :userId,
+                :familyId,
                 :tokenHash,
                 :createdAt,
                 :expiresAt,
+                :consumedAt,
                 :revokedAt
             )
             """;
 
     private static final String UPDATE_SQL = """
             UPDATE refresh_tokens
-            SET revoked_at = :revokedAt
+            SET consumed_at = :consumedAt,
+                revoked_at = :revokedAt
             WHERE id = :id
             """;
 
@@ -66,6 +73,23 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
             UPDATE refresh_tokens
             SET revoked_at = :revokedAt
             WHERE id = :id
+              AND consumed_at IS NULL
+              AND revoked_at IS NULL
+            """;
+
+    private static final String CONSUME_IF_ACTIVE_SQL = """
+            UPDATE refresh_tokens
+            SET consumed_at = :consumedAt
+            WHERE id = :id
+              AND consumed_at IS NULL
+              AND revoked_at IS NULL
+            """;
+
+    private static final String REVOKE_ACTIVE_FAMILY_SQL = """
+            UPDATE refresh_tokens
+            SET revoked_at = :revokedAt
+            WHERE family_id = :familyId
+              AND consumed_at IS NULL
               AND revoked_at IS NULL
             """;
 
@@ -115,9 +139,16 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
         jdbcClient.sql(INSERT_SQL)
                 .param("id", refreshToken.id())
                 .param("userId", refreshToken.userId())
+                .param("familyId", refreshToken.familyId())
                 .param("tokenHash", refreshToken.tokenHash())
                 .param("createdAt", DatabaseTimestamps.toOffsetDateTime(refreshToken.createdAt()))
                 .param("expiresAt", DatabaseTimestamps.toOffsetDateTime(refreshToken.expiresAt()))
+                .param(
+                        "consumedAt",
+                        refreshToken.consumedAt() == null
+                                ? null
+                                : DatabaseTimestamps.toOffsetDateTime(refreshToken.consumedAt())
+                )
                 .param(
                         "revokedAt",
                         refreshToken.revokedAt() == null
@@ -132,6 +163,12 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
 
         jdbcClient.sql(UPDATE_SQL)
                 .param("id", refreshToken.id())
+                .param(
+                        "consumedAt",
+                        refreshToken.consumedAt() == null
+                                ? null
+                                : DatabaseTimestamps.toOffsetDateTime(refreshToken.consumedAt())
+                )
                 .param(
                         "revokedAt",
                         refreshToken.revokedAt() == null
@@ -155,6 +192,36 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
                 .update();
 
         return updatedRows == 1;
+    }
+
+    @Override
+    public boolean consumeIfActive(
+            UUID id,
+            Instant consumedAt
+    ) {
+        int updatedRows = jdbcClient.sql(CONSUME_IF_ACTIVE_SQL)
+                .param("id", id)
+                .param(
+                        "consumedAt",
+                        DatabaseTimestamps.toOffsetDateTime(consumedAt)
+                )
+                .update();
+
+        return updatedRows == 1;
+    }
+
+    @Override
+    public int revokeActiveFamily(
+            UUID familyId,
+            Instant revokedAt
+    ) {
+        return jdbcClient.sql(REVOKE_ACTIVE_FAMILY_SQL)
+                .param("familyId", familyId)
+                .param(
+                        "revokedAt",
+                        DatabaseTimestamps.toOffsetDateTime(revokedAt)
+                )
+                .update();
     }
 
     @Override

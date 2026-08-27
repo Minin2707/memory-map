@@ -40,6 +40,10 @@ class RefreshTokenRotationServiceIntegrationTest extends IntegrationTest {
             UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID DUPLICATE_TOKEN_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final UUID THIRD_TOKEN_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000004");
+    private static final UUID SECOND_FAMILY_TOKEN_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000005");
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
     private static final Instant CURRENT_TIME =
@@ -82,9 +86,12 @@ class RefreshTokenRotationServiceIntegrationTest extends IntegrationTest {
         assertThat(result.refreshToken().value())
                 .isNotBlank()
                 .isNotEqualTo(OLD_RAW_TOKEN.value());
-        assertThat(loadedOldToken.revokedAt()).isEqualTo(CURRENT_TIME);
+        assertThat(loadedOldToken.consumedAt()).isEqualTo(CURRENT_TIME);
+        assertThat(loadedOldToken.revokedAt()).isNull();
         assertThat(loadedNewToken.userId()).isEqualTo(user.id());
+        assertThat(loadedNewToken.familyId()).isEqualTo(OLD_TOKEN_ID);
         assertThat(loadedNewToken.createdAt()).isEqualTo(CURRENT_TIME);
+        assertThat(loadedNewToken.consumedAt()).isNull();
         assertThat(loadedNewToken.revokedAt()).isNull();
         assertThat(loadedNewToken.tokenHash())
                 .isEqualTo(refreshTokenHasher.hash(result.refreshToken()))
@@ -122,8 +129,126 @@ class RefreshTokenRotationServiceIntegrationTest extends IntegrationTest {
                 refreshTokenRepository.findById(DUPLICATE_TOKEN_ID)
                         .orElseThrow();
 
+        assertThat(loadedOldToken.consumedAt()).isNull();
         assertThat(loadedOldToken.revokedAt()).isNull();
         assertThat(loadedDuplicateToken).isEqualTo(duplicateToken);
+    }
+
+    @Test
+    void shouldRevokeActiveDescendantWhenConsumedParentIsReused() {
+
+        User user = saveUser("google-subject-123");
+        RefreshToken oldToken = oldRefreshToken(user.id());
+        refreshTokenRepository.save(oldToken);
+
+        RefreshTokenRotationResult result = rotationService.rotate(
+                OLD_RAW_TOKEN,
+                NEW_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThatThrownBy(() -> rotationService.rotate(
+                OLD_RAW_TOKEN,
+                THIRD_TOKEN_ID,
+                CURRENT_TIME.plusSeconds(1)
+        ))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Refresh token is invalid");
+
+        RefreshToken loadedOldToken =
+                refreshTokenRepository.findById(OLD_TOKEN_ID)
+                        .orElseThrow();
+        RefreshToken loadedNewToken =
+                refreshTokenRepository.findById(NEW_TOKEN_ID)
+                        .orElseThrow();
+
+        assertThat(result.refreshToken().value())
+                .isNotEqualTo(OLD_RAW_TOKEN.value());
+        assertThat(loadedOldToken.consumedAt()).isEqualTo(CURRENT_TIME);
+        assertThat(loadedOldToken.revokedAt()).isNull();
+        assertThat(loadedNewToken.familyId()).isEqualTo(OLD_TOKEN_ID);
+        assertThat(loadedNewToken.consumedAt()).isNull();
+        assertThat(loadedNewToken.revokedAt())
+                .isEqualTo(CURRENT_TIME.plusSeconds(1));
+    }
+
+    @Test
+    void shouldRevokeLatestDescendantWhenEarlierAncestorIsReused() {
+
+        User user = saveUser("google-subject-123");
+        RefreshToken oldToken = oldRefreshToken(user.id());
+        refreshTokenRepository.save(oldToken);
+
+        RefreshTokenRotationResult firstResult = rotationService.rotate(
+                OLD_RAW_TOKEN,
+                NEW_TOKEN_ID,
+                CURRENT_TIME
+        );
+        rotationService.rotate(
+                firstResult.refreshToken(),
+                THIRD_TOKEN_ID,
+                CURRENT_TIME.plusSeconds(1)
+        );
+
+        assertThatThrownBy(() -> rotationService.rotate(
+                OLD_RAW_TOKEN,
+                UUID.randomUUID(),
+                CURRENT_TIME.plusSeconds(2)
+        ))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        RefreshToken middleToken =
+                refreshTokenRepository.findById(NEW_TOKEN_ID)
+                        .orElseThrow();
+        RefreshToken latestToken =
+                refreshTokenRepository.findById(THIRD_TOKEN_ID)
+                        .orElseThrow();
+
+        assertThat(middleToken.consumedAt())
+                .isEqualTo(CURRENT_TIME.plusSeconds(1));
+        assertThat(middleToken.revokedAt()).isNull();
+        assertThat(latestToken.consumedAt()).isNull();
+        assertThat(latestToken.revokedAt())
+                .isEqualTo(CURRENT_TIME.plusSeconds(2));
+    }
+
+    @Test
+    void shouldLeaveUnrelatedSecondFamilyActiveWhenReuseIsDetected() {
+
+        User user = saveUser("google-subject-123");
+        RefreshToken oldToken = oldRefreshToken(user.id());
+        RefreshToken secondFamilyToken = refreshToken(
+                SECOND_FAMILY_TOKEN_ID,
+                user.id(),
+                "second-family-token-hash",
+                BASE_TIME.plusSeconds(1),
+                EXPIRES_AT.plusSeconds(1),
+                null
+        );
+        refreshTokenRepository.save(oldToken);
+        refreshTokenRepository.save(secondFamilyToken);
+
+        rotationService.rotate(
+                OLD_RAW_TOKEN,
+                NEW_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThatThrownBy(() -> rotationService.rotate(
+                OLD_RAW_TOKEN,
+                THIRD_TOKEN_ID,
+                CURRENT_TIME.plusSeconds(1)
+        ))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        RefreshToken loadedSecondFamily =
+                refreshTokenRepository.findById(SECOND_FAMILY_TOKEN_ID)
+                        .orElseThrow();
+
+        assertThat(loadedSecondFamily.familyId())
+                .isEqualTo(SECOND_FAMILY_TOKEN_ID);
+        assertThat(loadedSecondFamily.consumedAt()).isNull();
+        assertThat(loadedSecondFamily.revokedAt()).isNull();
     }
 
     private User saveUser(String googleSubject) {

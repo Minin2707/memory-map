@@ -25,6 +25,8 @@ class TransactionalRefreshTokenRotationServiceTest {
             UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID NEW_REFRESH_TOKEN_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final UUID FAMILY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000004");
     private static final Instant CREATED_AT =
             Instant.parse("2026-01-01T10:00:00Z");
     private static final Instant CURRENT_TIME =
@@ -59,9 +61,9 @@ class TransactionalRefreshTokenRotationServiceTest {
                 "hash",
                 "find",
                 "validate",
+                "consume",
                 "issueAccess",
                 "issueRefresh",
-                "revoke",
                 "save"
         );
     }
@@ -150,7 +152,7 @@ class TransactionalRefreshTokenRotationServiceTest {
     }
 
     @Test
-    void shouldRevokeCurrentTokenBeforeSavingNewToken() {
+    void shouldConsumeCurrentTokenBeforeSavingNewToken() {
 
         TestContext context = testContext();
 
@@ -161,12 +163,12 @@ class TransactionalRefreshTokenRotationServiceTest {
         );
 
         assertThat(context.events()).containsSubsequence(
-                "revoke",
+                "consume",
                 "save"
         );
-        assertThat(context.repository().receivedRevokedTokenId())
+        assertThat(context.repository().receivedConsumedTokenId())
                 .isEqualTo(CURRENT_TOKEN_ID);
-        assertThat(context.repository().receivedRevokedAt())
+        assertThat(context.repository().receivedConsumedAt())
                 .isEqualTo(CURRENT_TIME);
     }
 
@@ -183,6 +185,23 @@ class TransactionalRefreshTokenRotationServiceTest {
 
         assertThat(context.repository().savedRefreshToken())
                 .isEqualTo(newRefreshToken());
+    }
+
+    @Test
+    void shouldIssueRotatedRefreshTokenInSameFamily() {
+
+        TestContext context = testContext();
+
+        context.service().rotate(
+                CURRENT_RAW_TOKEN,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(context.refreshTokenIssuer().receivedFamilyId())
+                .isEqualTo(FAMILY_ID);
+        assertThat(context.repository().savedRefreshToken().familyId())
+                .isEqualTo(FAMILY_ID);
     }
 
     @Test
@@ -218,28 +237,41 @@ class TransactionalRefreshTokenRotationServiceTest {
         assertThat(context.validator().called()).isFalse();
         assertThat(context.accessTokenService().called()).isFalse();
         assertThat(context.refreshTokenIssuer().called()).isFalse();
-        assertThat(context.repository().revokeCalled()).isFalse();
+        assertThat(context.repository().consumeCalled()).isFalse();
+        assertThat(context.repository().revokeFamilyCalled()).isFalse();
         assertThat(context.repository().saveCalled()).isFalse();
     }
 
     @Test
-    void shouldRejectConcurrentReplayWhenConditionalRevokeReturnsFalse() {
+    void shouldRejectInvalidPersistedTokenWithoutFamilyRevocation() {
 
         TestContext context = testContext();
-        context.repository().revokeResult(false);
+        context.validator().invalidToken();
 
         assertInvalidToken(() -> context.service().rotate(
                 CURRENT_RAW_TOKEN,
                 NEW_REFRESH_TOKEN_ID,
                 CURRENT_TIME
         ));
+
+        assertThat(context.events()).containsExactly(
+                "hash",
+                "find",
+                "validate"
+        );
+        assertThat(context.repository().consumeCalled()).isFalse();
+        assertThat(context.repository().revokeFamilyCalled()).isFalse();
+        assertThat(context.accessTokenService().called()).isFalse();
+        assertThat(context.refreshTokenIssuer().called()).isFalse();
+        assertThat(context.repository().saveCalled()).isFalse();
     }
 
     @Test
-    void shouldNotSaveNewTokenWhenConditionalRevokeFails() {
+    void shouldRejectConcurrentReplayWhenConditionalConsumeReturnsFalse() {
 
         TestContext context = testContext();
-        context.repository().revokeResult(false);
+        context.repository().consumeResult(false);
+        context.repository().findByIdResult(Optional.of(consumedRefreshToken()));
 
         assertInvalidToken(() -> context.service().rotate(
                 CURRENT_RAW_TOKEN,
@@ -247,7 +279,51 @@ class TransactionalRefreshTokenRotationServiceTest {
                 CURRENT_TIME
         ));
 
-        assertThat(context.refreshTokenIssuer().called()).isTrue();
+        assertThat(context.repository().receivedRevokedFamilyId())
+                .isEqualTo(FAMILY_ID);
+    }
+
+    @Test
+    void shouldNotSaveNewTokenWhenConditionalConsumeFails() {
+
+        TestContext context = testContext();
+        context.repository().consumeResult(false);
+        context.repository().findByIdResult(Optional.of(consumedRefreshToken()));
+
+        assertInvalidToken(() -> context.service().rotate(
+                CURRENT_RAW_TOKEN,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        ));
+
+        assertThat(context.refreshTokenIssuer().called()).isFalse();
+        assertThat(context.repository().saveCalled()).isFalse();
+    }
+
+    @Test
+    void shouldRevokeActiveFamilyWhenConsumedTokenIsReused() {
+
+        TestContext context = testContext();
+        context.repository().findResult(Optional.of(consumedRefreshToken()));
+
+        assertInvalidToken(() -> context.service().rotate(
+                CURRENT_RAW_TOKEN,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        ));
+
+        assertThat(context.events()).containsExactly(
+                "hash",
+                "find",
+                "revokeFamily"
+        );
+        assertThat(context.repository().receivedRevokedFamilyId())
+                .isEqualTo(FAMILY_ID);
+        assertThat(context.repository().receivedRevokedAt())
+                .isEqualTo(CURRENT_TIME);
+        assertThat(context.validator().called()).isFalse();
+        assertThat(context.accessTokenService().called()).isFalse();
+        assertThat(context.refreshTokenIssuer().called()).isFalse();
         assertThat(context.repository().saveCalled()).isFalse();
     }
 
@@ -401,9 +477,24 @@ class TransactionalRefreshTokenRotationServiceTest {
         return new RefreshToken(
                 CURRENT_TOKEN_ID,
                 USER_ID,
+                FAMILY_ID,
                 CURRENT_TOKEN_HASH,
                 CREATED_AT,
                 EXPIRES_AT,
+                null,
+                null
+        );
+    }
+
+    private static RefreshToken consumedRefreshToken() {
+        return new RefreshToken(
+                CURRENT_TOKEN_ID,
+                USER_ID,
+                FAMILY_ID,
+                CURRENT_TOKEN_HASH,
+                CREATED_AT,
+                EXPIRES_AT,
+                CURRENT_TIME.minusSeconds(1),
                 null
         );
     }
@@ -412,9 +503,11 @@ class TransactionalRefreshTokenRotationServiceTest {
         return new RefreshToken(
                 NEW_REFRESH_TOKEN_ID,
                 USER_ID,
+                FAMILY_ID,
                 NEW_TOKEN_HASH,
                 CURRENT_TIME,
                 CURRENT_TIME.plusSeconds(30L * 24 * 60 * 60),
+                null,
                 null
         );
     }
@@ -472,12 +565,17 @@ class TransactionalRefreshTokenRotationServiceTest {
         private final List<String> events;
         private Optional<RefreshToken> findResult =
                 Optional.of(currentRefreshToken());
-        private boolean revokeResult = true;
+        private Optional<RefreshToken> findByIdResult =
+                Optional.of(currentRefreshToken());
+        private boolean consumeResult = true;
         private String receivedTokenHash;
-        private UUID receivedRevokedTokenId;
+        private UUID receivedConsumedTokenId;
+        private Instant receivedConsumedAt;
+        private UUID receivedRevokedFamilyId;
         private Instant receivedRevokedAt;
         private RefreshToken savedRefreshToken;
-        private boolean revokeCalled;
+        private boolean consumeCalled;
+        private boolean revokeFamilyCalled;
         private boolean saveCalled;
 
         private FakeRefreshTokenRepository(List<String> events) {
@@ -486,7 +584,9 @@ class TransactionalRefreshTokenRotationServiceTest {
 
         @Override
         public Optional<RefreshToken> findById(UUID id) {
-            throw new UnsupportedOperationException();
+            events.add("findById");
+
+            return findByIdResult;
         }
 
         @Override
@@ -519,12 +619,33 @@ class TransactionalRefreshTokenRotationServiceTest {
                 UUID id,
                 Instant revokedAt
         ) {
-            events.add("revoke");
-            revokeCalled = true;
-            receivedRevokedTokenId = id;
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean consumeIfActive(
+                UUID id,
+                Instant consumedAt
+        ) {
+            events.add("consume");
+            consumeCalled = true;
+            receivedConsumedTokenId = id;
+            receivedConsumedAt = consumedAt;
+
+            return consumeResult;
+        }
+
+        @Override
+        public int revokeActiveFamily(
+                UUID familyId,
+                Instant revokedAt
+        ) {
+            events.add("revokeFamily");
+            revokeFamilyCalled = true;
+            receivedRevokedFamilyId = familyId;
             receivedRevokedAt = revokedAt;
 
-            return revokeResult;
+            return 1;
         }
 
         @Override
@@ -536,16 +657,28 @@ class TransactionalRefreshTokenRotationServiceTest {
             this.findResult = findResult;
         }
 
-        private void revokeResult(boolean revokeResult) {
-            this.revokeResult = revokeResult;
+        private void consumeResult(boolean consumeResult) {
+            this.consumeResult = consumeResult;
+        }
+
+        private void findByIdResult(Optional<RefreshToken> findByIdResult) {
+            this.findByIdResult = findByIdResult;
         }
 
         private String receivedTokenHash() {
             return receivedTokenHash;
         }
 
-        private UUID receivedRevokedTokenId() {
-            return receivedRevokedTokenId;
+        private UUID receivedConsumedTokenId() {
+            return receivedConsumedTokenId;
+        }
+
+        private Instant receivedConsumedAt() {
+            return receivedConsumedAt;
+        }
+
+        private UUID receivedRevokedFamilyId() {
+            return receivedRevokedFamilyId;
         }
 
         private Instant receivedRevokedAt() {
@@ -556,8 +689,12 @@ class TransactionalRefreshTokenRotationServiceTest {
             return savedRefreshToken;
         }
 
-        private boolean revokeCalled() {
-            return revokeCalled;
+        private boolean consumeCalled() {
+            return consumeCalled;
+        }
+
+        private boolean revokeFamilyCalled() {
+            return revokeFamilyCalled;
         }
 
         private boolean saveCalled() {
@@ -571,6 +708,7 @@ class TransactionalRefreshTokenRotationServiceTest {
         private final List<String> events;
         private RefreshToken receivedRefreshToken;
         private Instant receivedCurrentTime;
+        private boolean invalidToken;
         private boolean called;
 
         private FakeRefreshTokenValidator(List<String> events) {
@@ -586,6 +724,16 @@ class TransactionalRefreshTokenRotationServiceTest {
             called = true;
             receivedRefreshToken = refreshToken;
             receivedCurrentTime = currentTime;
+
+            if (invalidToken) {
+                throw new InvalidRefreshTokenException(
+                        INVALID_TOKEN_MESSAGE
+                );
+            }
+        }
+
+        private void invalidToken() {
+            invalidToken = true;
         }
 
         private RefreshToken receivedRefreshToken() {
@@ -649,6 +797,7 @@ class TransactionalRefreshTokenRotationServiceTest {
 
         private final List<String> events;
         private UUID receivedTokenId;
+        private UUID receivedFamilyId;
         private UUID receivedUserId;
         private Instant receivedIssuedAt;
         private boolean called;
@@ -660,12 +809,14 @@ class TransactionalRefreshTokenRotationServiceTest {
         @Override
         public IssuedRefreshToken issue(
                 UUID tokenId,
+                UUID familyId,
                 UUID userId,
                 Instant issuedAt
         ) {
             events.add("issueRefresh");
             called = true;
             receivedTokenId = tokenId;
+            receivedFamilyId = familyId;
             receivedUserId = userId;
             receivedIssuedAt = issuedAt;
 
@@ -674,6 +825,10 @@ class TransactionalRefreshTokenRotationServiceTest {
 
         private UUID receivedTokenId() {
             return receivedTokenId;
+        }
+
+        private UUID receivedFamilyId() {
+            return receivedFamilyId;
         }
 
         private UUID receivedUserId() {

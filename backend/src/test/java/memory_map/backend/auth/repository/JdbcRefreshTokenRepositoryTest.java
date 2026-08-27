@@ -50,6 +50,8 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
 
     private static final Instant SECOND_REVOKED_AT =
             BASE_TIME.plusSeconds(180);
+    private static final Instant CONSUMED_AT =
+            BASE_TIME.plusSeconds(240);
 
     private static final String CLEAN_DATABASE_SQL = """
         TRUNCATE TABLE users
@@ -130,9 +132,11 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
     ) {
         assertThat(actual.id()).isEqualTo(expected.id());
         assertThat(actual.userId()).isEqualTo(expected.userId());
+        assertThat(actual.familyId()).isEqualTo(expected.familyId());
         assertThat(actual.tokenHash()).isEqualTo(expected.tokenHash());
         assertThat(actual.createdAt()).isEqualTo(expected.createdAt());
         assertThat(actual.expiresAt()).isEqualTo(expected.expiresAt());
+        assertThat(actual.consumedAt()).isEqualTo(expected.consumedAt());
         assertThat(actual.revokedAt()).isEqualTo(expected.revokedAt());
     }
 
@@ -284,6 +288,55 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldPreserveFamilyIdAndNullableConsumedAt() {
+
+        User user = saveUser("google-subject-123");
+        UUID familyId = UUID.randomUUID();
+        RefreshToken refreshToken = new RefreshToken(
+                UUID.randomUUID(),
+                user.id(),
+                familyId,
+                "hash-refresh-001",
+                BASE_TIME,
+                EXPIRES_AT,
+                null,
+                null
+        );
+
+        repository.save(refreshToken);
+
+        RefreshToken loaded = repository.findById(refreshToken.id())
+                .orElseThrow();
+
+        assertThat(loaded.familyId()).isEqualTo(familyId);
+        assertThat(loaded.consumedAt()).isNull();
+        assertRefreshTokenMatches(loaded, refreshToken);
+    }
+
+    @Test
+    void shouldSaveConsumedRefreshToken() {
+
+        User user = saveUser("google-subject-123");
+        RefreshToken refreshToken = new RefreshToken(
+                UUID.randomUUID(),
+                user.id(),
+                UUID.randomUUID(),
+                "hash-refresh-001",
+                BASE_TIME,
+                EXPIRES_AT,
+                CONSUMED_AT,
+                null
+        );
+
+        repository.save(refreshToken);
+
+        RefreshToken loaded = repository.findById(refreshToken.id())
+                .orElseThrow();
+
+        assertRefreshTokenMatches(loaded, refreshToken);
+    }
+
+    @Test
     void shouldSaveRevokedRefreshToken() {
 
         User user = saveUser("google-subject-123");
@@ -315,6 +368,35 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
                 refreshToken.createdAt(),
                 refreshToken.expiresAt(),
                 BASE_TIME.plusSeconds(60)
+        );
+
+        repository.save(refreshToken);
+
+        repository.update(updatedToken);
+
+        RefreshToken loaded = repository.findById(refreshToken.id())
+                .orElseThrow();
+
+        assertRefreshTokenMatches(loaded, updatedToken);
+    }
+
+    @Test
+    void shouldUpdateConsumedAt() {
+
+        User user = saveUser("google-subject-123");
+        RefreshToken refreshToken = createRefreshToken(
+                user.id(),
+                "hash-refresh-001"
+        );
+        RefreshToken updatedToken = new RefreshToken(
+                refreshToken.id(),
+                refreshToken.userId(),
+                refreshToken.familyId(),
+                refreshToken.tokenHash(),
+                refreshToken.createdAt(),
+                refreshToken.expiresAt(),
+                CONSUMED_AT,
+                null
         );
 
         repository.save(refreshToken);
@@ -384,6 +466,60 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
 
         assertThat(revoked).isTrue();
         assertRefreshTokenMatches(loaded, expected);
+    }
+
+    @Test
+    void shouldConsumeActiveRefreshToken() {
+
+        User user = saveUser("google-subject-123");
+        RefreshToken refreshToken = createRefreshToken(
+                user.id(),
+                "hash-refresh-001"
+        );
+
+        repository.save(refreshToken);
+
+        boolean consumed = repository.consumeIfActive(
+                refreshToken.id(),
+                CONSUMED_AT
+        );
+
+        RefreshToken loaded = repository.findById(refreshToken.id())
+                .orElseThrow();
+
+        assertThat(consumed).isTrue();
+        assertThat(loaded.consumedAt()).isEqualTo(CONSUMED_AT);
+        assertThat(loaded.revokedAt()).isNull();
+    }
+
+    @Test
+    void shouldReturnFalseWhenRefreshTokenIsAlreadyConsumed() {
+
+        User user = saveUser("google-subject-123");
+        RefreshToken refreshToken = new RefreshToken(
+                UUID.randomUUID(),
+                user.id(),
+                UUID.randomUUID(),
+                "hash-refresh-001",
+                BASE_TIME,
+                EXPIRES_AT,
+                FIRST_REVOKED_AT,
+                null
+        );
+
+        repository.save(refreshToken);
+
+        boolean revoked = repository.revokeIfActive(
+                refreshToken.id(),
+                SECOND_REVOKED_AT
+        );
+        boolean consumed = repository.consumeIfActive(
+                refreshToken.id(),
+                SECOND_REVOKED_AT
+        );
+
+        assertThat(revoked).isFalse();
+        assertThat(consumed).isFalse();
     }
 
     @Test
@@ -480,6 +616,65 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldRevokeOnlyActiveRefreshTokensInFamily() {
+
+        User user = saveUser("google-subject-123");
+        UUID familyId = UUID.randomUUID();
+        UUID otherFamilyId = UUID.randomUUID();
+        RefreshToken activeFamilyToken = new RefreshToken(
+                UUID.randomUUID(),
+                user.id(),
+                familyId,
+                "hash-refresh-001",
+                BASE_TIME,
+                EXPIRES_AT,
+                null,
+                null
+        );
+        RefreshToken consumedFamilyToken = new RefreshToken(
+                UUID.randomUUID(),
+                user.id(),
+                familyId,
+                "hash-refresh-002",
+                BASE_TIME.plusSeconds(1),
+                EXPIRES_AT,
+                CONSUMED_AT,
+                null
+        );
+        RefreshToken otherFamilyToken = new RefreshToken(
+                UUID.randomUUID(),
+                user.id(),
+                otherFamilyId,
+                "hash-refresh-003",
+                BASE_TIME.plusSeconds(2),
+                EXPIRES_AT,
+                null,
+                null
+        );
+
+        repository.save(activeFamilyToken);
+        repository.save(consumedFamilyToken);
+        repository.save(otherFamilyToken);
+
+        int revoked = repository.revokeActiveFamily(
+                familyId,
+                REVOKED_AT
+        );
+
+        RefreshToken loadedActive =
+                repository.findById(activeFamilyToken.id()).orElseThrow();
+        RefreshToken loadedConsumed =
+                repository.findById(consumedFamilyToken.id()).orElseThrow();
+        RefreshToken loadedOther =
+                repository.findById(otherFamilyToken.id()).orElseThrow();
+
+        assertThat(revoked).isEqualTo(1);
+        assertThat(loadedActive.revokedAt()).isEqualTo(REVOKED_AT);
+        assertThat(loadedConsumed.revokedAt()).isNull();
+        assertThat(loadedOther.revokedAt()).isNull();
+    }
+
+    @Test
     void shouldAllowOnlyOneConcurrentRevoke() throws Exception {
 
         User user = saveUser("google-subject-123");
@@ -532,6 +727,65 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
                     .orElseThrow();
 
             assertThat(loaded.revokedAt()).isEqualTo(successfulRevokedAt);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldAllowOnlyOneConcurrentConsume() throws Exception {
+
+        User user = saveUser("google-subject-123");
+        RefreshToken refreshToken = createRefreshToken(
+                user.id(),
+                "hash-refresh-001"
+        );
+        repository.save(refreshToken);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        try {
+            Future<ConsumeAttemptResult> first = executor.submit(
+                    consumeAttempt(
+                            refreshToken.id(),
+                            CONSUMED_AT,
+                            ready,
+                            start
+                    )
+            );
+            Future<ConsumeAttemptResult> second = executor.submit(
+                    consumeAttempt(
+                            refreshToken.id(),
+                            CONSUMED_AT.plusSeconds(1),
+                            ready,
+                            start
+                    )
+            );
+
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            ConsumeAttemptResult firstResult =
+                    first.get(10, TimeUnit.SECONDS);
+            ConsumeAttemptResult secondResult =
+                    second.get(10, TimeUnit.SECONDS);
+
+            assertThat(List.of(
+                    firstResult.consumed(),
+                    secondResult.consumed()
+            ))
+                    .containsExactlyInAnyOrder(true, false);
+
+            Instant successfulConsumedAt = firstResult.consumed()
+                    ? firstResult.consumedAt()
+                    : secondResult.consumedAt();
+            RefreshToken loaded = repository.findById(refreshToken.id())
+                    .orElseThrow();
+
+            assertThat(loaded.consumedAt()).isEqualTo(successfulConsumedAt);
+            assertThat(loaded.revokedAt()).isNull();
         } finally {
             executor.shutdownNow();
         }
@@ -643,9 +897,37 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
         };
     }
 
+    private Callable<ConsumeAttemptResult> consumeAttempt(
+            UUID refreshTokenId,
+            Instant consumedAt,
+            CountDownLatch ready,
+            CountDownLatch start
+    ) {
+        return () -> {
+            ready.countDown();
+            start.await();
+
+            boolean consumed = repository.consumeIfActive(
+                    refreshTokenId,
+                    consumedAt
+            );
+
+            return new ConsumeAttemptResult(
+                    consumed,
+                    consumedAt
+            );
+        };
+    }
+
     private record RevokeAttemptResult(
             boolean revoked,
             Instant revokedAt
+    ) {
+    }
+
+    private record ConsumeAttemptResult(
+            boolean consumed,
+            Instant consumedAt
     ) {
     }
 

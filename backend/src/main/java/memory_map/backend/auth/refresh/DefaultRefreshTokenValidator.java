@@ -28,6 +28,10 @@ public class DefaultRefreshTokenValidator implements RefreshTokenValidator {
             throw invalidToken();
         }
 
+        if (refreshToken.consumedAt() != null) {
+            throw invalidToken();
+        }
+
         if (!refreshToken.expiresAt().isAfter(currentTime)) {
             throw invalidToken();
         }

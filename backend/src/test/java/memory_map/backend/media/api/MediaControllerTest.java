@@ -475,6 +475,13 @@ class MediaControllerTest {
                         HttpHeaders.CONTENT_LENGTH,
                         Long.toString(THUMBNAIL_BYTES.length)
                 ))
+                .andExpect(header().string(
+                        HttpHeaders.CACHE_CONTROL,
+                        "private, no-store"
+                ))
+                .andExpect(header().doesNotExist(
+                        HttpHeaders.CONTENT_DISPOSITION
+                ))
                 .andExpect(content().bytes(THUMBNAIL_BYTES))
                 .andReturn()
                 .getResponse()
@@ -514,6 +521,13 @@ class MediaControllerTest {
                 .andExpect(header().string(
                         HttpHeaders.CONTENT_LENGTH,
                         Long.toString(DISPLAY_BYTES.length)
+                ))
+                .andExpect(header().string(
+                        HttpHeaders.CACHE_CONTROL,
+                        "private, no-store"
+                ))
+                .andExpect(header().doesNotExist(
+                        HttpHeaders.CONTENT_DISPOSITION
                 ))
                 .andExpect(content().bytes(DISPLAY_BYTES));
 

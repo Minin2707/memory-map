@@ -16,18 +16,23 @@ public class RefreshTokenRowMapper implements RowMapper<RefreshToken> {
 
         UUID id = rs.getObject("id", UUID.class);
         UUID userId = rs.getObject("user_id", UUID.class);
+        UUID familyId = rs.getObject("family_id", UUID.class);
         String tokenHash = rs.getString("token_hash");
         OffsetDateTime createdAt = rs.getObject("created_at", OffsetDateTime.class);
         OffsetDateTime expiresAt = rs.getObject("expires_at", OffsetDateTime.class);
+        OffsetDateTime consumedAt = rs.getObject("consumed_at", OffsetDateTime.class);
         OffsetDateTime revokedAt = rs.getObject("revoked_at", OffsetDateTime.class);
+        Instant consumedAtInstant = consumedAt == null ? null : consumedAt.toInstant();
         Instant revokedAtInstant = revokedAt == null ? null : revokedAt.toInstant();
 
         return new RefreshToken(
                 id,
                 userId,
+                familyId,
                 tokenHash,
                 createdAt.toInstant(),
                 expiresAt.toInstant(),
+                consumedAtInstant,
                 revokedAtInstant
         );
     }

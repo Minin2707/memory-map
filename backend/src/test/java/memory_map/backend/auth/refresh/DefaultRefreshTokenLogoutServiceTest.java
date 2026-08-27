@@ -378,6 +378,22 @@ class DefaultRefreshTokenLogoutServiceTest {
         }
 
         @Override
+        public boolean consumeIfActive(
+                UUID id,
+                Instant consumedAt
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int revokeActiveFamily(
+                UUID familyId,
+                Instant revokedAt
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void delete(UUID id) {
             throw new UnsupportedOperationException();
         }

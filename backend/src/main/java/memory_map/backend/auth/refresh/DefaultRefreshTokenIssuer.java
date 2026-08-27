@@ -34,12 +34,17 @@ public class DefaultRefreshTokenIssuer implements RefreshTokenIssuer {
     @Override
     public IssuedRefreshToken issue(
             UUID tokenId,
+            UUID familyId,
             UUID userId,
             Instant issuedAt
     ) {
         Objects.requireNonNull(
                 tokenId,
                 "tokenId must not be null"
+        );
+        Objects.requireNonNull(
+                familyId,
+                "familyId must not be null"
         );
         Objects.requireNonNull(
                 userId,
@@ -60,9 +65,11 @@ public class DefaultRefreshTokenIssuer implements RefreshTokenIssuer {
         RefreshToken refreshToken = new RefreshToken(
                 tokenId,
                 userId,
+                familyId,
                 tokenHash,
                 issuedAt,
                 expiresAt,
+                null,
                 null
         );
 

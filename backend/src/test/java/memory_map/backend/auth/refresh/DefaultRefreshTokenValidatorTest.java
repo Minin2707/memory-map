@@ -69,6 +69,23 @@ class DefaultRefreshTokenValidatorTest {
     }
 
     @Test
+    void shouldRejectConsumedRefreshToken() {
+
+        RefreshToken token = new RefreshToken(
+                TOKEN_ID,
+                USER_ID,
+                TOKEN_ID,
+                TOKEN_HASH,
+                CREATED_AT,
+                CURRENT_TIME.plusSeconds(1),
+                CURRENT_TIME.minusSeconds(1),
+                null
+        );
+
+        assertInvalidToken(token);
+    }
+
+    @Test
     void shouldRejectExpiredRefreshToken() {
 
         RefreshToken token = refreshToken(
@@ -91,7 +108,7 @@ class DefaultRefreshTokenValidatorTest {
     }
 
     @Test
-    void shouldUseSameSafeMessageForRevokedAndExpiredTokens() {
+    void shouldUseSameSafeMessageForRevokedConsumedAndExpiredTokens() {
 
         RefreshToken revokedToken = refreshToken(
                 CURRENT_TIME.plusSeconds(1),
@@ -101,18 +118,34 @@ class DefaultRefreshTokenValidatorTest {
                 CURRENT_TIME.minusSeconds(1),
                 null
         );
+        RefreshToken consumedToken = new RefreshToken(
+                TOKEN_ID,
+                USER_ID,
+                TOKEN_ID,
+                TOKEN_HASH,
+                CREATED_AT,
+                CURRENT_TIME.plusSeconds(1),
+                CURRENT_TIME.minusSeconds(1),
+                null
+        );
 
         InvalidRefreshTokenException revokedException =
                 catchInvalidToken(revokedToken);
         InvalidRefreshTokenException expiredException =
                 catchInvalidToken(expiredToken);
+        InvalidRefreshTokenException consumedException =
+                catchInvalidToken(consumedToken);
 
         assertThat(revokedException).hasMessage(INVALID_TOKEN_MESSAGE);
         assertThat(expiredException).hasMessage(INVALID_TOKEN_MESSAGE);
+        assertThat(consumedException).hasMessage(INVALID_TOKEN_MESSAGE);
         assertThat(revokedException.getMessage())
                 .isEqualTo(expiredException.getMessage());
+        assertThat(revokedException.getMessage())
+                .isEqualTo(consumedException.getMessage());
         assertSafeMessage(revokedException);
         assertSafeMessage(expiredException);
+        assertSafeMessage(consumedException);
     }
 
     @Test
@@ -195,6 +228,7 @@ class DefaultRefreshTokenValidatorTest {
                 .doesNotContain(CURRENT_TIME.toString());
         assertThat(message.toLowerCase(Locale.ROOT))
                 .doesNotContain("revoked")
+                .doesNotContain("consumed")
                 .doesNotContain("expired");
     }
 }

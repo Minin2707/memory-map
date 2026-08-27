@@ -156,13 +156,62 @@ class AuthControllerIntegrationTest extends IntegrationTest {
         assertThat(newRawRefreshToken)
                 .isNotBlank()
                 .isNotEqualTo(oldRawRefreshToken);
-        assertThat(loadedOldToken.revokedAt()).isEqualTo(CURRENT_TIME);
+        assertThat(loadedOldToken.consumedAt()).isEqualTo(CURRENT_TIME);
+        assertThat(loadedOldToken.revokedAt()).isNull();
+        assertThat(newPersistedToken.familyId())
+                .isEqualTo(oldPersistedToken.familyId());
         assertThat(newPersistedToken.userId())
                 .isEqualTo(oldPersistedToken.userId());
+        assertThat(newPersistedToken.consumedAt()).isNull();
         assertThat(newPersistedToken.revokedAt()).isNull();
         assertThat(newPersistedToken.tokenHash())
                 .isNotEqualTo(newRawRefreshToken);
         assertPublicJson(refreshResponse.toString());
+    }
+
+    @Test
+    void shouldRejectRefreshTokenReuseWithGenericUnauthorizedResponse()
+            throws Exception {
+
+        JsonNode loginResponse = loginWithGoogle();
+        String oldRawRefreshToken =
+                loginResponse.at("/refreshToken").asText();
+        JsonNode refreshResponse = postJson(
+                "/api/v1/auth/refresh",
+                """
+                {
+                  "refreshToken": "%s"
+                }
+                """.formatted(oldRawRefreshToken),
+                200
+        );
+        String newRawRefreshToken =
+                refreshResponse.at("/refreshToken").asText();
+
+        String response = mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(oldRawRefreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        RefreshToken newPersistedToken = refreshTokenRepository
+                .findByTokenHash(refreshTokenHasher.hash(
+                        new RawRefreshToken(newRawRefreshToken)
+                ))
+                .orElseThrow();
+
+        assertThat(response)
+                .contains("Authentication failed")
+                .doesNotContain("reuse")
+                .doesNotContain("family")
+                .doesNotContain(oldRawRefreshToken);
+        assertThat(newPersistedToken.revokedAt()).isEqualTo(CURRENT_TIME);
     }
 
     @Test
@@ -264,7 +313,9 @@ class AuthControllerIntegrationTest extends IntegrationTest {
     private static void assertPublicJson(String response) {
         assertThat(response)
                 .doesNotContain("googleSubject")
+                .doesNotContain("familyId")
                 .doesNotContain("tokenHash")
+                .doesNotContain("consumedAt")
                 .doesNotContain("createdAt")
                 .doesNotContain("updatedAt")
                 .doesNotContain("revokedAt")

@@ -45,6 +45,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -196,6 +197,52 @@ class SecurityConfigurationTest {
                 .doesNotContain("iss")
                 .doesNotContain("exp")
                 .doesNotContain("iat");
+    }
+
+    @Test
+    void shouldKeepDefaultContentTypeProtectionHeaderEnabled()
+            throws Exception {
+
+        mockMvc.perform(get(PROTECTED_ENDPOINT)
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + validAccessToken()
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "X-Content-Type-Options",
+                        "nosniff"
+                ));
+    }
+
+    @Test
+    void shouldWriteHstsForSecureRequestsOnly() throws Exception {
+
+        mockMvc.perform(get(PROTECTED_ENDPOINT)
+                        .secure(true)
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + validAccessToken()
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "Strict-Transport-Security",
+                        "max-age=31536000"
+                ));
+    }
+
+    @Test
+    void shouldNotWriteHstsForLocalHttpRequests() throws Exception {
+
+        mockMvc.perform(get(PROTECTED_ENDPOINT)
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + validAccessToken()
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist(
+                        "Strict-Transport-Security"
+                ));
     }
 
     @Test

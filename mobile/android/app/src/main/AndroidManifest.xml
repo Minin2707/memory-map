@@ -5,6 +5,8 @@
         android:label="Memory Map"
         android:name="${applicationName}"
         android:networkSecurityConfig="@xml/network_security_config"
+        android:fullBackupContent="@xml/full_backup_content"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

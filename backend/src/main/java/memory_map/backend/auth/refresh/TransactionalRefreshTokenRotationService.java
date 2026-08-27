@@ -3,6 +3,8 @@ package memory_map.backend.auth.refresh;
 import memory_map.backend.auth.domain.RefreshToken;
 import memory_map.backend.auth.jwt.AccessTokenService;
 import memory_map.backend.auth.repository.RefreshTokenRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -14,6 +16,10 @@ public class TransactionalRefreshTokenRotationService
 
     private static final String INVALID_TOKEN_MESSAGE =
             "Refresh token is invalid";
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(
+                    TransactionalRefreshTokenRotationService.class
+            );
 
     private final RefreshTokenHasher refreshTokenHasher;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -51,7 +57,7 @@ public class TransactionalRefreshTokenRotationService
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public RefreshTokenRotationResult rotate(
             RawRefreshToken currentRefreshToken,
             UUID newRefreshTokenId,
@@ -80,10 +86,31 @@ public class TransactionalRefreshTokenRotationService
                                         ::invalidToken
                         );
 
+        if (currentToken.consumedAt() != null) {
+            revokeFamilyForDetectedReuse(
+                    currentToken,
+                    currentTime
+            );
+            throw invalidToken();
+        }
+
         refreshTokenValidator.validate(
                 currentToken,
                 currentTime
         );
+
+        boolean consumed =
+                refreshTokenRepository.consumeIfActive(
+                        currentToken.id(),
+                        currentTime
+                );
+
+        if (!consumed) {
+            handleFailedConsume(
+                    currentToken,
+                    currentTime
+            );
+        }
 
         String newAccessToken =
                 accessTokenService.issueAccessToken(
@@ -93,19 +120,10 @@ public class TransactionalRefreshTokenRotationService
         IssuedRefreshToken issuedRefreshToken =
                 refreshTokenIssuer.issue(
                         newRefreshTokenId,
+                        currentToken.familyId(),
                         currentToken.userId(),
                         currentTime
                 );
-
-        boolean revoked =
-                refreshTokenRepository.revokeIfActive(
-                        currentToken.id(),
-                        currentTime
-                );
-
-        if (!revoked) {
-            throw invalidToken();
-        }
 
         refreshTokenRepository.save(
                 issuedRefreshToken.refreshToken()
@@ -114,6 +132,38 @@ public class TransactionalRefreshTokenRotationService
         return new RefreshTokenRotationResult(
                 newAccessToken,
                 issuedRefreshToken.rawToken()
+        );
+    }
+
+    private void handleFailedConsume(
+            RefreshToken currentToken,
+            Instant currentTime
+    ) {
+        RefreshToken latestToken =
+                refreshTokenRepository
+                        .findById(currentToken.id())
+                        .orElse(currentToken);
+
+        if (latestToken.consumedAt() != null) {
+            revokeFamilyForDetectedReuse(
+                    latestToken,
+                    currentTime
+            );
+        }
+
+        throw invalidToken();
+    }
+
+    private void revokeFamilyForDetectedReuse(
+            RefreshToken refreshToken,
+            Instant currentTime
+    ) {
+        refreshTokenRepository.revokeActiveFamily(
+                refreshToken.familyId(),
+                currentTime
+        );
+        LOGGER.warn(
+                "Refresh token reuse detected; active refresh token family revoked"
         );
     }
 

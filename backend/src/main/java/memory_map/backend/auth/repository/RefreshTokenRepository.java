@@ -24,6 +24,16 @@ public interface RefreshTokenRepository {
             Instant revokedAt
     );
 
+    boolean consumeIfActive(
+            UUID id,
+            Instant consumedAt
+    );
+
+    int revokeActiveFamily(
+            UUID familyId,
+            Instant revokedAt
+    );
+
     void delete(UUID id);
 
 }

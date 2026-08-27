@@ -120,6 +120,9 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
         assertThat(result.refreshToken().value()).isNotBlank();
         assertThat(persistedRefreshToken.userId())
                 .isEqualTo(persistedUser.id());
+        assertThat(persistedRefreshToken.familyId())
+                .isEqualTo(persistedRefreshToken.id());
+        assertThat(persistedRefreshToken.consumedAt()).isNull();
         assertThat(persistedRefreshToken.tokenHash())
                 .isEqualTo(refreshTokenHasher.hash(result.refreshToken()))
                 .isNotEqualTo(result.refreshToken().value());
@@ -296,6 +299,10 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
                     .isEqualTo(persistedUser.id());
             assertThat(secondRefreshToken.userId())
                     .isEqualTo(persistedUser.id());
+            assertThat(firstRefreshToken.familyId())
+                    .isEqualTo(firstRefreshToken.id());
+            assertThat(secondRefreshToken.familyId())
+                    .isEqualTo(secondRefreshToken.id());
             assertThat(firstRefreshToken.revokedAt()).isNull();
             assertThat(secondRefreshToken.revokedAt()).isNull();
             assertThat(firstResult.accessToken()).isNotBlank();
