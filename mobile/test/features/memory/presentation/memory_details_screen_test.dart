@@ -217,6 +217,55 @@ void main() {
         find.textContaining('/api/v1/media/private-thumbnail'),
         findsNothing,
       );
+      final resizeImage = resizeImageFor(
+        tester,
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('memory-details.hero.display.hero-photo'),
+          ),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(resizeImage.width, isNotNull);
+      expect(resizeImage.height, isNull);
+      expect(resizeImage.width, lessThanOrEqualTo(2048));
+    });
+
+    testWidgets('shouldScaleHeroDisplayDecodeForHighDensityScreens', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..mediaResult = <Media>[
+          media_fixtures.media(
+            id: 'hero-photo',
+            memoryId: defaultMemoryId,
+          ),
+        ];
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+      );
+
+      final resizeImage = resizeImageFor(
+        tester,
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('memory-details.hero.display.hero-photo'),
+          ),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(resizeImage.width, 1080);
+      expect(resizeImage.height, isNull);
     });
 
     testWidgets('shouldRenderStableFallbackWhenMemoryHasNoPhoto', (
@@ -1070,6 +1119,12 @@ void setSurface(WidgetTester tester, Size size) {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
+}
+
+ResizeImage resizeImageFor(WidgetTester tester, Finder finder) {
+  final image = tester.widget<Image>(finder);
+  expect(image.image, isA<ResizeImage>());
+  return image.image as ResizeImage;
 }
 
 Memory memory({

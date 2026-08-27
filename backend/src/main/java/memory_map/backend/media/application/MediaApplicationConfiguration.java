@@ -1,6 +1,7 @@
 package memory_map.backend.media.application;
 
 import memory_map.backend.media.image.ImageProcessor;
+import memory_map.backend.media.repository.AuthorizedMediaDownloadRepository;
 import memory_map.backend.media.repository.MediaFileRepository;
 import memory_map.backend.media.storage.DeterministicMediaStorageKeyFactory;
 import memory_map.backend.media.storage.MediaStorageKeyFactory;
@@ -59,15 +60,12 @@ public class MediaApplicationConfiguration {
             havingValue = "true"
     )
     public DownloadMediaUseCase downloadMediaUseCase(
-            MediaFileRepository mediaFileRepository,
-            MemoryRepository memoryRepository,
-            StoryParticipantRepository storyParticipantRepository,
+            AuthorizedMediaDownloadRepository
+                    authorizedMediaDownloadRepository,
             StorageService storageService
     ) {
         return new TransactionalDownloadMediaService(
-                mediaFileRepository,
-                memoryRepository,
-                storyParticipantRepository,
+                authorizedMediaDownloadRepository,
                 storageService
         );
     }

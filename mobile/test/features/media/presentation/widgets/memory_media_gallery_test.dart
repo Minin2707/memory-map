@@ -60,6 +60,36 @@ void main() {
           findsNothing);
     });
 
+    testWidgets('shouldUseFullscreenSizedDisplayDecodeAfterTap', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(720, 1440);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final repository = FakeMediaRepository()
+        ..mediaResult = <Media>[media(id: 'media-a')]
+        ..thumbnailResult = validPngBytes
+        ..displayResult = validPngBytes;
+
+      await pumpGallery(tester, repository: repository);
+      await openPhoto(tester, 'media-a');
+
+      final resizeImage = resizeImageFor(
+        tester,
+        find.descendant(
+          of: find.byKey(const ValueKey('memory-media.display-image')),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(resizeImage.width, isNull);
+      expect(resizeImage.height, 1440);
+      expect(repository.getDisplayCalls, 1);
+    });
+
     testWidgets('shouldHideDeleteActionWhenCapabilityDoesNotAllowIt', (
       tester,
     ) async {
@@ -310,4 +340,10 @@ Future<void> pressButton(WidgetTester tester, Finder finder) async {
 
   onPressed?.call();
   await tester.pumpAndSettle();
+}
+
+ResizeImage resizeImageFor(WidgetTester tester, Finder finder) {
+  final image = tester.widget<Image>(finder);
+  expect(image.image, isA<ResizeImage>());
+  return image.image as ResizeImage;
 }

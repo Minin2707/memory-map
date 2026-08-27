@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -12,6 +13,12 @@ import 'package:memory_map/features/map/presentation/widgets/maplibre_marker_syn
 import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/memory/application/story_map_projection.dart';
 
+typedef StoryMapMarkerIconComposer = Future<Uint8List> Function({
+  required Uint8List? photoBytes,
+  required bool selected,
+  double pixelRatio,
+});
+
 class StoryMapPhotoMarkerMap extends ConsumerStatefulWidget {
   const StoryMapPhotoMarkerMap({
     required this.markerPresentations,
@@ -19,22 +26,122 @@ class StoryMapPhotoMarkerMap extends ConsumerStatefulWidget {
     this.cameraCommand,
     this.onMarkerSelected,
     this.selectedMarkerId,
+    this.markerIconComposer = composeStoryMapMarkerIcon,
+    this.markerIconCompositionLimit =
+        storyMapMarkerIconCompositionConcurrencyLimit,
     super.key,
-  });
+  }) : assert(markerIconCompositionLimit > 0);
 
   final List<StoryMapMarkerPresentation> markerPresentations;
   final MapSourceConfiguration sourceConfiguration;
   final MapCameraCommand? cameraCommand;
   final ValueChanged<String>? onMarkerSelected;
   final String? selectedMarkerId;
+  final StoryMapMarkerIconComposer markerIconComposer;
+  final int markerIconCompositionLimit;
 
   @override
   ConsumerState<StoryMapPhotoMarkerMap> createState() =>
       _StoryMapPhotoMarkerMapState();
 }
 
+const int storyMapMarkerIconCompositionConcurrencyLimit = 3;
+
+@visibleForTesting
+final class StoryMapMarkerIconCompositionLimiter {
+  StoryMapMarkerIconCompositionLimiter({
+    required this.maxConcurrent,
+  }) : assert(maxConcurrent > 0);
+
+  final int maxConcurrent;
+  final List<_PendingStoryMapMarkerIconComposition> _queue =
+      <_PendingStoryMapMarkerIconComposition>[];
+  final Set<String> _queuedKeys = <String>{};
+  int _activeCount = 0;
+
+  int get activeCount => _activeCount;
+
+  int get queuedCount => _queue.length;
+
+  bool get isIdle => _activeCount == 0 && _queue.isEmpty;
+
+  bool hasQueued(String imageKey) => _queuedKeys.contains(imageKey);
+
+  void enqueue({
+    required String imageKey,
+    required Future<void> Function() runner,
+    required bool priority,
+  }) {
+    if (_queuedKeys.contains(imageKey)) {
+      return;
+    }
+
+    final pending = _PendingStoryMapMarkerIconComposition(
+      imageKey: imageKey,
+      runner: runner,
+      priority: priority,
+    );
+    _queuedKeys.add(imageKey);
+
+    if (priority) {
+      final index = _queue.indexWhere((item) => !item.priority);
+      if (index == -1) {
+        _queue.add(pending);
+      } else {
+        _queue.insert(index, pending);
+      }
+    } else {
+      _queue.add(pending);
+    }
+
+    _drain();
+  }
+
+  void retainQueuedKeys(Set<String> relevantKeys) {
+    _queue.removeWhere((pending) {
+      final obsolete = !relevantKeys.contains(pending.imageKey);
+      if (obsolete) {
+        _queuedKeys.remove(pending.imageKey);
+      }
+      return obsolete;
+    });
+  }
+
+  void clear() {
+    _queue.clear();
+    _queuedKeys.clear();
+  }
+
+  void _drain() {
+    while (_activeCount < maxConcurrent && _queue.isNotEmpty) {
+      final pending = _queue.removeAt(0);
+      _queuedKeys.remove(pending.imageKey);
+      _activeCount += 1;
+      unawaited(
+        pending.runner().whenComplete(() {
+          _activeCount -= 1;
+          _drain();
+        }),
+      );
+    }
+  }
+}
+
+final class _PendingStoryMapMarkerIconComposition {
+  const _PendingStoryMapMarkerIconComposition({
+    required this.imageKey,
+    required this.runner,
+    required this.priority,
+  });
+
+  final String imageKey;
+  final Future<void> Function() runner;
+  final bool priority;
+}
+
 class _StoryMapPhotoMarkerMapState
     extends ConsumerState<StoryMapPhotoMarkerMap> {
+  late final StoryMapMarkerIconCompositionLimiter _iconCompositionLimiter;
   final Map<String, Uint8List> _thumbnailBytesByPath = <String, Uint8List>{};
   final Set<String> _failedThumbnailPaths = <String>{};
   final Set<String> _loadingThumbnailPaths = <String>{};
@@ -45,6 +152,9 @@ class _StoryMapPhotoMarkerMapState
   @override
   void initState() {
     super.initState();
+    _iconCompositionLimiter = StoryMapMarkerIconCompositionLimiter(
+      maxConcurrent: widget.markerIconCompositionLimit,
+    );
     _startThumbnailLoads();
   }
 
@@ -58,9 +168,16 @@ class _StoryMapPhotoMarkerMapState
   }
 
   @override
+  void dispose() {
+    _iconCompositionLimiter.clear();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     _startThumbnailLoads();
     final iconRequests = _iconRequests();
+    _trimIconState(iconRequests);
     _startIconComposition(iconRequests);
 
     return MapLibreImageMarkerMap(
@@ -80,7 +197,7 @@ class _StoryMapPhotoMarkerMapState
   }
 
   Map<String, MapMarkerIcon> _markerIcons(
-    Map<String, _MarkerIconRequest> requests,
+    Map<String, StoryMapMarkerIconRequest> requests,
   ) {
     final icons = <String, MapMarkerIcon>{};
 
@@ -113,8 +230,11 @@ class _StoryMapPhotoMarkerMapState
     return icons;
   }
 
-  Map<String, _MarkerIconRequest> _iconRequests() {
-    final requests = <String, _MarkerIconRequest>{};
+  Map<String, StoryMapMarkerIconRequest> _iconRequests() {
+    final requests = <String, StoryMapMarkerIconRequest>{};
+    final pixelRatio = storyMapMarkerPixelRatio(
+      MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    );
 
     for (final presentation in widget.markerPresentations) {
       final selected = presentation.marker.id == widget.selectedMarkerId;
@@ -129,7 +249,7 @@ class _StoryMapPhotoMarkerMapState
               '${_stableHash('${preview!.mediaId}|$thumbnailPath')}';
       final imageKey = _variantImageKey(baseImageKey, selected: selected);
 
-      requests[presentation.marker.id] = _MarkerIconRequest(
+      requests[presentation.marker.id] = StoryMapMarkerIconRequest(
         imageKey: imageKey,
         compatibleImageKeys: <String>[
           _variantImageKey(baseImageKey, selected: !selected),
@@ -138,6 +258,7 @@ class _StoryMapPhotoMarkerMapState
         ],
         selected: selected,
         photoBytes: photoBytes,
+        pixelRatio: pixelRatio,
       );
     }
 
@@ -183,26 +304,48 @@ class _StoryMapPhotoMarkerMapState
     }
   }
 
-  void _startIconComposition(Map<String, _MarkerIconRequest> requests) {
-    for (final request in requests.values) {
+  void _startIconComposition(
+    Map<String, StoryMapMarkerIconRequest> requests,
+  ) {
+    _trimIconState(requests);
+    for (final request in storyMapMarkerIconCompositionOrderForTesting(
+      requests.values,
+    )) {
       if (_iconBytesByKey.containsKey(request.imageKey) ||
           _pendingIconKeys.contains(request.imageKey) ||
-          _failedIconKeys.contains(request.imageKey)) {
+          _failedIconKeys.contains(request.imageKey) ||
+          _iconCompositionLimiter.hasQueued(request.imageKey)) {
         continue;
       }
 
       _pendingIconKeys.add(request.imageKey);
-      unawaited(_composeIcon(request));
+      _iconCompositionLimiter.enqueue(
+        imageKey: request.imageKey,
+        runner: () => _composeIcon(request),
+        priority: request.selected,
+      );
     }
   }
 
-  Future<void> _composeIcon(_MarkerIconRequest request) async {
+  Future<void> _composeIcon(StoryMapMarkerIconRequest request) async {
     try {
-      final bytes = await _composeMarkerIcon(
+      if (!_isRelevantIconKey(request.imageKey)) {
+        _pendingIconKeys.remove(request.imageKey);
+        return;
+      }
+
+      final bytes = await widget.markerIconComposer(
         photoBytes: request.photoBytes,
         selected: request.selected,
+        pixelRatio: request.pixelRatio,
       );
       if (!mounted) {
+        return;
+      }
+      if (!_isRelevantIconKey(request.imageKey)) {
+        setState(() {
+          _pendingIconKeys.remove(request.imageKey);
+        });
         return;
       }
 
@@ -217,7 +360,9 @@ class _StoryMapPhotoMarkerMapState
 
       setState(() {
         _pendingIconKeys.remove(request.imageKey);
-        _failedIconKeys.add(request.imageKey);
+        if (_isRelevantIconKey(request.imageKey)) {
+          _failedIconKeys.add(request.imageKey);
+        }
       });
     }
   }
@@ -235,20 +380,36 @@ class _StoryMapPhotoMarkerMapState
     _failedThumbnailPaths.removeWhere((path) => !currentPaths.contains(path));
     _loadingThumbnailPaths.removeWhere((path) => !currentPaths.contains(path));
   }
+
+  void _trimIconState(Map<String, StoryMapMarkerIconRequest> requests) {
+    final relevantKeys = storyMapRelevantMarkerIconKeysForTesting(requests);
+    _iconBytesByKey.removeWhere((key, _) => !relevantKeys.contains(key));
+    _failedIconKeys.removeWhere((key) => !relevantKeys.contains(key));
+    _pendingIconKeys.removeWhere((key) => !relevantKeys.contains(key));
+    _iconCompositionLimiter.retainQueuedKeys(relevantKeys);
+  }
+
+  bool _isRelevantIconKey(String imageKey) {
+    return storyMapRelevantMarkerIconKeysForTesting(_iconRequests())
+        .contains(imageKey);
+  }
 }
 
-final class _MarkerIconRequest {
-  const _MarkerIconRequest({
+@visibleForTesting
+final class StoryMapMarkerIconRequest {
+  const StoryMapMarkerIconRequest({
     required this.imageKey,
     required this.compatibleImageKeys,
     required this.selected,
     required this.photoBytes,
+    required this.pixelRatio,
   });
 
   final String imageKey;
   final List<String> compatibleImageKeys;
   final bool selected;
   final Uint8List? photoBytes;
+  final double pixelRatio;
 }
 
 @visibleForTesting
@@ -264,11 +425,39 @@ String? resolveStoryMapMarkerIconKey({
   );
 }
 
-Future<Uint8List> _composeMarkerIcon({
+@visibleForTesting
+List<StoryMapMarkerIconRequest> storyMapMarkerIconCompositionOrderForTesting(
+  Iterable<StoryMapMarkerIconRequest> requests,
+) {
+  final ordered = requests.toList(growable: false);
+  ordered.sort((a, b) {
+    if (a.selected == b.selected) {
+      return 0;
+    }
+    return a.selected ? -1 : 1;
+  });
+  return ordered;
+}
+
+@visibleForTesting
+Set<String> storyMapRelevantMarkerIconKeysForTesting(
+  Map<String, StoryMapMarkerIconRequest> requests,
+) {
+  return <String>{
+    for (final request in requests.values) ...<String>[
+      request.imageKey,
+      ...request.compatibleImageKeys,
+    ],
+  };
+}
+
+Future<Uint8List> composeStoryMapMarkerIcon({
   required Uint8List? photoBytes,
   required bool selected,
+  double pixelRatio = 1.0,
 }) async {
   final metrics = storyMapMarkerIconMetricsForTesting(selected: selected);
+  final normalizedPixelRatio = storyMapMarkerPixelRatio(pixelRatio);
   final center = Offset(metrics.width / 2, metrics.centerY);
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
@@ -320,7 +509,13 @@ Future<Uint8List> _composeMarkerIcon({
       Paint()..color = Colors.white,
     );
   } else {
-    final photoImage = await _decodePhoto(photoBytes);
+    final photoImage = await _decodePhoto(
+      photoBytes,
+      targetLongSide: storyMapMarkerPhotoDecodeTargetSizeForTesting(
+        selected: selected,
+        pixelRatio: normalizedPixelRatio,
+      ),
+    );
     try {
       final photoRect = Rect.fromCircle(
         center: center,
@@ -350,20 +545,45 @@ Future<Uint8List> _composeMarkerIcon({
   );
 
   final picture = recorder.endRecording();
-  final image = await picture.toImage(
-    metrics.width.toInt(),
-    metrics.height.toInt(),
-  );
   try {
-    final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (data == null) {
-      throw StateError('marker image encoding failed');
-    }
+    final image = await picture.toImage(
+      metrics.width.toInt(),
+      metrics.height.toInt(),
+    );
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) {
+        throw StateError('marker image encoding failed');
+      }
 
-    return data.buffer.asUint8List();
+      return data.buffer.asUint8List();
+    } finally {
+      image.dispose();
+    }
   } finally {
-    image.dispose();
+    picture.dispose();
   }
+}
+
+double storyMapMarkerPixelRatio(double devicePixelRatio) {
+  if (!devicePixelRatio.isFinite || devicePixelRatio < 1) {
+    return 1;
+  }
+
+  final capped = devicePixelRatio > 3 ? 3.0 : devicePixelRatio;
+  return (capped * 100).round() / 100;
+}
+
+@visibleForTesting
+int storyMapMarkerPhotoDecodeTargetSizeForTesting({
+  required bool selected,
+  required double pixelRatio,
+}) {
+  final metrics = storyMapMarkerIconMetricsForTesting(selected: selected);
+  final normalizedPixelRatio = storyMapMarkerPixelRatio(pixelRatio);
+  final target = (math.max(metrics.width, metrics.height) * normalizedPixelRatio)
+      .round();
+  return target.clamp(1, 360).toInt();
 }
 
 @visibleForTesting
@@ -446,10 +666,32 @@ final class StoryMapMarkerIconMetrics {
   final double bottomDotRadius;
 }
 
-Future<ui.Image> _decodePhoto(Uint8List bytes) async {
-  final codec = await ui.instantiateImageCodec(bytes);
-  final frame = await codec.getNextFrame();
-  return frame.image;
+Future<ui.Image> _decodePhoto(
+  Uint8List bytes, {
+  required int targetLongSide,
+}) async {
+  final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+  ui.ImageDescriptor? descriptor;
+  ui.Codec? codec;
+  try {
+    descriptor = await ui.ImageDescriptor.encoded(buffer);
+    final intrinsicLongSide = math.max(descriptor.width, descriptor.height);
+    final shouldDownscale = intrinsicLongSide > targetLongSide;
+    final isLandscape = descriptor.width >= descriptor.height;
+    final targetWidth = shouldDownscale && isLandscape ? targetLongSide : null;
+    final targetHeight =
+        shouldDownscale && !isLandscape ? targetLongSide : null;
+    codec = await descriptor.instantiateCodec(
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+    );
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  } finally {
+    codec?.dispose();
+    descriptor?.dispose();
+    buffer.dispose();
+  }
 }
 
 Rect _coverSourceRect(ui.Image image) {

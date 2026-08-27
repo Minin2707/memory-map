@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
-import 'package:memory_map/features/memory/application/memory_canonical_order.dart';
+import 'package:memory_map/features/memory/application/story_details_memory_projection.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 import 'package:memory_map/features/memory/application/story_memories_state.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
-import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/memory_failure_message.dart';
@@ -157,13 +156,6 @@ class StoryDetailsScreen extends ConsumerWidget {
     if (userStory == null) {
       return const [];
     }
-    final memoriesValue = ref.watch(storyMemoriesProvider(storyId));
-    final participantsValue = ref.watch(storyParticipantsProvider(storyId));
-    final periodLabel = _storyPeriodLabel(
-      context,
-      memoriesValue.asData?.value,
-      DateTime.now().year,
-    );
 
     return [
       if (state.isRefreshing)
@@ -194,9 +186,9 @@ class StoryDetailsScreen extends ConsumerWidget {
       SliverPadding(
         padding: EdgeInsets.zero,
         sliver: SliverToBoxAdapter(
-          child: _StoryHero(
+          child: _StoryHeroSection(
+            storyId: storyId,
             userStory: userStory,
-            periodLabel: periodLabel,
             onBack: onBack,
             onInvite: userStory.canUpdateStoryMetadata ? onInvite : null,
             onEditStory: userStory.canUpdateStoryMetadata
@@ -208,18 +200,13 @@ class StoryDetailsScreen extends ConsumerWidget {
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
         sliver: SliverToBoxAdapter(
-          child: _ParticipantsSummaryCard(
-            participantsValue: participantsValue,
-            onManage: userStory.canUpdateStoryMetadata &&
-                    onParticipantsSelected != null
-                ? () {
-                    onParticipantsSelected!(userStory);
-                  }
+          child: _ParticipantsSummarySection(
+            storyId: storyId,
+            userStory: userStory,
+            onManage: userStory.canUpdateStoryMetadata
+                ? onParticipantsSelected
                 : null,
             onInvite: userStory.canUpdateStoryMetadata ? onInvite : null,
-            onRetry: () {
-              ref.read(storyParticipantsProvider(storyId).notifier).retryLoad();
-            },
           ),
         ),
       ),
@@ -240,22 +227,53 @@ class StoryDetailsScreen extends ConsumerWidget {
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
         sliver: SliverToBoxAdapter(
-          child: _StoryLowerCompositionCard(
+          child: _StoryLowerCompositionSection(
+            storyId: storyId,
             userStory: userStory,
-            memoriesValue: memoriesValue,
             onMemoriesSelected: onMemoriesSelected,
             onMapSelected: onMapSelected,
             onTimelineSelected: onTimelineSelected,
             onCreateMemory: _canCreateMemory(userStory) ? onCreateMemory : null,
             onMemorySelected: onMemorySelected,
             onPlaybackSelected: onPlaybackSelected,
-            onRetryMemories: () {
-              ref.read(storyMemoriesProvider(storyId).notifier).retryLoad();
-            },
           ),
         ),
       ),
     ];
+  }
+}
+
+class _StoryHeroSection extends ConsumerWidget {
+  const _StoryHeroSection({
+    required this.storyId,
+    required this.userStory,
+    required this.onBack,
+    required this.onInvite,
+    required this.onEditStory,
+  });
+
+  final String storyId;
+  final UserStory userStory;
+  final VoidCallback? onBack;
+  final VoidCallback? onInvite;
+  final ValueChanged<UserStory>? onEditStory;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final periodValue = ref.watch(storyDetailsMemoryPeriodProvider(storyId));
+    final periodLabel = _storyPeriodLabel(
+      context,
+      periodValue.asData?.value,
+      DateTime.now().year,
+    );
+
+    return _StoryHero(
+      userStory: userStory,
+      periodLabel: periodLabel,
+      onBack: onBack,
+      onInvite: onInvite,
+      onEditStory: onEditStory,
+    );
   }
 }
 
@@ -426,15 +444,25 @@ class _HeroBackground extends StatelessWidget {
       image: true,
       label: AppLocalizations.of(context).storyThumbnailLabel,
       child: ExcludeSemantics(
-        child: AuthenticatedMediaPathImage(
-          key: ValueKey('story-details.hero-display.${preview.mediaId}'),
-          thumbnailPath: _displayPath(preview.mediaId),
-          representation: AuthenticatedMediaRepresentation.display,
-          fit: BoxFit.cover,
-          placeholder: fallback,
-          errorBuilder: (_) => _HeroDisplayFailureFallback(
-            userStory: userStory,
-          ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final decodeSize = authenticatedMediaDisplayDecodeSize(
+              logicalSize: constraints.biggest,
+              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+            );
+            return AuthenticatedMediaPathImage(
+              key: ValueKey('story-details.hero-display.${preview.mediaId}'),
+              thumbnailPath: _displayPath(preview.mediaId),
+              representation: AuthenticatedMediaRepresentation.display,
+              fit: BoxFit.cover,
+              cacheWidth: decodeSize.cacheWidth,
+              cacheHeight: decodeSize.cacheHeight,
+              placeholder: fallback,
+              errorBuilder: (_) => _HeroDisplayFailureFallback(
+                userStory: userStory,
+              ),
+            );
+          },
         ),
       ),
     );
@@ -705,6 +733,38 @@ class _ParticipantsSummaryCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ParticipantsSummarySection extends ConsumerWidget {
+  const _ParticipantsSummarySection({
+    required this.storyId,
+    required this.userStory,
+    required this.onManage,
+    required this.onInvite,
+  });
+
+  final String storyId;
+  final UserStory userStory;
+  final ValueChanged<UserStory>? onManage;
+  final VoidCallback? onInvite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final participantsValue = ref.watch(storyParticipantsProvider(storyId));
+
+    return _ParticipantsSummaryCard(
+      participantsValue: participantsValue,
+      onManage: onManage == null
+          ? null
+          : () {
+              onManage!(userStory);
+            },
+      onInvite: onInvite,
+      onRetry: () {
+        ref.read(storyParticipantsProvider(storyId).notifier).retryLoad();
+      },
     );
   }
 }
@@ -1127,6 +1187,7 @@ class _StoryLowerCompositionCard extends StatelessWidget {
   const _StoryLowerCompositionCard({
     required this.userStory,
     required this.memoriesValue,
+    required this.recentMemoriesValue,
     required this.onMemoriesSelected,
     required this.onMapSelected,
     required this.onTimelineSelected,
@@ -1138,6 +1199,7 @@ class _StoryLowerCompositionCard extends StatelessWidget {
 
   final UserStory userStory;
   final AsyncValue<StoryMemoriesState> memoriesValue;
+  final AsyncValue<List<MemoryReadModel>> recentMemoriesValue;
   final ValueChanged<UserStory>? onMemoriesSelected;
   final ValueChanged<UserStory>? onMapSelected;
   final ValueChanged<UserStory>? onTimelineSelected;
@@ -1168,6 +1230,7 @@ class _StoryLowerCompositionCard extends StatelessWidget {
               children: [
                 _RecentMemoriesSection(
                   memoriesValue: memoriesValue,
+                  recentMemoriesValue: recentMemoriesValue,
                   onSeeAll: onMemoriesSelected == null
                       ? null
                       : () {
@@ -1192,6 +1255,51 @@ class _StoryLowerCompositionCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StoryLowerCompositionSection extends ConsumerWidget {
+  const _StoryLowerCompositionSection({
+    required this.storyId,
+    required this.userStory,
+    required this.onMemoriesSelected,
+    required this.onMapSelected,
+    required this.onTimelineSelected,
+    required this.onCreateMemory,
+    required this.onMemorySelected,
+    required this.onPlaybackSelected,
+  });
+
+  final String storyId;
+  final UserStory userStory;
+  final ValueChanged<UserStory>? onMemoriesSelected;
+  final ValueChanged<UserStory>? onMapSelected;
+  final ValueChanged<UserStory>? onTimelineSelected;
+  final VoidCallback? onCreateMemory;
+  final ValueChanged<Memory>? onMemorySelected;
+  final ValueChanged<UserStory>? onPlaybackSelected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final memoriesValue = ref.watch(storyMemoriesProvider(storyId));
+    final recentMemoriesValue = ref.watch(
+      storyDetailsRecentMemoriesProvider(storyId),
+    );
+
+    return _StoryLowerCompositionCard(
+      userStory: userStory,
+      memoriesValue: memoriesValue,
+      recentMemoriesValue: recentMemoriesValue,
+      onMemoriesSelected: onMemoriesSelected,
+      onMapSelected: onMapSelected,
+      onTimelineSelected: onTimelineSelected,
+      onCreateMemory: onCreateMemory,
+      onMemorySelected: onMemorySelected,
+      onPlaybackSelected: onPlaybackSelected,
+      onRetryMemories: () {
+        ref.read(storyMemoriesProvider(storyId).notifier).retryLoad();
+      },
     );
   }
 }
@@ -1337,12 +1445,14 @@ class _SectionNavigationAction extends StatelessWidget {
 class _RecentMemoriesSection extends StatelessWidget {
   const _RecentMemoriesSection({
     required this.memoriesValue,
+    required this.recentMemoriesValue,
     required this.onSeeAll,
     required this.onMemorySelected,
     required this.onRetry,
   });
 
   final AsyncValue<StoryMemoriesState> memoriesValue;
+  final AsyncValue<List<MemoryReadModel>> recentMemoriesValue;
   final VoidCallback? onSeeAll;
   final ValueChanged<Memory>? onMemorySelected;
   final VoidCallback onRetry;
@@ -1399,6 +1509,7 @@ class _RecentMemoriesSection extends StatelessWidget {
         const SizedBox(height: 16),
         _RecentMemoriesBody(
           memoriesValue: memoriesValue,
+          recentMemoriesValue: recentMemoriesValue,
           onMemorySelected: onMemorySelected,
           onRetry: onRetry,
         ),
@@ -1410,11 +1521,13 @@ class _RecentMemoriesSection extends StatelessWidget {
 class _RecentMemoriesBody extends StatelessWidget {
   const _RecentMemoriesBody({
     required this.memoriesValue,
+    required this.recentMemoriesValue,
     required this.onMemorySelected,
     required this.onRetry,
   });
 
   final AsyncValue<StoryMemoriesState> memoriesValue;
+  final AsyncValue<List<MemoryReadModel>> recentMemoriesValue;
   final ValueChanged<Memory>? onMemorySelected;
   final VoidCallback onRetry;
 
@@ -1442,7 +1555,8 @@ class _RecentMemoriesBody extends StatelessWidget {
       );
     }
 
-    final recentMemories = _recentMemoryReadModels(state);
+    final recentMemories =
+        recentMemoriesValue.asData?.value ?? const <MemoryReadModel>[];
     if (recentMemories.isEmpty) {
       return const _RecentMemoriesEmpty();
     }
@@ -2072,16 +2186,6 @@ bool _canEditSoundtrack(UserStory userStory) {
       userStory.role == StoryRole.coOwner;
 }
 
-List<MemoryReadModel> _recentMemoryReadModels(StoryMemoriesState? state) {
-  if (state == null || state.hasLoadFailure) {
-    return const <MemoryReadModel>[];
-  }
-
-  final memories = state.memoryReadModels.toList();
-  memories.sort((left, right) => compareMemoryReadModelsCanonical(right, left));
-  return memories.take(3).toList(growable: false);
-}
-
 String? _visibleDescription(Story story) {
   final description = story.description;
   if (description == null || description.trim().isEmpty) {
@@ -2123,33 +2227,15 @@ String _displayPath(String mediaId) {
 
 String? _storyPeriodLabel(
   BuildContext context,
-  StoryMemoriesState? memoriesState,
+  StoryMemoryPeriod? period,
   int currentYear,
 ) {
-  if (memoriesState == null ||
-      memoriesState.hasLoadFailure ||
-      memoriesState.memoryReadModels.isEmpty) {
+  if (period == null) {
     return null;
   }
 
-  MemoryDate? earliest;
-  MemoryDate? latest;
-  for (final readModel in memoriesState.memoryReadModels) {
-    final eventDate = readModel.memory.eventDate;
-    if (earliest == null || eventDate.compareTo(earliest) < 0) {
-      earliest = eventDate;
-    }
-    if (latest == null || eventDate.compareTo(latest) > 0) {
-      latest = eventDate;
-    }
-  }
-
-  if (earliest == null || latest == null) {
-    return null;
-  }
-
-  final startYear = earliest.year;
-  final endYear = latest.year;
+  final startYear = period.startYear;
+  final endYear = period.endYear;
   if (startYear == endYear) {
     return startYear.toString();
   }

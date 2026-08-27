@@ -38,7 +38,6 @@ final class DefaultPlaybackMediaPrefetcher implements PlaybackMediaPrefetcher {
   }
 }
 
-@visibleForTesting
 String? nextPlaybackDisplayPath(StoryPlaybackState playback) {
   final currentIndex = playback.currentIndex;
   if (!playback.isPlaying ||

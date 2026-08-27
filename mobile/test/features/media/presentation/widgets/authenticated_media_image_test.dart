@@ -20,6 +20,10 @@ void main() {
       expect(repository.getThumbnailCalls, 1);
       expect(repository.getDisplayCalls, 0);
       expect(find.byType(Image), findsOneWidget);
+      expect(
+        tester.widget<Image>(find.byType(Image)).image,
+        isNot(isA<ResizeImage>()),
+      );
     });
 
     testWidgets('shouldLoadDisplayThroughRepositoryOnlyWhenRequested', (
@@ -92,6 +96,48 @@ void main() {
       expect(repository.getMediaCalls, 0);
       expect(repository.getDisplayCalls, 0);
       expect(find.byType(Image), findsOneWidget);
+    });
+  });
+
+  group('DISPLAY decode sizing', () {
+    test('shouldUseRenderedWidthAndDevicePixelRatioForWideSurfaces', () {
+      final size = authenticatedMediaDisplayDecodeSize(
+        logicalSize: const Size(320, 180),
+        devicePixelRatio: 2.5,
+      );
+
+      expect(size.cacheWidth, 800);
+      expect(size.cacheHeight, isNull);
+    });
+
+    test('shouldUseRenderedHeightForTallFullscreenSurfaces', () {
+      final size = authenticatedMediaDisplayDecodeSize(
+        logicalSize: const Size(360, 720),
+        devicePixelRatio: 2,
+      );
+
+      expect(size.cacheWidth, isNull);
+      expect(size.cacheHeight, 1440);
+    });
+
+    test('shouldCapDisplayDecodeSizeAtBackendDisplayMaximum', () {
+      final size = authenticatedMediaDisplayDecodeSize(
+        logicalSize: const Size(1200, 800),
+        devicePixelRatio: 3,
+      );
+
+      expect(size.cacheWidth, 2048);
+      expect(size.cacheHeight, isNull);
+    });
+
+    test('shouldFallbackToOnePixelRatioForInvalidDevicePixelRatio', () {
+      final size = authenticatedMediaDisplayDecodeSize(
+        logicalSize: const Size(320, 180),
+        devicePixelRatio: double.nan,
+      );
+
+      expect(size.cacheWidth, 320);
+      expect(size.cacheHeight, isNull);
     });
   });
 }

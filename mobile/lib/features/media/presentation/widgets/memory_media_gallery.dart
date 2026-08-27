@@ -293,19 +293,35 @@ class _DisplayDialogState extends ConsumerState<_DisplayDialog> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: Center(
-                  child: InteractiveViewer(
-                    minScale: 1,
-                    maxScale: 4,
-                    child: AuthenticatedMediaImage(
-                      key: const ValueKey('memory-media.display-image'),
-                      media: widget.media,
-                      representation: AuthenticatedMediaRepresentation.display,
-                      fit: BoxFit.contain,
-                      placeholder: const _DisplayPlaceholder(),
-                      errorBuilder: (_) => const _DisplayErrorPlaceholder(),
-                    ),
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final decodeSize = authenticatedMediaDisplayDecodeSize(
+                      logicalSize: constraints.biggest,
+                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                    );
+                    return Center(
+                      child: InteractiveViewer(
+                        minScale: 1,
+                        maxScale: 4,
+                        child: SizedBox(
+                          width: constraints.maxWidth,
+                          height: constraints.maxHeight,
+                          child: AuthenticatedMediaImage(
+                            key: const ValueKey('memory-media.display-image'),
+                            media: widget.media,
+                            representation:
+                                AuthenticatedMediaRepresentation.display,
+                            fit: BoxFit.contain,
+                            cacheWidth: decodeSize.cacheWidth,
+                            cacheHeight: decodeSize.cacheHeight,
+                            placeholder: const _DisplayPlaceholder(),
+                            errorBuilder: (_) =>
+                                const _DisplayErrorPlaceholder(),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
               Positioned(

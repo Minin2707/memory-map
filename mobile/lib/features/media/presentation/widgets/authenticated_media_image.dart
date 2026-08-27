@@ -10,6 +10,43 @@ enum AuthenticatedMediaRepresentation {
   display,
 }
 
+const int authenticatedMediaDisplayMaxDecodeDimension = 2048;
+
+({int? cacheWidth, int? cacheHeight}) authenticatedMediaDisplayDecodeSize({
+  required Size logicalSize,
+  required double devicePixelRatio,
+}) {
+  final pixelRatio = devicePixelRatio.isFinite && devicePixelRatio > 0
+      ? devicePixelRatio
+      : 1.0;
+  final width = _safeLogicalDimension(logicalSize.width);
+  final height = _safeLogicalDimension(logicalSize.height);
+
+  if (width >= height) {
+    return (
+      cacheWidth: _decodeDimension(width, pixelRatio),
+      cacheHeight: null,
+    );
+  }
+
+  return (
+    cacheWidth: null,
+    cacheHeight: _decodeDimension(height, pixelRatio),
+  );
+}
+
+double _safeLogicalDimension(double value) {
+  return value.isFinite && value > 0 ? value : 1.0;
+}
+
+int _decodeDimension(double logicalDimension, double devicePixelRatio) {
+  final physicalDimension = (logicalDimension * devicePixelRatio).ceil();
+  return physicalDimension.clamp(
+    1,
+    authenticatedMediaDisplayMaxDecodeDimension,
+  ).toInt();
+}
+
 class AuthenticatedMediaImage extends ConsumerStatefulWidget {
   const AuthenticatedMediaImage({
     required this.media,

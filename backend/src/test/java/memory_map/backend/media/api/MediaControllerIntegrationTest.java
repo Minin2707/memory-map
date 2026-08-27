@@ -17,6 +17,7 @@ import memory_map.backend.media.application.TransactionalListMemoryMediaService;
 import memory_map.backend.media.application.UploadPhotoUseCase;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.image.ImageProcessor;
+import memory_map.backend.media.repository.AuthorizedMediaDownloadRepository;
 import memory_map.backend.media.repository.MediaFileRepository;
 import memory_map.backend.media.storage.MediaStorageKeyFactory;
 import memory_map.backend.media.storage.StorageByteRange;
@@ -531,6 +532,35 @@ class MediaControllerIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void shouldReturnSameSafeNotFoundForMissingAndUnauthorizedDownload()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User outsider = saveUser(OUTSIDER_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        Memory memory = saveMemory(MEMORY_ID, story.id(), owner.id());
+        MediaFile mediaFile = saveMediaFile(MEDIA_ID, memory.id(), BASE_TIME);
+
+        JsonNode unauthorized = jsonMapper.readTree(downloadProblem(
+                validAccessToken(outsider.id()),
+                mediaFile.id(),
+                "thumbnail",
+                404
+        ));
+        JsonNode missing = jsonMapper.readTree(downloadProblem(
+                validAccessToken(outsider.id()),
+                UUID.randomUUID(),
+                "thumbnail",
+                404
+        ));
+
+        assertMediaUnavailableBodyIsSafe(unauthorized);
+        assertSamePublicProblem(unauthorized, missing);
+        assertThat(storageService.readCalls).isZero();
+    }
+
+    @Test
     void shouldReturnSafeNotFoundForMissingStorageObject()
             throws Exception {
 
@@ -726,6 +756,10 @@ class MediaControllerIntegrationTest extends IntegrationTest {
         return mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().is(expectedStatus))
                 .andExpect(content().contentType("image/jpeg"))
+                .andExpect(header().string(
+                        HttpHeaders.CACHE_CONTROL,
+                        "private, no-store"
+                ))
                 .andExpect(header().string(
                         HttpHeaders.CONTENT_LENGTH,
                         Long.toString(expectedContentLength)
@@ -1032,15 +1066,12 @@ class MediaControllerIntegrationTest extends IntegrationTest {
         @Bean
         @Primary
         DownloadMediaUseCase testDownloadMediaUseCase(
-                MediaFileRepository mediaFileRepository,
-                MemoryRepository memoryRepository,
-                StoryParticipantRepository storyParticipantRepository,
+                AuthorizedMediaDownloadRepository
+                        authorizedMediaDownloadRepository,
                 StorageService storageService
         ) {
             return new TransactionalDownloadMediaService(
-                    mediaFileRepository,
-                    memoryRepository,
-                    storyParticipantRepository,
+                    authorizedMediaDownloadRepository,
                     storageService
             );
         }

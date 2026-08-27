@@ -4,6 +4,7 @@ import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.image.ImageProcessingInput;
 import memory_map.backend.media.image.ImageProcessor;
 import memory_map.backend.media.image.ProcessedPhoto;
+import memory_map.backend.media.repository.AuthorizedMediaDownloadRepository;
 import memory_map.backend.media.repository.MediaFileRepository;
 import memory_map.backend.media.storage.MediaStorageKeyFactory;
 import memory_map.backend.media.storage.StorageByteRange;
@@ -39,6 +40,10 @@ class MediaApplicationConfigurationTest {
                     .withBean(
                             MediaFileRepository.class,
                             FakeMediaFileRepository::new
+                    )
+                    .withBean(
+                            AuthorizedMediaDownloadRepository.class,
+                            FakeAuthorizedMediaDownloadRepository::new
                     )
                     .withBean(ImageProcessor.class, FakeImageProcessor::new);
 
@@ -207,6 +212,18 @@ class MediaApplicationConfigurationTest {
 
         @Override
         public void delete(UUID id) {
+        }
+    }
+
+    private static final class FakeAuthorizedMediaDownloadRepository
+            implements AuthorizedMediaDownloadRepository {
+
+        @Override
+        public Optional<MediaDownloadReadModel> findAuthorizedDownload(
+                UUID mediaId,
+                UUID requesterUserId
+        ) {
+            return Optional.empty();
         }
     }
 

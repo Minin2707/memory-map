@@ -31,6 +31,7 @@ class StoryMemoriesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final memoriesValue = ref.watch(storyMemoriesProvider(storyId));
+    final sectionsValue = ref.watch(storyMemoriesYearSectionsProvider(storyId));
     final storyValue = ref.watch(storyDetailsProvider(storyId));
 
     return PopScope(
@@ -93,7 +94,7 @@ class StoryMemoriesScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                ..._contentSlivers(context, ref, memoriesValue),
+                ..._contentSlivers(context, ref, memoriesValue, sectionsValue),
                 const SliverToBoxAdapter(child: SizedBox(height: 116)),
               ],
             ),
@@ -107,6 +108,7 @@ class StoryMemoriesScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     AsyncValue<StoryMemoriesState> memoriesValue,
+    AsyncValue<List<StoryMemoriesYearSection>> sectionsValue,
   ) {
     final l10n = AppLocalizations.of(context);
 
@@ -169,7 +171,8 @@ class StoryMemoriesScreen extends ConsumerWidget {
       ];
     }
 
-    final sections = buildStoryMemoriesYearSections(state.memoryReadModels);
+    final sections =
+        sectionsValue.asData?.value ?? const <StoryMemoriesYearSection>[];
 
     return [
       if (state.isRefreshing)

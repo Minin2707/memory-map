@@ -650,18 +650,28 @@ class _MemoryHeroMedia extends StatelessWidget {
       itemBuilder: (context, index) {
         final photo = photos[index];
 
-        return AuthenticatedMediaImage(
-          key: ValueKey('memory-details.hero.display.${photo.id}'),
-          media: photo,
-          representation: AuthenticatedMediaRepresentation.display,
-          fit: BoxFit.cover,
-          placeholder: const _MemoryHeroFallback(
-            key: ValueKey('memory-details.hero.display-loading'),
-            isLoading: true,
-          ),
-          errorBuilder: (context) {
-            return const _MemoryHeroFallback(
-              key: ValueKey('memory-details.hero.display-failure'),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final decodeSize = authenticatedMediaDisplayDecodeSize(
+              logicalSize: constraints.biggest,
+              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+            );
+            return AuthenticatedMediaImage(
+              key: ValueKey('memory-details.hero.display.${photo.id}'),
+              media: photo,
+              representation: AuthenticatedMediaRepresentation.display,
+              fit: BoxFit.cover,
+              cacheWidth: decodeSize.cacheWidth,
+              cacheHeight: decodeSize.cacheHeight,
+              placeholder: const _MemoryHeroFallback(
+                key: ValueKey('memory-details.hero.display-loading'),
+                isLoading: true,
+              ),
+              errorBuilder: (context) {
+                return const _MemoryHeroFallback(
+                  key: ValueKey('memory-details.hero.display-failure'),
+                );
+              },
             );
           },
         );

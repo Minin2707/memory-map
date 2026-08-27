@@ -33,6 +33,7 @@ class StoryTimelineScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final memoriesValue = ref.watch(storyMemoriesProvider(storyId));
+    final sectionsValue = ref.watch(storyTimelineSectionsProvider(storyId));
 
     return PopScope(
       canPop: false,
@@ -74,7 +75,7 @@ class StoryTimelineScreen extends ConsumerWidget {
                   padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
                   sliver: SliverToBoxAdapter(child: _TimelineTabs()),
                 ),
-                ..._contentSlivers(context, ref, memoriesValue),
+                ..._contentSlivers(context, ref, memoriesValue, sectionsValue),
                 const SliverToBoxAdapter(child: SizedBox(height: 104)),
               ],
             ),
@@ -98,6 +99,7 @@ class StoryTimelineScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     AsyncValue<StoryMemoriesState> memoriesValue,
+    AsyncValue<List<StoryTimelineSection>> sectionsValue,
   ) {
     final l10n = AppLocalizations.of(context);
 
@@ -160,7 +162,8 @@ class StoryTimelineScreen extends ConsumerWidget {
       ];
     }
 
-    final sections = buildStoryTimelineSections(state.memoryReadModels);
+    final sections =
+        sectionsValue.asData?.value ?? const <StoryTimelineSection>[];
 
     return [
       if (state.isRefreshing)

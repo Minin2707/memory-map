@@ -500,6 +500,16 @@ void main() {
       expect(mediaRepository.receivedBinaryPaths, <String>[
         '/api/v1/media/media-a/display',
       ]);
+      final resizeImage = resizeImageFor(
+        tester,
+        find.descendant(
+          of: find.byKey(const ValueKey('story-details.hero-display.media-a')),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(resizeImage.width, isNotNull);
+      expect(resizeImage.height, isNull);
+      expect(resizeImage.width, lessThanOrEqualTo(2048));
     });
 
     testWidgets('shouldRenderIntentionalNoPhotoHero', (
@@ -1434,6 +1444,12 @@ void setSurface(WidgetTester tester, Size size) {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
+}
+
+ResizeImage resizeImageFor(WidgetTester tester, Finder finder) {
+  final image = tester.widget<Image>(finder);
+  expect(image.image, isA<ResizeImage>());
+  return image.image as ResizeImage;
 }
 
 String roleLabel(StoryRole role) {
