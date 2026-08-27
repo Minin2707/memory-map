@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:memory_map/features/media/application/media_application_providers.dart';
+import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/map/domain/map_coordinate.dart';
 import 'package:memory_map/features/memory/application/memory_application_exception.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
@@ -32,6 +33,28 @@ import 'package:memory_map/l10n/app_localizations.dart';
 import '../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
+  group('StoryPlaybackScreen image decode policy', () {
+    test('shouldDeriveDisplayDecodeSizeFromRenderedSizeAndDevicePixelRatio', () {
+      final size = playbackDisplayDecodeSizeForTesting(
+        logicalSize: const Size(320, 180),
+        devicePixelRatio: 3,
+      );
+
+      expect(size.cacheWidth, 960);
+      expect(size.cacheHeight, isNull);
+    });
+
+    test('shouldCapDisplayDecodeSizeAtBackendDisplayRepresentationLimit', () {
+      final size = playbackDisplayDecodeSizeForTesting(
+        logicalSize: const Size(900, 600),
+        devicePixelRatio: 3,
+      );
+
+      expect(size.cacheWidth, 2048);
+      expect(size.cacheHeight, isNull);
+    });
+  });
+
   group('StoryPlaybackScreen state composition', () {
     testWidgets('shouldRenderLoadingState', (tester) async {
       final repository = FakeMemoryRepository()
@@ -161,7 +184,14 @@ void main() {
         findsNothing,
       );
       expect(find.byKey(const ValueKey('story-playback.next')), findsNothing);
-      expect(mediaRepository.getDisplayByPathCalls, 0);
+      expect(mediaRepository.getDisplayByPathCalls, 1);
+      expect(
+        mediaRepository.receivedBinaryPaths,
+        everyElement(isIn(<String>[
+          '/api/v1/media/media-a/display',
+          '/api/v1/media/media-b/display',
+        ])),
+      );
 
       final command = presentations.last.cameraCommand!;
       presentations.last.onCameraArrived(command.revision);
@@ -179,16 +209,33 @@ void main() {
         find.byKey(const ValueKey('story-playback.display-image')),
         findsOneWidget,
       );
+      final displayImage = tester.widget<AuthenticatedMediaPathImage>(
+        find.byKey(const ValueKey('story-playback.display-image')),
+      );
+      expect(displayImage.cacheWidth, isNotNull);
+      expect(displayImage.cacheHeight, isNull);
+      expect(displayImage.cacheWidth, lessThanOrEqualTo(2048));
+      final image = tester.widget<Image>(
+        find.descendant(
+          of: find.byKey(const ValueKey('story-playback.display-image')),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(image.fit, BoxFit.cover);
       expect(
         find.byKey(const ValueKey('story-playback.previous')),
         findsNothing,
       );
       expect(find.byKey(const ValueKey('story-playback.next')), findsOneWidget);
       expect(mediaRepository.getMediaCalls, 0);
-      expect(mediaRepository.getDisplayByPathCalls, 1);
-      expect(mediaRepository.receivedBinaryPaths, <String>[
-        '/api/v1/media/media-a/display',
-      ]);
+      expect(mediaRepository.getDisplayByPathCalls, 2);
+      expect(
+        mediaRepository.receivedBinaryPaths,
+        unorderedEquals(<String>[
+          '/api/v1/media/media-a/display',
+          '/api/v1/media/media-b/display',
+        ]),
+      );
     });
 
     testWidgets('shouldDelayInitialCameraCommandUntilOpeningCompletes', (
@@ -748,10 +795,14 @@ void main() {
 
       expect(mediaRepository.getMediaCalls, 0);
       expect(mediaRepository.getThumbnailByPathCalls, 0);
-      expect(mediaRepository.getDisplayByPathCalls, 1);
-      expect(mediaRepository.receivedBinaryPaths, <String>[
-        '/api/v1/media/media-a/display',
-      ]);
+      expect(mediaRepository.getDisplayByPathCalls, 2);
+      expect(
+        mediaRepository.receivedBinaryPaths,
+        unorderedEquals(<String>[
+          '/api/v1/media/media-a/display',
+          '/api/v1/media/media-b/display',
+        ]),
+      );
     });
   });
 

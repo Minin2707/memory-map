@@ -1,9 +1,29 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val releaseKeystorePropertiesFile = rootProject.file("key.properties")
+val releaseKeystoreProperties = Properties()
+
+if (releaseKeystorePropertiesFile.exists()) {
+    FileInputStream(releaseKeystorePropertiesFile).use {
+        releaseKeystoreProperties.load(it)
+    }
+}
+
+fun releaseKeystoreProperty(name: String): String? =
+    releaseKeystoreProperties.getProperty(name)?.takeIf { it.isNotBlank() }
+
+fun isReleaseSigningConfigured(): Boolean =
+    releaseKeystorePropertiesFile.exists() &&
+        listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+            .all { releaseKeystoreProperty(it) != null }
 
 android {
     namespace = "com.memorymap.app"
@@ -30,15 +50,58 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("production") {
+            dimension = "environment"
+        }
+
+        create("localPerformance") {
+            dimension = "environment"
+            applicationIdSuffix = ".localperformance"
+            versionNameSuffix = "-local-performance"
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            if (isReleaseSigningConfigured()) {
+                storeFile = rootProject.file(releaseKeystoreProperty("storeFile")!!)
+                storePassword = releaseKeystoreProperty("storePassword")
+                keyAlias = releaseKeystoreProperty("keyAlias")
+                keyPassword = releaseKeystoreProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (isReleaseSigningConfigured()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+gradle.taskGraph.whenReady {
+    val productionReleaseRequested = allTasks.any { task ->
+        val name = task.name.lowercase()
+        name.contains("productionrelease") ||
+            name == "assemblerelease" ||
+            name == "bundlerelease"
+    }
+
+    if (productionReleaseRequested && !isReleaseSigningConfigured()) {
+        throw GradleException(
+            "Production release signing is not configured. " +
+                "Create mobile/android/key.properties with storeFile, " +
+                "storePassword, keyAlias, and keyPassword. Do not commit " +
+                "key.properties or keystore files."
+        )
+    }
 }

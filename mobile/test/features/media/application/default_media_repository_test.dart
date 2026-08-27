@@ -5,6 +5,7 @@ import 'package:memory_map/features/media/application/default_media_repository.d
 import 'package:memory_map/features/media/application/media_application_exception.dart';
 import 'package:memory_map/features/media/data/remote/media_remote_data_source.dart';
 import 'package:memory_map/features/media/data/remote/media_remote_exception.dart';
+import 'package:memory_map/features/media/domain/authenticated_media_cache.dart';
 import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/media/domain/media_failure.dart';
 import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
@@ -104,6 +105,54 @@ void main() {
       );
       expect(remote.receivedDeleteMediaIds, <String>[defaultMediaId]);
     });
+
+    test('shouldLoadThumbnailAndDisplayThroughAuthenticatedMediaCache', () async {
+      final remote = FakeMediaRemoteDataSource();
+      final cache = FakeAuthenticatedMediaCache();
+      final repository = DefaultMediaRepository(
+        mediaRemoteDataSource: remote,
+        authenticatedMediaCache: cache,
+      );
+
+      expect(
+        await repository.getThumbnailByPath('/api/v1/media/media-id/thumbnail'),
+        <int>[7, 8, 9],
+      );
+      expect(
+        await repository.getDisplayByPath('/api/v1/media/media-id/display'),
+        <int>[10, 11, 12],
+      );
+
+      expect(cache.receivedPaths, <String>[
+        '/api/v1/media/media-id/thumbnail',
+        '/api/v1/media/media-id/display',
+      ]);
+      expect(remote.receivedRepresentationPaths, <String>[
+        '/api/v1/media/media-id/thumbnail',
+        '/api/v1/media/media-id/display',
+      ]);
+    });
+
+    test('shouldFallBackToNetworkWhenAuthenticatedMediaCacheFails', () async {
+      final remote = FakeMediaRemoteDataSource();
+      final cache = FakeAuthenticatedMediaCache()..failure = Object();
+      final repository = DefaultMediaRepository(
+        mediaRemoteDataSource: remote,
+        authenticatedMediaCache: cache,
+      );
+
+      expect(
+        await repository.getDisplayByPath('/api/v1/media/media-id/display'),
+        <int>[10, 11, 12],
+      );
+
+      expect(cache.receivedPaths, <String>[
+        '/api/v1/media/media-id/display',
+      ]);
+      expect(remote.receivedRepresentationPaths, <String>[
+        '/api/v1/media/media-id/display',
+      ]);
+    });
   });
 }
 
@@ -180,4 +229,25 @@ final class FakeMediaRemoteDataSource implements MediaRemoteDataSource {
         ? Uint8List.fromList(<int>[7, 8, 9])
         : Uint8List.fromList(<int>[10, 11, 12]);
   }
+}
+
+final class FakeAuthenticatedMediaCache implements AuthenticatedMediaCache {
+  final List<String> receivedPaths = <String>[];
+  Object? failure;
+
+  @override
+  Future<Uint8List> getOrFetch(
+    String backendPath,
+    Future<Uint8List> Function() fetch,
+  ) {
+    receivedPaths.add(backendPath);
+    final configuredFailure = failure;
+    if (configuredFailure != null) {
+      throw configuredFailure;
+    }
+    return fetch();
+  }
+
+  @override
+  Future<void> clear() async {}
 }

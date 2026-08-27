@@ -70,6 +70,30 @@ void main() {
       expect(playbackMarkerPixelRatio(2.625), 2.63);
       expect(playbackMarkerPixelRatio(4.0), 3.0);
     });
+
+    test('shouldBoundPhotoDecodeTargetToRenderedMarkerBitmapSize', () {
+      expect(
+        playbackMarkerPhotoDecodeTargetSizeForTesting(
+          current: false,
+          pixelRatio: 3,
+        ),
+        198,
+      );
+      expect(
+        playbackMarkerPhotoDecodeTargetSizeForTesting(
+          current: true,
+          pixelRatio: 3,
+        ),
+        240,
+      );
+      expect(
+        playbackMarkerPhotoDecodeTargetSizeForTesting(
+          current: true,
+          pixelRatio: 8,
+        ),
+        240,
+      );
+    });
   });
 
   group('Playback marker visual identity', () {
@@ -226,6 +250,7 @@ void main() {
         pixelRatio: 2,
       );
       final codec = await ui.instantiateImageCodec(bytes);
+      addTearDown(codec.dispose);
       final frame = await codec.getNextFrame();
       final image = frame.image;
       addTearDown(image.dispose);
@@ -271,8 +296,12 @@ double _badgeCircleOverlap(PlaybackMarkerIconMetrics metrics) {
 
 Future<ui.Image> _decodeImage(Uint8List bytes) async {
   final codec = await ui.instantiateImageCodec(bytes);
-  final frame = await codec.getNextFrame();
-  return frame.image;
+  try {
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  } finally {
+    codec.dispose();
+  }
 }
 
 int _resolvedCount(

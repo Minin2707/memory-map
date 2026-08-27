@@ -317,6 +317,29 @@ final class MapLibreSymbolMarkerController
       return const <Symbol>[];
     }
   }
+
+  @override
+  Future<void> updateMarker(
+    Symbol annotation,
+    MapMarkerRenderOptions options,
+  ) async {
+    final icon = options.icon;
+    var iconImage = icon?.imageKey;
+
+    if (icon != null && !_registeredImageKeys.contains(icon.imageKey)) {
+      try {
+        await _controller.addImage(icon.imageKey, icon.bytes);
+        _registeredImageKeys.add(icon.imageKey);
+      } catch (_) {
+        iconImage = null;
+      }
+    }
+
+    await _controller.updateSymbol(
+      annotation,
+      _toSymbolOptions(options, iconImage: iconImage),
+    );
+  }
 }
 
 final class _MapLibreCircleMarkerController
@@ -348,6 +371,14 @@ final class _MapLibreCircleMarkerController
     return _controller.addCircles(
       options.map(_toCircleOptions).toList(growable: false),
     );
+  }
+
+  @override
+  Future<void> updateMarker(
+    Circle annotation,
+    MapMarkerRenderOptions options,
+  ) {
+    return _controller.updateCircle(annotation, _toCircleOptions(options));
   }
 }
 

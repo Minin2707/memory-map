@@ -27,8 +27,11 @@ class PlaybackMapView extends ConsumerStatefulWidget {
     required this.onCameraArrived,
     required this.onCameraFailed,
     this.sourceConfiguration = MapSources.openFreeMapLiberty,
+    this.markerIconComposer = composePlaybackMarkerIcon,
+    this.markerIconCompositionLimit =
+        playbackMarkerIconCompositionConcurrencyLimit,
     super.key,
-  });
+  }) : assert(markerIconCompositionLimit > 0);
 
   final List<PlaybackMapMarker> markers;
   final PlaybackRouteProjection route;
@@ -37,6 +40,8 @@ class PlaybackMapView extends ConsumerStatefulWidget {
   final ValueChanged<int> onCameraArrived;
   final ValueChanged<int> onCameraFailed;
   final MapSourceConfiguration sourceConfiguration;
+  final PlaybackMarkerIconComposer markerIconComposer;
+  final int markerIconCompositionLimit;
 
   @override
   ConsumerState<PlaybackMapView> createState() => _PlaybackMapViewState();
@@ -44,6 +49,8 @@ class PlaybackMapView extends ConsumerStatefulWidget {
 
 const PlaybackMapInteractionPolicy playbackMapInteractionPolicy =
     PlaybackMapInteractionPolicy();
+
+const int playbackMarkerIconCompositionConcurrencyLimit = 3;
 
 final class PlaybackMapInteractionPolicy {
   const PlaybackMapInteractionPolicy();
@@ -57,8 +64,101 @@ final class PlaybackMapInteractionPolicy {
   bool get tiltGesturesEnabled => false;
 }
 
+@visibleForTesting
+final class PlaybackMarkerIconCompositionLimiter {
+  PlaybackMarkerIconCompositionLimiter({
+    required this.maxConcurrent,
+  }) : assert(maxConcurrent > 0);
+
+  final int maxConcurrent;
+  final List<_PendingMarkerIconComposition> _queue =
+      <_PendingMarkerIconComposition>[];
+  final Set<String> _queuedKeys = <String>{};
+  int _activeCount = 0;
+
+  int get activeCount => _activeCount;
+
+  int get queuedCount => _queue.length;
+
+  bool get isIdle => _activeCount == 0 && _queue.isEmpty;
+
+  bool hasQueued(String imageKey) => _queuedKeys.contains(imageKey);
+
+  void enqueue(
+    PlaybackMarkerIconRequest request,
+    Future<void> Function(PlaybackMarkerIconRequest request) runner, {
+    required bool priority,
+  }) {
+    if (_queuedKeys.contains(request.imageKey)) {
+      return;
+    }
+
+    final pending = _PendingMarkerIconComposition(
+      request: request,
+      runner: runner,
+      priority: priority,
+    );
+    _queuedKeys.add(request.imageKey);
+
+    if (priority) {
+      final index = _queue.indexWhere((item) => !item.priority);
+      if (index == -1) {
+        _queue.add(pending);
+      } else {
+        _queue.insert(index, pending);
+      }
+    } else {
+      _queue.add(pending);
+    }
+
+    _drain();
+  }
+
+  void retainQueuedKeys(Set<String> relevantKeys) {
+    _queue.removeWhere((pending) {
+      final obsolete = !relevantKeys.contains(pending.request.imageKey);
+      if (obsolete) {
+        _queuedKeys.remove(pending.request.imageKey);
+      }
+      return obsolete;
+    });
+  }
+
+  void clear() {
+    _queue.clear();
+    _queuedKeys.clear();
+  }
+
+  void _drain() {
+    while (_activeCount < maxConcurrent && _queue.isNotEmpty) {
+      final pending = _queue.removeAt(0);
+      _queuedKeys.remove(pending.request.imageKey);
+      _activeCount += 1;
+      unawaited(
+        pending.runner(pending.request).whenComplete(() {
+          _activeCount -= 1;
+          _drain();
+        }),
+      );
+    }
+  }
+}
+
+final class _PendingMarkerIconComposition {
+  const _PendingMarkerIconComposition({
+    required this.request,
+    required this.runner,
+    required this.priority,
+  });
+
+  final PlaybackMarkerIconRequest request;
+  final Future<void> Function(PlaybackMarkerIconRequest request) runner;
+  final bool priority;
+}
+
 class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   late final PlaybackMapCameraAdapter _cameraAdapter;
+  late final PlaybackMarkerIconCompositionLimiter _iconCompositionLimiter;
   final Map<String, Uint8List> _thumbnailBytesByPath = <String, Uint8List>{};
   final Set<String> _failedThumbnailPaths = <String>{};
   final Set<String> _loadingThumbnailPaths = <String>{};
@@ -73,6 +173,9 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   @override
   void initState() {
     super.initState();
+    _iconCompositionLimiter = PlaybackMarkerIconCompositionLimiter(
+      maxConcurrent: widget.markerIconCompositionLimit,
+    );
     _cameraAdapter = PlaybackMapCameraAdapter(
       onCameraArrived: (revision) {
         if (mounted) {
@@ -117,6 +220,7 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
     if (routeSynchronizer != null) {
       unawaited(routeSynchronizer.dispose());
     }
+    _iconCompositionLimiter.clear();
     super.dispose();
   }
 
@@ -124,7 +228,9 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   Widget build(BuildContext context) {
     final markerSynchronizer = _markerSynchronizer;
     _startThumbnailLoads();
-    _startIconComposition(_iconRequests());
+    final requests = _iconRequests();
+    _trimIconState(requests);
+    _startIconComposition(requests);
 
     return Stack(
       fit: StackFit.expand,
@@ -360,27 +466,46 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   void _startIconComposition(
     Map<String, PlaybackMarkerIconRequest> requests,
   ) {
-    for (final request in requests.values) {
+    _trimIconState(requests);
+    for (final request in playbackMarkerIconCompositionOrderForTesting(
+      requests.values,
+    )) {
       if (_iconBytesByKey.containsKey(request.imageKey) ||
           _pendingIconKeys.contains(request.imageKey) ||
-          _failedIconKeys.contains(request.imageKey)) {
+          _failedIconKeys.contains(request.imageKey) ||
+          _iconCompositionLimiter.hasQueued(request.imageKey)) {
         continue;
       }
 
       _pendingIconKeys.add(request.imageKey);
-      unawaited(_composeIcon(request));
+      _iconCompositionLimiter.enqueue(
+        request,
+        _composeIcon,
+        priority: request.current,
+      );
     }
   }
 
   Future<void> _composeIcon(PlaybackMarkerIconRequest request) async {
     try {
-      final bytes = await composePlaybackMarkerIcon(
+      if (!_isRelevantIconKey(request.imageKey)) {
+        _pendingIconKeys.remove(request.imageKey);
+        return;
+      }
+
+      final bytes = await widget.markerIconComposer(
         photoBytes: request.photoBytes,
         sequenceNumber: request.sequenceNumber,
         current: request.current,
         pixelRatio: request.pixelRatio,
       );
       if (!mounted) {
+        return;
+      }
+      if (!_isRelevantIconKey(request.imageKey)) {
+        setState(() {
+          _pendingIconKeys.remove(request.imageKey);
+        });
         return;
       }
 
@@ -396,7 +521,9 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
 
       setState(() {
         _pendingIconKeys.remove(request.imageKey);
-        _failedIconKeys.add(request.imageKey);
+        if (_isRelevantIconKey(request.imageKey)) {
+          _failedIconKeys.add(request.imageKey);
+        }
       });
       _syncMarkers();
     }
@@ -415,6 +542,45 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
     _failedThumbnailPaths.removeWhere((path) => !currentPaths.contains(path));
     _loadingThumbnailPaths.removeWhere((path) => !currentPaths.contains(path));
   }
+
+  void _trimIconState(Map<String, PlaybackMarkerIconRequest> requests) {
+    final relevantKeys = playbackRelevantMarkerIconKeysForTesting(requests);
+    _iconBytesByKey.removeWhere((key, _) => !relevantKeys.contains(key));
+    _failedIconKeys.removeWhere((key) => !relevantKeys.contains(key));
+    _pendingIconKeys.removeWhere((key) => !relevantKeys.contains(key));
+    _iconCompositionLimiter.retainQueuedKeys(relevantKeys);
+  }
+
+  bool _isRelevantIconKey(String imageKey) {
+    return playbackRelevantMarkerIconKeysForTesting(_iconRequests())
+        .contains(imageKey);
+  }
+}
+
+@visibleForTesting
+List<PlaybackMarkerIconRequest> playbackMarkerIconCompositionOrderForTesting(
+  Iterable<PlaybackMarkerIconRequest> requests,
+) {
+  final ordered = requests.toList(growable: false);
+  ordered.sort((a, b) {
+    if (a.current == b.current) {
+      return 0;
+    }
+    return a.current ? -1 : 1;
+  });
+  return ordered;
+}
+
+@visibleForTesting
+Set<String> playbackRelevantMarkerIconKeysForTesting(
+  Map<String, PlaybackMarkerIconRequest> requests,
+) {
+  return <String>{
+    for (final request in requests.values) ...<String>[
+      request.imageKey,
+      ...request.compatibleImageKeys,
+    ],
+  };
 }
 
 final class _PlaybackStyleRouteController

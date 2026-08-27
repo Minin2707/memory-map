@@ -339,7 +339,7 @@ ProviderContainer createProviderContainer(
   return ProviderContainer(
     overrides: [
       appConfigProvider.overrideWithValue(
-        const AppConfig(apiBaseUrl: 'https://api.example.test'),
+        AppConfig(apiBaseUrl: 'https://api.example.test'),
       ),
       authorizedSessionManagerProvider.overrideWithValue(
         FakeAuthorizedSessionManager(),

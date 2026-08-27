@@ -17,6 +17,8 @@ class AuthenticatedMediaImage extends ConsumerStatefulWidget {
     required this.fit,
     required this.placeholder,
     required this.errorBuilder,
+    this.cacheWidth,
+    this.cacheHeight,
     super.key,
   });
 
@@ -25,6 +27,8 @@ class AuthenticatedMediaImage extends ConsumerStatefulWidget {
   final BoxFit fit;
   final Widget placeholder;
   final Widget Function(BuildContext context) errorBuilder;
+  final int? cacheWidth;
+  final int? cacheHeight;
 
   @override
   ConsumerState<AuthenticatedMediaImage> createState() =>
@@ -38,6 +42,8 @@ class AuthenticatedMediaPathImage extends ConsumerStatefulWidget {
     required this.placeholder,
     required this.errorBuilder,
     this.representation = AuthenticatedMediaRepresentation.thumbnail,
+    this.cacheWidth,
+    this.cacheHeight,
     super.key,
   });
 
@@ -46,6 +52,8 @@ class AuthenticatedMediaPathImage extends ConsumerStatefulWidget {
   final BoxFit fit;
   final Widget placeholder;
   final Widget Function(BuildContext context) errorBuilder;
+  final int? cacheWidth;
+  final int? cacheHeight;
 
   @override
   ConsumerState<AuthenticatedMediaPathImage> createState() =>
@@ -82,6 +90,8 @@ class _AuthenticatedMediaPathImageState
             bytes,
             fit: widget.fit,
             gaplessPlayback: true,
+            cacheWidth: widget.cacheWidth,
+            cacheHeight: widget.cacheHeight,
           );
         }
 
@@ -135,6 +145,8 @@ class _AuthenticatedMediaImageState
             bytes,
             fit: widget.fit,
             gaplessPlayback: true,
+            cacheWidth: widget.cacheWidth,
+            cacheHeight: widget.cacheHeight,
           );
         }
 

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:memory_map/features/media/application/media_application_exception.dart';
 import 'package:memory_map/features/media/data/remote/media_remote_data_source.dart';
 import 'package:memory_map/features/media/data/remote/media_remote_exception.dart';
+import 'package:memory_map/features/media/domain/authenticated_media_cache.dart';
 import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/media/domain/media_failure.dart';
 import 'package:memory_map/features/media/domain/media_repository.dart';
@@ -11,9 +12,13 @@ import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 final class DefaultMediaRepository implements MediaRepository {
   const DefaultMediaRepository({
     required MediaRemoteDataSource mediaRemoteDataSource,
-  }) : _mediaRemoteDataSource = mediaRemoteDataSource;
+    AuthenticatedMediaCache authenticatedMediaCache =
+        const PassthroughAuthenticatedMediaCache(),
+  })  : _mediaRemoteDataSource = mediaRemoteDataSource,
+        _authenticatedMediaCache = authenticatedMediaCache;
 
   final MediaRemoteDataSource _mediaRemoteDataSource;
+  final AuthenticatedMediaCache _authenticatedMediaCache;
 
   @override
   Future<List<Media>> getMedia(String memoryId) async {
@@ -47,39 +52,38 @@ final class DefaultMediaRepository implements MediaRepository {
 
   @override
   Future<Uint8List> getThumbnail(Media media) async {
-    try {
-      return await _mediaRemoteDataSource.getRepresentation(
-        media.thumbnailPath,
-      );
-    } on MediaRemoteException catch (exception) {
-      throw MediaApplicationException(_mapFailure(exception));
-    }
+    return _getRepresentation(media.thumbnailPath);
   }
 
   @override
   Future<Uint8List> getThumbnailByPath(String thumbnailPath) async {
-    try {
-      return await _mediaRemoteDataSource.getRepresentation(thumbnailPath);
-    } on MediaRemoteException catch (exception) {
-      throw MediaApplicationException(_mapFailure(exception));
-    }
+    return _getRepresentation(thumbnailPath);
   }
 
   @override
   Future<Uint8List> getDisplay(Media media) async {
-    try {
-      return await _mediaRemoteDataSource.getRepresentation(media.displayPath);
-    } on MediaRemoteException catch (exception) {
-      throw MediaApplicationException(_mapFailure(exception));
-    }
+    return _getRepresentation(media.displayPath);
   }
 
   @override
   Future<Uint8List> getDisplayByPath(String displayPath) async {
+    return _getRepresentation(displayPath);
+  }
+
+  Future<Uint8List> _getRepresentation(String backendPath) async {
     try {
-      return await _mediaRemoteDataSource.getRepresentation(displayPath);
+      return await _authenticatedMediaCache.getOrFetch(
+        backendPath,
+        () => _mediaRemoteDataSource.getRepresentation(backendPath),
+      );
     } on MediaRemoteException catch (exception) {
       throw MediaApplicationException(_mapFailure(exception));
+    } on Object {
+      try {
+        return await _mediaRemoteDataSource.getRepresentation(backendPath);
+      } on MediaRemoteException catch (exception) {
+        throw MediaApplicationException(_mapFailure(exception));
+      }
     }
   }
 

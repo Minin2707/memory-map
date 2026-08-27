@@ -335,7 +335,10 @@ void main() {
       );
       await flushMicrotasks();
 
-      expect(controller.addedBatches.last, <MapMarkerRenderOptions>[
+      expect(controller.clearCalls, 2);
+      expect(controller.addCalls, 1);
+      expect(controller.updateCalls, 1);
+      expect(controller.renderedOptions, <MapMarkerRenderOptions>[
         MapMarkerRenderOptions(
           coordinate: markerA.coordinate,
           selected: true,
@@ -360,8 +363,11 @@ void main() {
       await flushMicrotasks();
 
       expect(controller.annotations.length, 4);
+      expect(controller.clearCalls, 2);
+      expect(controller.addCalls, 1);
+      expect(controller.updateCalls, 1);
       expect(
-        controller.addedBatches.last.map((options) => options.selected),
+        controller.renderedOptions.map((options) => options.selected),
         <bool>[true, false, false, false],
       );
     });
@@ -379,8 +385,11 @@ void main() {
       await flushMicrotasks();
 
       expect(controller.annotations.length, 4);
+      expect(controller.clearCalls, 2);
+      expect(controller.addCalls, 1);
+      expect(controller.updateCalls, 2);
       expect(
-        controller.addedBatches.last.map((options) => options.selected),
+        controller.renderedOptions.map((options) => options.selected),
         <bool>[false, true, false, false],
       );
     });
@@ -398,9 +407,44 @@ void main() {
       await flushMicrotasks();
 
       expect(controller.annotations.length, 4);
+      expect(controller.clearCalls, 2);
+      expect(controller.addCalls, 1);
+      expect(controller.updateCalls, 1);
       expect(
-        controller.addedBatches.last.map((options) => options.selected),
+        controller.renderedOptions.map((options) => options.selected),
         <bool>[false, false, false, false],
+      );
+    });
+
+    test('shouldUpdateOnlyPreviousAndNewSelectionWhenMarkerOrderChanges',
+        () async {
+      final controller = FakeAnnotationController();
+      final synchronizer = MapLibreMarkerSynchronizer<FakeAnnotation>(
+        controller: controller,
+      )..markStyleLoaded();
+      await flushMicrotasks();
+
+      synchronizer.updateMarkers(
+        <MapMarker>[markerB, markerC, markerA],
+        selectedMarkerId: markerA.id,
+      );
+      await flushMicrotasks();
+      synchronizer.updateMarkers(
+        <MapMarker>[markerA, markerC, markerB],
+        selectedMarkerId: markerB.id,
+      );
+      await flushMicrotasks();
+
+      expect(controller.clearCalls, 2);
+      expect(controller.addCalls, 1);
+      expect(controller.updateCalls, 2);
+      expect(
+        controller.updatedOptions.map((options) => options.selected),
+        <bool>[false, true],
+      );
+      expect(
+        controller.renderedOptions.map((options) => options.selected),
+        <bool>[true, false, false],
       );
     });
 
@@ -817,17 +861,28 @@ final class FakeAnnotationController
     implements MapMarkerAnnotationController<FakeAnnotation> {
   final List<MapMarkerTapHandler<FakeAnnotation>> _listeners =
       <MapMarkerTapHandler<FakeAnnotation>>[];
+  final Map<FakeAnnotation, MapMarkerRenderOptions> _optionsByAnnotation =
+      <FakeAnnotation, MapMarkerRenderOptions>{};
   final List<FakeAnnotation> annotations = <FakeAnnotation>[];
   final List<List<MapMarkerRenderOptions>> addedBatches =
       <List<MapMarkerRenderOptions>>[];
+  final List<MapMarkerRenderOptions> updatedOptions =
+      <MapMarkerRenderOptions>[];
   int clearCalls = 0;
   int addCalls = 0;
+  int updateCalls = 0;
   int styleLoadedCalls = 0;
   final List<String> operations = <String>[];
   Completer<void>? _pausedStyleLoad;
   Completer<List<FakeAnnotation>>? _pausedAdd;
 
   int get listenerCount => _listeners.length;
+
+  List<MapMarkerRenderOptions> get renderedOptions {
+    return annotations
+        .map((annotation) => _optionsByAnnotation[annotation]!)
+        .toList(growable: false);
+  }
 
   @override
   void addMarkerTapListener(MapMarkerTapHandler<FakeAnnotation> listener) {
@@ -858,6 +913,7 @@ final class FakeAnnotationController
     clearCalls += 1;
     operations.add('clearMarkers');
     annotations.clear();
+    _optionsByAnnotation.clear();
   }
 
   @override
@@ -885,7 +941,29 @@ final class FakeAnnotationController
     annotations
       ..clear()
       ..addAll(created);
+    _optionsByAnnotation
+      ..clear()
+      ..addEntries(
+        Iterable<MapEntry<FakeAnnotation, MapMarkerRenderOptions>>.generate(
+          created.length,
+          (index) => MapEntry<FakeAnnotation, MapMarkerRenderOptions>(
+            created[index],
+            options[index],
+          ),
+        ),
+      );
     return created;
+  }
+
+  @override
+  Future<void> updateMarker(
+    FakeAnnotation annotation,
+    MapMarkerRenderOptions options,
+  ) async {
+    updateCalls += 1;
+    operations.add('updateMarker');
+    updatedOptions.add(options);
+    _optionsByAnnotation[annotation] = options;
   }
 
   void pauseNextAdd() {

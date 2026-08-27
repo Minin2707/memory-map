@@ -17,6 +17,8 @@ abstract interface class MapMarkerAnnotationController<T extends Object> {
   Future<void> clearMarkers();
 
   Future<List<T>> addMarkers(List<MapMarkerRenderOptions> options);
+
+  Future<void> updateMarker(T annotation, MapMarkerRenderOptions options);
 }
 
 final class MapMarkerIcon {
@@ -114,6 +116,7 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
 
   final MapMarkerAnnotationController<T> _controller;
   final Map<T, String> _markerIdsByAnnotation = <T, String>{};
+  final Map<String, T> _annotationsByMarkerId = <String, T>{};
   MapMarkerSelectedHandler? _onMarkerSelected;
   List<MapMarker> _markers = const <MapMarker>[];
   Map<String, MapMarkerIcon> _markerIcons = const <String, MapMarkerIcon>{};
@@ -183,6 +186,7 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
     _disposed = true;
     _controller.removeMarkerTapListener(_handleMarkerTapped);
     _markerIdsByAnnotation.clear();
+    _annotationsByMarkerId.clear();
     while (_syncInProgress) {
       await Future<void>.delayed(Duration.zero);
     }
@@ -230,7 +234,17 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
       return;
     }
 
+    if (await _tryUpdateSelectionOnly(
+      markers,
+      markerIcons,
+      selectedMarkerId,
+      styleGeneration,
+    )) {
+      return;
+    }
+
     _markerIdsByAnnotation.clear();
+    _annotationsByMarkerId.clear();
     await _controller.clearMarkers();
 
     if (_disposed || markers.isEmpty) {
@@ -263,7 +277,10 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
         ? annotations.length
         : markers.length;
     for (var index = 0; index < count; index += 1) {
-      _markerIdsByAnnotation[annotations[index]] = markers[index].id;
+      final annotation = annotations[index];
+      final markerId = markers[index].id;
+      _markerIdsByAnnotation[annotation] = markerId;
+      _annotationsByMarkerId[markerId] = annotation;
     }
     _rememberRenderedInput(
       markers,
@@ -271,6 +288,65 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
       selectedMarkerId,
       styleGeneration,
     );
+  }
+
+  Future<bool> _tryUpdateSelectionOnly(
+    List<MapMarker> markers,
+    Map<String, MapMarkerIcon> markerIcons,
+    String? selectedMarkerId,
+    int styleGeneration,
+  ) async {
+    final previousSelectedMarkerId = _lastRenderedSelectedMarkerId;
+    if (_lastRenderedStyleGeneration != styleGeneration ||
+        previousSelectedMarkerId == selectedMarkerId ||
+        !_hasSameMarkerSet(_lastRenderedMarkers, markers) ||
+        !_hasSameMarkerIcons(_lastRenderedMarkerIcons, markerIcons)) {
+      return false;
+    }
+
+    final changedMarkerIds = <String>{
+      if (previousSelectedMarkerId != null) previousSelectedMarkerId,
+      if (selectedMarkerId != null) selectedMarkerId,
+    };
+    if (changedMarkerIds.isEmpty) {
+      return false;
+    }
+
+    final markersById = <String, MapMarker>{
+      for (final marker in markers) marker.id: marker,
+    };
+    for (final markerId in changedMarkerIds) {
+      final marker = markersById[markerId];
+      final annotation = _annotationsByMarkerId[markerId];
+      if (marker == null || annotation == null) {
+        return false;
+      }
+    }
+
+    for (final markerId in changedMarkerIds) {
+      final marker = markersById[markerId]!;
+      final annotation = _annotationsByMarkerId[markerId]!;
+      await _controller.updateMarker(
+        annotation,
+        MapMarkerRenderOptions(
+          coordinate: marker.coordinate,
+          selected: marker.id == selectedMarkerId,
+          icon: markerIcons[marker.id],
+        ),
+      );
+
+      if (_disposed) {
+        return true;
+      }
+    }
+
+    _rememberRenderedInput(
+      markers,
+      markerIcons,
+      selectedMarkerId,
+      styleGeneration,
+    );
+    return true;
   }
 
   Future<void> _awaitStyleConfiguration() async {
@@ -358,6 +434,32 @@ final class MapLibreMarkerSynchronizer<T extends Object> {
 
     for (var index = 0; index < left.length; index += 1) {
       if (left[index] != right[index]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool _hasSameMarkerSet(List<MapMarker> left, List<MapMarker> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+
+    final leftById = <String, MapMarker>{
+      for (final marker in left) marker.id: marker,
+    };
+    if (leftById.length != left.length) {
+      return false;
+    }
+
+    final rightIds = <String>{};
+    for (final marker in right) {
+      if (!rightIds.add(marker.id)) {
+        return false;
+      }
+
+      if (leftById[marker.id] != marker) {
         return false;
       }
     }

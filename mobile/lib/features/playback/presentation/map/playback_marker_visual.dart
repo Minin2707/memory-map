@@ -1,7 +1,15 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+
+typedef PlaybackMarkerIconComposer = Future<Uint8List> Function({
+  required Uint8List? photoBytes,
+  required int sequenceNumber,
+  required bool current,
+  double pixelRatio,
+});
 
 enum PlaybackMarkerVisualSource {
   photo,
@@ -198,7 +206,13 @@ Future<Uint8List> composePlaybackMarkerIcon({
     canvas.drawCircle(center, metrics.fallbackFillRadius, fillPaint);
     _drawFallbackGlyph(canvas, center, metrics);
   } else {
-    final photoImage = await _decodePhoto(photoBytes);
+    final photoImage = await _decodePhoto(
+      photoBytes,
+      targetLongSide: playbackMarkerPhotoDecodeTargetSizeForTesting(
+        current: current,
+        pixelRatio: normalizedPixelRatio,
+      ),
+    );
     try {
       final photoRect = Rect.fromCircle(
         center: center,
@@ -259,19 +273,23 @@ Future<Uint8List> composePlaybackMarkerIcon({
   );
 
   final picture = recorder.endRecording();
-  final image = await picture.toImage(
-    (metrics.width * normalizedPixelRatio).round(),
-    (metrics.height * normalizedPixelRatio).round(),
-  );
   try {
-    final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (data == null) {
-      throw StateError('playback marker image encoding failed');
-    }
+    final image = await picture.toImage(
+      (metrics.width * normalizedPixelRatio).round(),
+      (metrics.height * normalizedPixelRatio).round(),
+    );
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) {
+        throw StateError('playback marker image encoding failed');
+      }
 
-    return data.buffer.asUint8List();
+      return data.buffer.asUint8List();
+    } finally {
+      image.dispose();
+    }
   } finally {
-    image.dispose();
+    picture.dispose();
   }
 }
 
@@ -282,6 +300,18 @@ double playbackMarkerPixelRatio(double devicePixelRatio) {
 
   final capped = devicePixelRatio > 3 ? 3.0 : devicePixelRatio;
   return (capped * 100).round() / 100;
+}
+
+@visibleForTesting
+int playbackMarkerPhotoDecodeTargetSizeForTesting({
+  required bool current,
+  required double pixelRatio,
+}) {
+  final metrics = playbackMarkerIconMetricsForTesting(current: current);
+  final normalizedPixelRatio = playbackMarkerPixelRatio(pixelRatio);
+  final target = (math.max(metrics.width, metrics.height) * normalizedPixelRatio)
+      .round();
+  return target.clamp(1, 360).toInt();
 }
 
 @visibleForTesting
@@ -368,10 +398,32 @@ final class PlaybackMarkerIconMetrics {
   final double badgeFontSize;
 }
 
-Future<ui.Image> _decodePhoto(Uint8List bytes) async {
-  final codec = await ui.instantiateImageCodec(bytes);
-  final frame = await codec.getNextFrame();
-  return frame.image;
+Future<ui.Image> _decodePhoto(
+  Uint8List bytes, {
+  required int targetLongSide,
+}) async {
+  final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+  ui.ImageDescriptor? descriptor;
+  ui.Codec? codec;
+  try {
+    descriptor = await ui.ImageDescriptor.encoded(buffer);
+    final intrinsicLongSide = math.max(descriptor.width, descriptor.height);
+    final shouldDownscale = intrinsicLongSide > targetLongSide;
+    final isLandscape = descriptor.width >= descriptor.height;
+    final targetWidth = shouldDownscale && isLandscape ? targetLongSide : null;
+    final targetHeight =
+        shouldDownscale && !isLandscape ? targetLongSide : null;
+    codec = await descriptor.instantiateCodec(
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+    );
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  } finally {
+    codec?.dispose();
+    descriptor?.dispose();
+    buffer.dispose();
+  }
 }
 
 Rect _coverSourceRect(ui.Image image) {

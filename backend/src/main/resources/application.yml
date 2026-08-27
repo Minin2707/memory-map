@@ -37,3 +37,41 @@ app:
 
     refresh-token:
       ttl: P30D
+
+  rate-limit:
+    enabled: true
+    max-buckets: 10000
+    stale-after: PT10M
+    trusted-proxies: []
+    auth-login:
+      capacity: 8
+      refill-tokens: 8
+      refill-period: PT1M
+    auth-refresh:
+      capacity: 20
+      refill-tokens: 20
+      refill-period: PT1M
+    auth-logout:
+      capacity: 30
+      refill-tokens: 30
+      refill-period: PT1M
+    invite-accept:
+      capacity: 10
+      refill-tokens: 10
+      refill-period: PT1M
+    media-upload:
+      capacity: 12
+      refill-tokens: 60
+      refill-period: PT1H
+    private-media-read:
+      capacity: 600
+      refill-tokens: 600
+      refill-period: PT1M
+    soundtrack-stream:
+      capacity: 240
+      refill-tokens: 240
+      refill-period: PT1M
+    normal-mutation:
+      capacity: 60
+      refill-tokens: 60
+      refill-period: PT1M

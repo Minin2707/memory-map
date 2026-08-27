@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -21,6 +22,24 @@ typedef PlaybackMapBuilder = Widget Function(
   BuildContext context,
   PlaybackMapPresentation presentation,
 );
+
+const int _playbackDisplayMaxDecodeDimension = 2048;
+
+@visibleForTesting
+({int cacheWidth, int? cacheHeight}) playbackDisplayDecodeSizeForTesting({
+  required Size logicalSize,
+  required double devicePixelRatio,
+}) {
+  final safePixelRatio = devicePixelRatio.isFinite && devicePixelRatio > 0
+      ? devicePixelRatio
+      : 1.0;
+  final physicalWidth = math.max(1, (logicalSize.width * safePixelRatio).ceil());
+
+  return (
+    cacheWidth: math.min(physicalWidth, _playbackDisplayMaxDecodeDimension),
+    cacheHeight: null,
+  );
+}
 
 final class PlaybackMapPresentation {
   const PlaybackMapPresentation({
@@ -1103,17 +1122,29 @@ class _MemoryPhotoPanel extends StatelessWidget {
               Semantics(
                 label: l10n.playbackMemoryPhotoLabel,
                 image: true,
-                child: AuthenticatedMediaPathImage(
-                  key: const ValueKey('story-playback.display-image'),
-                  thumbnailPath: _displayPath(preview),
-                  representation: AuthenticatedMediaRepresentation.display,
-                  fit: BoxFit.cover,
-                  placeholder: const _PhotoLoading(),
-                  errorBuilder: (_) {
-                    return _PhotoFallback(
-                      key: const ValueKey('story-playback.photo-unavailable'),
-                      label: l10n.playbackPhotoUnavailable,
-                      icon: Icons.broken_image_outlined,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final decodeSize = playbackDisplayDecodeSizeForTesting(
+                      logicalSize: constraints.biggest,
+                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                    );
+                    return AuthenticatedMediaPathImage(
+                      key: const ValueKey('story-playback.display-image'),
+                      thumbnailPath: _displayPath(preview),
+                      representation: AuthenticatedMediaRepresentation.display,
+                      fit: BoxFit.cover,
+                      cacheWidth: decodeSize.cacheWidth,
+                      cacheHeight: decodeSize.cacheHeight,
+                      placeholder: const _PhotoLoading(),
+                      errorBuilder: (_) {
+                        return _PhotoFallback(
+                          key: const ValueKey(
+                            'story-playback.photo-unavailable',
+                          ),
+                          label: l10n.playbackPhotoUnavailable,
+                          icon: Icons.broken_image_outlined,
+                        );
+                      },
                     );
                   },
                 ),

@@ -254,7 +254,7 @@ JustAudioPlaybackAudioController createController(
   FakeJustAudioPlayerPort player,
 ) {
   return JustAudioPlaybackAudioController(
-    appConfig: const AppConfig(apiBaseUrl: 'https://api.example.test/base'),
+    appConfig: AppConfig(apiBaseUrl: 'https://api.example.test/base'),
     authorizedSessionManager: sessions,
     player: player,
   );

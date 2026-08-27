@@ -23,6 +23,7 @@ import 'package:memory_map/features/playback/application/audio/playback_audio_co
 import 'package:memory_map/features/playback/application/audio/playback_audio_orchestrator.dart';
 import 'package:memory_map/features/playback/application/audio/playback_audio_provider.dart';
 import 'package:memory_map/features/playback/application/audio/playback_audio_state.dart';
+import 'package:memory_map/features/playback/application/playback_media_prefetcher.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler_provider.dart';
 import 'package:memory_map/features/playback/application/playback_session_state.dart';
@@ -967,6 +968,206 @@ void main() {
     });
   });
 
+  group('StoryPlaybackNotifier media prefetch', () {
+    test('shouldStartNextDisplayPrefetchWhenPlaybackStarts', () async {
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher();
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[
+          readModel(memoryA),
+          readModel(memoryB, previewPhoto: previewPhoto(mediaId: 'media-b')),
+        ];
+      final container = createContainer(
+        repository,
+        FakePlaybackScheduler(),
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      expect(mediaPrefetcher.displayPaths, <String>[
+        '/api/v1/media/media-b/display',
+      ]);
+    });
+
+    test('shouldNotPrefetchWhenThereIsNoNextMemory', () async {
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher();
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[
+          readModel(memoryA, previewPhoto: previewPhoto(mediaId: 'media-a')),
+        ];
+      final container = createContainer(
+        repository,
+        FakePlaybackScheduler(),
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      expect(mediaPrefetcher.displayPaths, isEmpty);
+    });
+
+    test('shouldNotPrefetchWhenNextMemoryHasNoPreviewPhoto', () async {
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher();
+      final repository = FakeMemoryRepository()
+        ..memoryReadModelsResult = <MemoryReadModel>[
+          readModel(memoryA, previewPhoto: previewPhoto(mediaId: 'media-a')),
+          readModel(memoryB),
+        ];
+      final container = createContainer(
+        repository,
+        FakePlaybackScheduler(),
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      addTearDown(container.dispose);
+      holdPlaybackSession(container, 'story-1');
+
+      await waitForPlaybackSession(container, 'story-1');
+      await pumpEventQueue();
+
+      expect(mediaPrefetcher.displayPaths, isEmpty);
+    });
+
+    test('shouldNotAwaitPrefetchBeforePlaybackProgression', () async {
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher()
+        ..pendingCompleters.add(Completer<void>());
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        memories: <MemoryReadModel>[
+          readModel(memoryA),
+          readModel(memoryB, previewPhoto: previewPhoto(mediaId: 'media-b')),
+          readModel(memoryC, previewPhoto: previewPhoto(mediaId: 'media-c')),
+        ],
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+
+      notifier.next();
+
+      expect(playback(container).currentMemory?.memory.id, memoryB.id);
+      expect(playback(container).phase, PlaybackPhase.moving);
+    });
+
+    test('shouldKeepPlaybackStateWhenPrefetchFails', () async {
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher()
+        ..failures.add(Object());
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        memories: <MemoryReadModel>[
+          readModel(memoryA),
+          readModel(memoryB, previewPhoto: previewPhoto(mediaId: 'media-b')),
+        ],
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      addTearDown(container.dispose);
+      await pumpEventQueue();
+
+      expect(playback(container).status, PlaybackStatus.playing);
+      expect(playback(container).currentMemory?.memory.id, memoryA.id);
+    });
+
+    test('shouldUseNextOnlyLookaheadAcrossRapidNextAndPrevious', () async {
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher();
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        memories: <MemoryReadModel>[
+          readModel(memoryA),
+          readModel(memoryB, previewPhoto: previewPhoto(mediaId: 'media-b')),
+          readModel(memoryC, previewPhoto: previewPhoto(mediaId: 'media-c')),
+        ],
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+
+      notifier.next();
+      notifier.previous();
+      await pumpEventQueue();
+
+      expect(mediaPrefetcher.displayPaths, <String>[
+        '/api/v1/media/media-b/display',
+        '/api/v1/media/media-c/display',
+        '/api/v1/media/media-b/display',
+      ]);
+      expect(playback(container).currentMemory?.memory.id, memoryA.id);
+    });
+
+    test('shouldAllowActivePrefetchToFinishWhilePaused', () async {
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher();
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        memories: <MemoryReadModel>[
+          readModel(memoryA),
+          readModel(memoryB, previewPhoto: previewPhoto(mediaId: 'media-b')),
+        ],
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+
+      notifier.pause();
+      await pumpEventQueue();
+
+      expect(playback(container).status, PlaybackStatus.paused);
+      expect(mediaPrefetcher.displayPaths, <String>[
+        '/api/v1/media/media-b/display',
+      ]);
+    });
+
+    test('shouldResetPrefetchGuardOnReplay', () async {
+      final scheduler = FakePlaybackScheduler();
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher();
+      final container = await readyContainer(
+        scheduler,
+        memories: <MemoryReadModel>[
+          readModel(memoryA),
+          readModel(memoryB, previewPhoto: previewPhoto(mediaId: 'media-b')),
+        ],
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(storyPlaybackProvider('story-1').notifier);
+
+      notifier.cameraArrived(playback(container).cameraRevision);
+      scheduler.latest.fire();
+      notifier.replay();
+      await pumpEventQueue();
+
+      expect(mediaPrefetcher.displayPaths, <String>[
+        '/api/v1/media/media-b/display',
+        '/api/v1/media/media-b/display',
+      ]);
+    });
+
+    test('shouldRemainSafeWhenDisposedDuringActivePrefetch', () async {
+      final mediaPrefetcher = FakePlaybackMediaPrefetcher()
+        ..pendingCompleters.add(Completer<void>());
+      final container = await readyContainer(
+        FakePlaybackScheduler(),
+        memories: <MemoryReadModel>[
+          readModel(memoryA),
+          readModel(memoryB, previewPhoto: previewPhoto(mediaId: 'media-b')),
+        ],
+        mediaPrefetcher: mediaPrefetcher,
+      );
+      final activePrefetch = mediaPrefetcher.startedCompleters.single;
+
+      container.dispose();
+      activePrefetch.complete();
+      await pumpEventQueue();
+
+      expect(mediaPrefetcher.displayPaths, <String>[
+        '/api/v1/media/media-b/display',
+      ]);
+    });
+  });
+
   group('StoryPlaybackNotifier retry, isolation, and privacy', () {
     test('shouldRetryInitialFailureAndStartOnceAfterSuccess', () async {
       final repository = FakeMemoryRepository()
@@ -1082,11 +1283,15 @@ ProviderContainer createContainer(
   FakeStorySoundtrackRepository? soundtrackRepository,
   FakePlaybackAudioController? audioController,
   FakePlaybackAudioSessionOrchestrator? audioOrchestrator,
+  FakePlaybackMediaPrefetcher? mediaPrefetcher,
 }) {
   return ProviderContainer(
     overrides: [
       memoryRepositoryProvider.overrideWithValue(repository),
       playbackSchedulerProvider.overrideWithValue(scheduler),
+      playbackMediaPrefetcherProvider.overrideWithValue(
+        mediaPrefetcher ?? FakePlaybackMediaPrefetcher(),
+      ),
       if (useRealAudioOrchestrator) ...[
         storySoundtrackRepositoryProvider.overrideWithValue(
           soundtrackRepository ?? FakeStorySoundtrackRepository(),
@@ -1107,6 +1312,7 @@ Future<ProviderContainer> readyContainer(
   FakePlaybackScheduler scheduler, {
   List<MemoryReadModel>? memories,
   FakePlaybackAudioSessionOrchestrator? audioOrchestrator,
+  FakePlaybackMediaPrefetcher? mediaPrefetcher,
 }) async {
   final repository = FakeMemoryRepository()
     ..memoryReadModelsResult = memories ??
@@ -1118,6 +1324,7 @@ Future<ProviderContainer> readyContainer(
     repository,
     scheduler,
     audioOrchestrator: audioOrchestrator,
+    mediaPrefetcher: mediaPrefetcher,
   );
   holdPlaybackSession(container, 'story-1');
   await waitForPlaybackSession(container, 'story-1');
@@ -1223,6 +1430,35 @@ final MusicTrack trackA = MusicTrack(
   artist: 'LofCosmos',
   durationSeconds: 270,
 );
+
+final class FakePlaybackMediaPrefetcher implements PlaybackMediaPrefetcher {
+  final List<String> displayPaths = <String>[];
+  final List<Object> failures = <Object>[];
+  final List<Completer<void>> pendingCompleters = <Completer<void>>[];
+  final List<Completer<void>> startedCompleters = <Completer<void>>[];
+
+  @override
+  Future<void> prefetchNext(StoryPlaybackState playback) {
+    final displayPath = nextPlaybackDisplayPath(playback);
+    if (displayPath == null) {
+      return Future<void>.value();
+    }
+
+    displayPaths.add(displayPath);
+    if (failures.isNotEmpty) {
+      failures.removeAt(0);
+      return Future<void>.value();
+    }
+
+    if (pendingCompleters.isNotEmpty) {
+      final completer = pendingCompleters.removeAt(0);
+      startedCompleters.add(completer);
+      return completer.future;
+    }
+
+    return Future<void>.value();
+  }
+}
 
 final class FakePlaybackAudioSessionOrchestrator
     implements PlaybackAudioSessionOrchestrator {

@@ -7,6 +7,7 @@ import 'package:memory_map/features/memory/domain/memory_failure.dart';
 import 'package:memory_map/features/playback/application/audio/playback_audio_orchestrator.dart';
 import 'package:memory_map/features/playback/application/audio/playback_audio_provider.dart';
 import 'package:memory_map/features/playback/application/playback_camera_failure.dart';
+import 'package:memory_map/features/playback/application/playback_media_prefetcher.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler.dart';
 import 'package:memory_map/features/playback/application/playback_scheduler_provider.dart';
 import 'package:memory_map/features/playback/application/playback_session_state.dart';
@@ -20,13 +21,16 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
   final String _storyId;
   PlaybackScheduler? _scheduler;
   PlaybackAudioSessionOrchestrator? _audioOrchestrator;
+  PlaybackMediaPrefetcher? _mediaPrefetcher;
   PlaybackScheduledTask? _presentationTask;
   int? _scheduledPresentationRevision;
+  String? _lastPrefetchedDisplayPath;
   bool _hasCapturedInitialResource = false;
 
   @override
   PlaybackSessionState build() {
     _scheduler = ref.read(playbackSchedulerProvider);
+    _mediaPrefetcher = ref.read(playbackMediaPrefetcherProvider);
     final audioOrchestrator = ref.watch(
       playbackAudioOrchestratorProvider(_storyId),
     );
@@ -132,6 +136,7 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
   }
 
   void replay() {
+    _lastPrefetchedDisplayPath = null;
     if (_transition(
       (playback) => playback.replay(),
       allowCameraFailure: true,
@@ -175,6 +180,7 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
       unawaited(_audioOrchestrator!.playbackStarted());
       unawaited(_audioOrchestrator!.startSession(storyId: _storyId));
     }
+    _reconcilePlaybackSideEffects(null, playback);
 
     return PlaybackSessionState.session(playback);
   }
@@ -208,8 +214,31 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
     }
 
     state = PlaybackSessionState.session(nextPlayback);
-    _reconcilePresentationTimer(previousPlayback, nextPlayback);
+    _reconcilePlaybackSideEffects(previousPlayback, nextPlayback);
     return true;
+  }
+
+  void _reconcilePlaybackSideEffects(
+    StoryPlaybackState? previousPlayback,
+    StoryPlaybackState nextPlayback,
+  ) {
+    _reconcilePresentationTimer(previousPlayback, nextPlayback);
+    _reconcileNextMediaPrefetch(nextPlayback);
+  }
+
+  void _reconcileNextMediaPrefetch(StoryPlaybackState playback) {
+    if (playback.isIdle || playback.isFinished) {
+      _lastPrefetchedDisplayPath = null;
+      return;
+    }
+
+    final displayPath = nextPlaybackDisplayPath(playback);
+    if (displayPath == null || displayPath == _lastPrefetchedDisplayPath) {
+      return;
+    }
+
+    _lastPrefetchedDisplayPath = displayPath;
+    unawaited(_mediaPrefetcher!.prefetchNext(playback));
   }
 
   void _reconcilePresentationTimer(
