@@ -1,6 +1,7 @@
 package memory_map.backend.auth.security;
 
 import memory_map.backend.ratelimit.RequestRateLimitFilter;
+import memory_map.backend.user.repository.UserRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,8 +48,17 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider() {
+    public CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider(
+            ObjectProvider<UserRepository> userRepositoryProvider
+    ) {
+        UserRepository userRepository = userRepositoryProvider.getIfAvailable();
 
-        return new SpringSecurityCurrentAuthenticatedUserProvider();
+        if (userRepository == null) {
+            return new SpringSecurityCurrentAuthenticatedUserProvider();
+        }
+
+        return new SpringSecurityCurrentAuthenticatedUserProvider(
+                userRepository
+        );
     }
 }

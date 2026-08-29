@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/app/language/app_language_preference.dart';
+import 'package:memory_map/app/language/app_language_preference_storage.dart';
+import 'package:memory_map/app/language/file_app_language_preference_storage.dart';
 import 'package:memory_map/app/app.dart';
 import 'package:memory_map/features/auth/application/auth_application_providers.dart';
 import 'package:memory_map/features/auth/domain/auth_repository.dart';
@@ -51,6 +54,79 @@ void main() {
     expect(find.text('Проверяем ваш сеанс…'), findsOneWidget);
   });
 
+  testWidgets('shouldUsePersistedRussianLanguagePreference', (
+    WidgetTester tester,
+  ) async {
+    final restoreCompleter = Completer<AuthSession?>();
+    final fakeRepository = FakeAuthRepository()
+      ..restoreCompleter = restoreCompleter;
+    addTearDown(() {
+      if (!restoreCompleter.isCompleted) {
+        restoreCompleter.complete(null);
+      }
+    });
+
+    await pumpApp(
+      tester,
+      fakeRepository,
+      locale: const Locale('en'),
+      languageStorage: FakeAppLanguagePreferenceStorage()
+        ..storedPreference = AppLanguagePreference.russian,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Проверяем ваш сеанс…'), findsOneWidget);
+  });
+
+  testWidgets('shouldFallbackUnsupportedSystemLocaleToEnglish', (
+    WidgetTester tester,
+  ) async {
+    final restoreCompleter = Completer<AuthSession?>();
+    final fakeRepository = FakeAuthRepository()
+      ..restoreCompleter = restoreCompleter;
+    addTearDown(() {
+      if (!restoreCompleter.isCompleted) {
+        restoreCompleter.complete(null);
+      }
+    });
+
+    await pumpApp(
+      tester,
+      fakeRepository,
+      locale: const Locale('fr'),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Checking your session…'), findsOneWidget);
+  });
+
+  testWidgets('shouldUsePersistedEnglishLanguagePreference', (
+    WidgetTester tester,
+  ) async {
+    final restoreCompleter = Completer<AuthSession?>();
+    final fakeRepository = FakeAuthRepository()
+      ..restoreCompleter = restoreCompleter;
+    addTearDown(() {
+      if (!restoreCompleter.isCompleted) {
+        restoreCompleter.complete(null);
+      }
+    });
+
+    await pumpApp(
+      tester,
+      fakeRepository,
+      locale: const Locale('ru'),
+      languageStorage: FakeAppLanguagePreferenceStorage()
+        ..storedPreference = AppLanguagePreference.english,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Checking your session…'), findsOneWidget);
+  });
+
   testWidgets('shouldCreateMaterialAppRouter', (WidgetTester tester) async {
     final restoreCompleter = Completer<AuthSession?>();
     final fakeRepository = FakeAuthRepository()
@@ -92,6 +168,7 @@ Future<void> pumpApp(
   WidgetTester tester,
   FakeAuthRepository fakeRepository, {
   Locale? locale,
+  FakeAppLanguagePreferenceStorage? languageStorage,
 }) async {
   if (locale != null) {
     tester.platformDispatcher.localeTestValue = locale;
@@ -106,11 +183,29 @@ Future<void> pumpApp(
     ProviderScope(
       overrides: [
         authRepositoryProvider.overrideWithValue(fakeRepository),
+        appLanguagePreferenceStorageProvider.overrideWithValue(
+          languageStorage ?? FakeAppLanguagePreferenceStorage(),
+        ),
       ],
       child: const MemoryMapApp(),
     ),
   );
   await tester.pump();
+}
+
+final class FakeAppLanguagePreferenceStorage
+    implements AppLanguagePreferenceStorage {
+  AppLanguagePreference? storedPreference;
+
+  @override
+  Future<AppLanguagePreference?> read() async {
+    return storedPreference;
+  }
+
+  @override
+  Future<void> write(AppLanguagePreference preference) async {
+    storedPreference = preference;
+  }
 }
 
 final class FakeAuthRepository implements AuthRepository {

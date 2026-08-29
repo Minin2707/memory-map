@@ -493,6 +493,14 @@ final class FakeAuthorizedSessionManager
     invalidateCalls += 1;
     session = null;
   }
+
+  @override
+  Future<AuthSession?> updateCurrentSessionUserIfStillCurrent({
+    required AuthSession expectedSession,
+    required AuthUser updatedUser,
+  }) {
+    throw UnimplementedError();
+  }
 }
 
 final class FakeHttpClientAdapter implements HttpClientAdapter {

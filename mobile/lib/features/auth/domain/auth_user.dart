@@ -3,6 +3,7 @@ final class AuthUser {
     required String id,
     required String displayName,
     String? avatarUrl,
+    bool hasCustomAvatar = false,
   }) {
     if (id.trim().isEmpty) {
       throw ArgumentError('id must not be blank');
@@ -16,6 +17,7 @@ final class AuthUser {
       id: id,
       displayName: displayName,
       avatarUrl: avatarUrl,
+      hasCustomAvatar: hasCustomAvatar,
     );
   }
 
@@ -23,11 +25,13 @@ final class AuthUser {
     required this.id,
     required this.displayName,
     this.avatarUrl,
+    this.hasCustomAvatar = false,
   });
 
   final String id;
   final String displayName;
   final String? avatarUrl;
+  final bool hasCustomAvatar;
 
   @override
   bool operator ==(Object other) {
@@ -35,7 +39,8 @@ final class AuthUser {
         other is AuthUser &&
             id == other.id &&
             displayName == other.displayName &&
-            avatarUrl == other.avatarUrl;
+            avatarUrl == other.avatarUrl &&
+            hasCustomAvatar == other.hasCustomAvatar;
   }
 
   @override
@@ -43,10 +48,12 @@ final class AuthUser {
         id,
         displayName,
         avatarUrl,
+        hasCustomAvatar,
       );
 
   @override
   String toString() {
-    return 'AuthUser(id: $id, displayName: $displayName, avatarUrl: $avatarUrl)';
+    return 'AuthUser(id: $id, displayName: $displayName, '
+        'avatarUrl: $avatarUrl, hasCustomAvatar: $hasCustomAvatar)';
   }
 }

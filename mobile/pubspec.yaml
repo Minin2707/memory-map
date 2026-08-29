@@ -45,6 +45,7 @@ dependencies:
   just_audio: 0.10.6
   maplibre_gl: ^0.26.2
   intl: ^0.20.2
+  path_provider: 2.1.5
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

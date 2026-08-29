@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/features/auth/presentation/auth_user_avatar.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/stories_state.dart';
 import 'package:memory_map/features/story/presentation/story_failure_message.dart';
@@ -13,6 +14,7 @@ class StoriesScreen extends ConsumerWidget {
     required this.displayName,
     this.avatarUrl,
     this.onCreateStory,
+    this.onProfileSelected,
     this.onStorySelected,
     super.key,
   });
@@ -20,6 +22,7 @@ class StoriesScreen extends ConsumerWidget {
   final String displayName;
   final String? avatarUrl;
   final VoidCallback? onCreateStory;
+  final VoidCallback? onProfileSelected;
   final ValueChanged<String>? onStorySelected;
 
   @override
@@ -51,6 +54,7 @@ class StoriesScreen extends ConsumerWidget {
                     displayName: greetingName,
                     avatarDisplayName: effectiveDisplayName,
                     avatarUrl: avatarUrl,
+                    onProfileSelected: onProfileSelected,
                   ),
                 ),
               ),
@@ -218,11 +222,13 @@ class _StoriesHeader extends StatelessWidget {
     required this.displayName,
     required this.avatarDisplayName,
     required this.avatarUrl,
+    required this.onProfileSelected,
   });
 
   final String displayName;
   final String avatarDisplayName;
   final String? avatarUrl;
+  final VoidCallback? onProfileSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -284,6 +290,7 @@ class _StoriesHeader extends StatelessWidget {
         _StoriesAvatar(
           displayName: avatarDisplayName,
           avatarUrl: avatarUrl,
+          onSelected: onProfileSelected,
         ),
       ],
     );
@@ -317,49 +324,41 @@ class _StoriesAvatar extends StatelessWidget {
   const _StoriesAvatar({
     required this.displayName,
     required this.avatarUrl,
+    required this.onSelected,
   });
 
   final String displayName;
   final String? avatarUrl;
+  final VoidCallback? onSelected;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final effectiveAvatarUrl = avatarUrl?.trim();
-    final foregroundImage =
-        effectiveAvatarUrl == null || effectiveAvatarUrl.isEmpty
-            ? null
-            : NetworkImage(effectiveAvatarUrl);
 
     return Semantics(
-      label: l10n.storiesAvatarLabel(displayName),
+      label: l10n.storiesOpenProfileLabel(displayName),
+      button: true,
       image: true,
-      child: CircleAvatar(
-        key: const ValueKey('stories.header.avatar'),
-        radius: 26,
-        foregroundImage: foregroundImage,
-        onForegroundImageError: foregroundImage == null ? null : (_, __) {},
-        backgroundColor: const Color(0xFFFFE6EA),
-        child: Text(
-          _initial(displayName),
-          style: const TextStyle(
-            color: Color(0xFFFF5D72),
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: const ValueKey('stories.header.profile-action'),
+          customBorder: const CircleBorder(),
+          onTap: onSelected,
+          child: AuthUserAvatar(
+            key: const ValueKey('stories.header.avatar'),
+            displayName: displayName,
+            avatarUrl: avatarUrl,
+            radius: 26,
+            backgroundColor: const Color(0xFFFFE6EA),
+            foregroundColor: const Color(0xFFFF5D72),
+            cacheDimension: 128,
           ),
         ),
       ),
     );
-  }
-
-  String _initial(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      return '?';
-    }
-
-    return trimmed.substring(0, 1).toUpperCase();
   }
 }
 

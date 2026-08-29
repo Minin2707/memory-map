@@ -125,6 +125,85 @@ void main() {
     });
   });
 
+  group('DefaultAuthorizedSessionManager guarded user update', () {
+    test('shouldDropUserUpdateWhenSessionIsUnavailable', () async {
+      final fakes = ManagerFakes();
+      final manager = fakes.createManager();
+
+      final result = await manager.updateCurrentSessionUserIfStillCurrent(
+        expectedSession: session,
+        updatedUser: renamedUser,
+      );
+
+      expect(result, isNull);
+      expect(fakes.storage.writeCalls, 0);
+      expect(fakes.store.session, isNull);
+    });
+
+    test('shouldDropUserUpdateWhenDifferentUserIsCurrent', () async {
+      final fakes = ManagerFakes()..store.setSession(otherSession);
+      final manager = fakes.createManager();
+
+      final result = await manager.updateCurrentSessionUserIfStillCurrent(
+        expectedSession: session,
+        updatedUser: renamedUser,
+      );
+
+      expect(result, isNull);
+      expect(fakes.storage.writeCalls, 0);
+      expect(fakes.store.session, otherSession);
+    });
+
+    test('shouldPreserveCurrentTokensWhenSameUserSessionWasRefreshed',
+        () async {
+      final fakes = ManagerFakes()..store.setSession(refreshedSession);
+      final manager = fakes.createManager();
+
+      final result = await manager.updateCurrentSessionUserIfStillCurrent(
+        expectedSession: session,
+        updatedUser: renamedUser,
+      );
+
+      expect(result?.user, renamedUser);
+      expect(result?.tokens, rotatedTokens);
+      expect(fakes.storage.writtenSession?.tokens, rotatedTokens);
+      expect(fakes.store.session?.tokens, rotatedTokens);
+    });
+
+    test('shouldDropUserUpdateWhenResponseBelongsToDifferentUser', () async {
+      final fakes = ManagerFakes()..store.setSession(session);
+      final manager = fakes.createManager();
+
+      final result = await manager.updateCurrentSessionUserIfStillCurrent(
+        expectedSession: session,
+        updatedUser: otherSession.user,
+      );
+
+      expect(result, isNull);
+      expect(fakes.storage.writeCalls, 0);
+      expect(fakes.store.session, session);
+    });
+
+    test('shouldPublishInMemoryUserUpdateWhenStorageWriteFails', () async {
+      final fakes = ManagerFakes()
+        ..store.setSession(refreshedSession)
+        ..storage.writeFailure = const AuthSessionStorageException();
+      final manager = fakes.createManager();
+
+      await expectLater(
+        manager.updateCurrentSessionUserIfStillCurrent(
+          expectedSession: session,
+          updatedUser: renamedUser,
+        ),
+        throwsA(isA<AuthorizedSessionPersistenceException>()),
+      );
+
+      expect(fakes.storage.clearCalls, 0);
+      expect(fakes.store.session?.user, renamedUser);
+      expect(fakes.store.session?.tokens, rotatedTokens);
+    });
+  });
+
   group('DefaultAuthorizedSessionManager refresh failure', () {
     test('shouldInvalidateOnUnauthorizedRefresh', () async {
       final fakes = ManagerFakes()
@@ -214,6 +293,20 @@ void main() {
         manager.refreshCurrentSession(session),
         throwsA(isA<UnexpectedManagerException>()),
       );
+    });
+  });
+
+  group('DefaultAuthorizedSessionManager explicit invalidation', () {
+    test('shouldClearInMemorySessionWhenStorageClearFails', () async {
+      final fakes = ManagerFakes()
+        ..store.setSession(session)
+        ..storage.clearFailure = const AuthSessionStorageException();
+      final manager = fakes.createManager();
+
+      await manager.invalidateCurrentSession(session);
+
+      expect(fakes.storage.clearCalls, 1);
+      expect(fakes.store.session, isNull);
     });
   });
 }
@@ -356,6 +449,24 @@ final AuthTokens rotatedTokens = AuthTokens(
 final AuthSession refreshedSession = AuthSession(
   user: session.user,
   tokens: rotatedTokens,
+);
+
+final AuthUser renamedUser = AuthUser(
+  id: 'user-id',
+  displayName: 'Grace Hopper',
+  avatarUrl: 'https://example.com/avatar.png',
+);
+
+final AuthSession otherSession = AuthSession(
+  user: AuthUser(
+    id: 'other-user-id',
+    displayName: 'Katherine Johnson',
+    avatarUrl: 'https://example.com/other-avatar.png',
+  ),
+  tokens: AuthTokens(
+    accessToken: 'other-access-token',
+    refreshToken: 'other-refresh-token',
+  ),
 );
 
 final class UnexpectedManagerException implements Exception {

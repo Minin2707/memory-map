@@ -93,6 +93,14 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
               AND revoked_at IS NULL
             """;
 
+    private static final String REVOKE_ACTIVE_BY_USER_ID_SQL = """
+            UPDATE refresh_tokens
+            SET revoked_at = :revokedAt
+            WHERE user_id = :userId
+              AND consumed_at IS NULL
+              AND revoked_at IS NULL
+            """;
+
     private static final String DELETE_SQL = """
             DELETE FROM refresh_tokens
             WHERE id = :id
@@ -217,6 +225,20 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
     ) {
         return jdbcClient.sql(REVOKE_ACTIVE_FAMILY_SQL)
                 .param("familyId", familyId)
+                .param(
+                        "revokedAt",
+                        DatabaseTimestamps.toOffsetDateTime(revokedAt)
+                )
+                .update();
+    }
+
+    @Override
+    public int revokeActiveByUserId(
+            UUID userId,
+            Instant revokedAt
+    ) {
+        return jdbcClient.sql(REVOKE_ACTIVE_BY_USER_ID_SQL)
+                .param("userId", userId)
                 .param(
                         "revokedAt",
                         DatabaseTimestamps.toOffsetDateTime(revokedAt)

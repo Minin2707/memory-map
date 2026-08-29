@@ -14,6 +14,7 @@ import memory_map.backend.auth.refresh.RefreshTokenRotationResult;
 import memory_map.backend.auth.refresh.RefreshTokenRotationService;
 import memory_map.backend.common.config.ClockConfig;
 import memory_map.backend.user.domain.User;
+import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -40,10 +41,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -120,6 +123,26 @@ class SecurityConfigurationTest {
     void shouldRejectProtectedEndpointWithoutBearerToken() throws Exception {
 
         mockMvc.perform(get(PROTECTED_ENDPOINT))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectAvatarEndpointWithoutBearerToken() throws Exception {
+
+        mockMvc.perform(get("/api/v1/me/avatar"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectDisplayNameEndpointWithoutBearerToken() throws Exception {
+
+        mockMvc.perform(patch("/api/v1/me/display-name")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "displayName": "Anna"
+                                }
+                                """))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -363,6 +386,34 @@ class SecurityConfigurationTest {
         @Bean
         RefreshTokenLogoutService refreshTokenLogoutService() {
             return (refreshToken, currentTime) -> {
+            };
+        }
+
+        @Bean
+        UserRepository userRepository() {
+            return new UserRepository() {
+
+                @Override
+                public User save(User user) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Optional<User> findById(UUID id) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public boolean existsActiveById(UUID id) {
+                    return true;
+                }
+
+                @Override
+                public Optional<User> findByGoogleSubject(
+                        String googleSubject
+                ) {
+                    throw new UnsupportedOperationException();
+                }
             };
         }
 

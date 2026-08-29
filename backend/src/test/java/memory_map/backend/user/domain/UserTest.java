@@ -34,9 +34,31 @@ class UserTest {
         assertThat(user.id()).isEqualTo(USER_ID);
         assertThat(user.googleSubject()).isEqualTo("google-subject-123");
         assertThat(user.displayName()).isEqualTo("Konstantin");
+        assertThat(user.displayNameCustomized()).isFalse();
         assertThat(user.avatarUrl()).isEqualTo("https://example.com/avatar.png");
         assertThat(user.createdAt()).isEqualTo(CREATED_AT);
         assertThat(user.updatedAt()).isEqualTo(UPDATED_AT);
+        assertThat(user.deletedAt()).isNull();
+        assertThat(user.isDeleted()).isFalse();
+    }
+
+    @Test
+    void shouldAllowCustomizedDisplayNameMarker() {
+
+        User user = new User(
+                USER_ID,
+                "google-subject-123",
+                "Konstantin",
+                true,
+                "https://example.com/avatar.png",
+                null,
+                null,
+                CREATED_AT,
+                UPDATED_AT,
+                null
+        );
+
+        assertThat(user.displayNameCustomized()).isTrue();
     }
 
     @Test
@@ -52,6 +74,77 @@ class UserTest {
         );
 
         assertThat(user.avatarUrl()).isNull();
+    }
+
+    @Test
+    void shouldAllowCustomAvatarMetadataPair() {
+
+        User user = new User(
+                USER_ID,
+                "google-subject-123",
+                "Konstantin",
+                "https://example.com/avatar.png",
+                "users/%s/avatar/avatar-object".formatted(USER_ID),
+                UPDATED_AT,
+                CREATED_AT,
+                UPDATED_AT,
+                null
+        );
+
+        assertThat(user.customAvatarStorageKey())
+                .isEqualTo("users/%s/avatar/avatar-object".formatted(USER_ID));
+        assertThat(user.customAvatarUpdatedAt()).isEqualTo(UPDATED_AT);
+        assertThat(user.hasCustomAvatar()).isTrue();
+    }
+
+    @Test
+    void shouldRejectIncompleteCustomAvatarMetadata() {
+
+        assertThatThrownBy(() -> new User(
+                USER_ID,
+                "google-subject-123",
+                "Konstantin",
+                "https://example.com/avatar.png",
+                "users/%s/avatar/avatar-object".formatted(USER_ID),
+                null,
+                CREATED_AT,
+                UPDATED_AT,
+                null
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("custom avatar key and timestamp must be set together");
+
+        assertThatThrownBy(() -> new User(
+                USER_ID,
+                "google-subject-123",
+                "Konstantin",
+                "https://example.com/avatar.png",
+                null,
+                UPDATED_AT,
+                CREATED_AT,
+                UPDATED_AT,
+                null
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("custom avatar key and timestamp must be set together");
+    }
+
+    @Test
+    void shouldRejectBlankCustomAvatarStorageKey() {
+
+        assertThatThrownBy(() -> new User(
+                USER_ID,
+                "google-subject-123",
+                "Konstantin",
+                "https://example.com/avatar.png",
+                "   ",
+                UPDATED_AT,
+                CREATED_AT,
+                UPDATED_AT,
+                null
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("customAvatarStorageKey must not be blank");
     }
 
     @Test
@@ -82,6 +175,24 @@ class UserTest {
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("googleSubject must not be null");
+    }
+
+    @Test
+    void shouldAllowNullGoogleSubjectForDeletedUser() {
+
+        User user = new User(
+                USER_ID,
+                null,
+                "Deleted user",
+                null,
+                CREATED_AT,
+                UPDATED_AT,
+                UPDATED_AT
+        );
+
+        assertThat(user.googleSubject()).isNull();
+        assertThat(user.deletedAt()).isEqualTo(UPDATED_AT);
+        assertThat(user.isDeleted()).isTrue();
     }
 
     @Test

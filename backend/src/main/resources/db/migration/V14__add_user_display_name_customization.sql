@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ADD COLUMN display_name_customized BOOLEAN NOT NULL DEFAULT FALSE;

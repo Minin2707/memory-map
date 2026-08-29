@@ -3,6 +3,7 @@ package memory_map.backend.storyparticipant.repository;
 import memory_map.backend.common.database.DatabaseTimestamps;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,12 +21,14 @@ public class JdbcStoryParticipantRepository implements StoryParticipantRepositor
                 role,
                 joined_at
             )
-            VALUES (
+            SELECT
                 :storyId,
-                :userId,
+                users.id,
                 :role,
                 :joinedAt
-            )
+            FROM users
+            WHERE users.id = :userId
+              AND users.deleted_at IS NULL
             """;
 
     private static final String FIND_SQL = """
@@ -150,12 +153,18 @@ public class JdbcStoryParticipantRepository implements StoryParticipantRepositor
     @Override
     public void save(StoryParticipant participant) {
 
-        jdbcClient.sql(INSERT_SQL)
+        int updatedRows = jdbcClient.sql(INSERT_SQL)
                 .param("storyId", participant.storyId())
                 .param("userId", participant.userId())
                 .param("role", participant.role().name())
                 .param("joinedAt", DatabaseTimestamps.toOffsetDateTime(participant.joinedAt()))
                 .update();
+
+        if (updatedRows != 1) {
+            throw new DataIntegrityViolationException(
+                    "Story participant user must be active"
+            );
+        }
     }
 
     @Override

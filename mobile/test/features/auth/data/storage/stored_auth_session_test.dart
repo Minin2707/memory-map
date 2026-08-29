@@ -27,6 +27,7 @@ void main() {
           'id': 'user-id',
           'displayName': 'Ada Lovelace',
           'avatarUrl': null,
+          'hasCustomAvatar': false,
         },
       );
 
@@ -41,6 +42,7 @@ void main() {
           'id': 'user-id',
           'displayName': 'Ada Lovelace',
           'avatarUrl': '   ',
+          'hasCustomAvatar': false,
         },
       );
 
@@ -58,6 +60,29 @@ void main() {
 
       final restored = StoredAuthSession.fromJson(decoded).toDomain();
 
+      expect(restored, session);
+    });
+
+    test('shouldPreserveUpdatedDisplayNameAcrossJsonRoundTrip', () {
+      final session = AuthSession(
+        user: AuthUser(
+          id: 'user-id',
+          displayName: 'Анна-Мария',
+          avatarUrl: null,
+        ),
+        tokens: AuthTokens(
+          accessToken: 'signed-access-token',
+          refreshToken: 'raw-refresh-token',
+        ),
+      );
+      final encoded = jsonEncode(
+        StoredAuthSession.fromDomain(session).toJson(),
+      );
+      final decoded = jsonDecode(encoded);
+
+      final restored = StoredAuthSession.fromJson(decoded).toDomain();
+
+      expect(restored.user.displayName, 'Анна-Мария');
       expect(restored, session);
     });
 
@@ -259,6 +284,7 @@ Map<String, Object?> validUserJson() {
     'id': 'user-id',
     'displayName': 'Ada Lovelace',
     'avatarUrl': 'https://example.com/avatar.png',
+    'hasCustomAvatar': false,
   };
 }
 

@@ -2365,6 +2365,372 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Memory photo'**
   String get playbackMemoryPhotoLabel;
+
+  /// No description provided for @storiesOpenProfileLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {displayName}\'s profile'**
+  String storiesOpenProfileLabel(String displayName);
+
+  /// No description provided for @profileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileTitle;
+
+  /// No description provided for @profileBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to stories'**
+  String get profileBackLabel;
+
+  /// No description provided for @profileCreatorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory Creator'**
+  String get profileCreatorLabel;
+
+  /// No description provided for @profileQuote.
+  ///
+  /// In en, this message translates to:
+  /// **'Every memory deserves a place to live.'**
+  String get profileQuote;
+
+  /// No description provided for @profileAccountSection.
+  ///
+  /// In en, this message translates to:
+  /// **'ACCOUNT'**
+  String get profileAccountSection;
+
+  /// No description provided for @profilePhotoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile Photo'**
+  String get profilePhotoTitle;
+
+  /// No description provided for @profilePhotoSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Google avatar for now'**
+  String get profilePhotoSubtitle;
+
+  /// No description provided for @profilePhotoCustomSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Memory Story avatar'**
+  String get profilePhotoCustomSubtitle;
+
+  /// No description provided for @profileAvatarChooseAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose photo'**
+  String get profileAvatarChooseAction;
+
+  /// No description provided for @profileAvatarReplaceAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace photo'**
+  String get profileAvatarReplaceAction;
+
+  /// No description provided for @profileAvatarRemoveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get profileAvatarRemoveAction;
+
+  /// No description provided for @profileAvatarUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading...'**
+  String get profileAvatarUploading;
+
+  /// No description provided for @profileAvatarFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile photo could not be updated. Check your connection and try again.'**
+  String get profileAvatarFailure;
+
+  /// No description provided for @profileAvatarInvalidFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a JPEG or PNG photo under the upload limit.'**
+  String get profileAvatarInvalidFailure;
+
+  /// No description provided for @profileAvatarUnauthorizedFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired. Sign in again before changing your photo.'**
+  String get profileAvatarUnauthorizedFailure;
+
+  /// No description provided for @profileDisplayNameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Display Name'**
+  String get profileDisplayNameTitle;
+
+  /// No description provided for @profileDisplayNameEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit display name'**
+  String get profileDisplayNameEditTitle;
+
+  /// No description provided for @profileDisplayNameFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get profileDisplayNameFieldLabel;
+
+  /// No description provided for @profileDisplayNameSaveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get profileDisplayNameSaveAction;
+
+  /// No description provided for @profileDisplayNameSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get profileDisplayNameSaving;
+
+  /// No description provided for @profileDisplayNameInvalidFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a display name.'**
+  String get profileDisplayNameInvalidFailure;
+
+  /// No description provided for @profileDisplayNameTooLongFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name must be 255 characters or fewer.'**
+  String get profileDisplayNameTooLongFailure;
+
+  /// No description provided for @profileDisplayNameControlCharacterFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name must stay on one line.'**
+  String get profileDisplayNameControlCharacterFailure;
+
+  /// No description provided for @profileDisplayNameFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name could not be saved. Check your connection and try again.'**
+  String get profileDisplayNameFailure;
+
+  /// No description provided for @profileDisplayNameUnauthorizedFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired. Sign in again before changing your name.'**
+  String get profileDisplayNameUnauthorizedFailure;
+
+  /// No description provided for @profileDisplayNameLocalPersistenceFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name was saved, but could not be stored locally. Restart the app if it does not update.'**
+  String get profileDisplayNameLocalPersistenceFailure;
+
+  /// No description provided for @profileLanguageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get profileLanguageTitle;
+
+  /// No description provided for @profileLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the app language'**
+  String get profileLanguageSubtitle;
+
+  /// No description provided for @languageSystemOption.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get languageSystemOption;
+
+  /// No description provided for @languageSystemSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use device language'**
+  String get languageSystemSubtitle;
+
+  /// No description provided for @languageRussianOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Русский'**
+  String get languageRussianOption;
+
+  /// No description provided for @languageEnglishOption.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get languageEnglishOption;
+
+  /// No description provided for @languageChangeFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Language could not be saved. Please try again.'**
+  String get languageChangeFailure;
+
+  /// No description provided for @profileLegalSupportSection.
+  ///
+  /// In en, this message translates to:
+  /// **'LEGAL & SUPPORT'**
+  String get profileLegalSupportSection;
+
+  /// No description provided for @profilePrivacyPolicyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get profilePrivacyPolicyTitle;
+
+  /// No description provided for @profilePrivacyPolicySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How private memories are protected'**
+  String get profilePrivacyPolicySubtitle;
+
+  /// No description provided for @profileTermsOfUseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Use'**
+  String get profileTermsOfUseTitle;
+
+  /// No description provided for @profileTermsOfUseSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The rules for using Memory Story'**
+  String get profileTermsOfUseSubtitle;
+
+  /// No description provided for @profileHelpSupportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Help & Support'**
+  String get profileHelpSupportTitle;
+
+  /// No description provided for @profileHelpSupportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Questions and support options'**
+  String get profileHelpSupportSubtitle;
+
+  /// No description provided for @profileAboutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About Memory Story'**
+  String get profileAboutTitle;
+
+  /// No description provided for @profileAboutSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App information'**
+  String get profileAboutSubtitle;
+
+  /// No description provided for @profileAccountActionsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'ACCOUNT ACTIONS'**
+  String get profileAccountActionsSection;
+
+  /// No description provided for @profileLogoutSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'End this session on this device'**
+  String get profileLogoutSubtitle;
+
+  /// No description provided for @profileDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Profile'**
+  String get profileDeleteTitle;
+
+  /// No description provided for @profileDeleteSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete your account'**
+  String get profileDeleteSubtitle;
+
+  /// No description provided for @profileDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete profile?'**
+  String get profileDeleteConfirmTitle;
+
+  /// No description provided for @profileDeleteConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently deletes your account and removes your access to Memory Story. Stories that still need an owner must be resolved first.'**
+  String get profileDeleteConfirmBody;
+
+  /// No description provided for @profileDeleteConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete profile'**
+  String get profileDeleteConfirmAction;
+
+  /// No description provided for @profileDeletingAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting...'**
+  String get profileDeletingAction;
+
+  /// No description provided for @profileDeleteOwnershipConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'One of your shared stories still needs an owner. Resolve story ownership before deleting your profile.'**
+  String get profileDeleteOwnershipConflict;
+
+  /// No description provided for @profileDeleteUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired. Sign in again before deleting your profile.'**
+  String get profileDeleteUnauthorized;
+
+  /// No description provided for @profileDeleteFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile could not be deleted. Check your connection and try again.'**
+  String get profileDeleteFailure;
+
+  /// No description provided for @profileDeleteUnavailableAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletion unavailable'**
+  String get profileDeleteUnavailableAction;
+
+  /// No description provided for @profilePhotoPlaceholderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile photo editing is not available yet. Your Google avatar remains the current profile image.'**
+  String get profilePhotoPlaceholderBody;
+
+  /// No description provided for @profileDisplayNamePlaceholderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name editing is not available yet. Your current Google display name remains visible.'**
+  String get profileDisplayNamePlaceholderBody;
+
+  /// No description provided for @profilePrivacyPolicyPlaceholderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The full privacy policy will be added before public release.'**
+  String get profilePrivacyPolicyPlaceholderBody;
+
+  /// No description provided for @profileTermsPlaceholderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The full terms of use will be added before public release.'**
+  String get profileTermsPlaceholderBody;
+
+  /// No description provided for @profileHelpPlaceholderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Help and support options will be added before public release.'**
+  String get profileHelpPlaceholderBody;
+
+  /// No description provided for @profileAboutPlaceholderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory Story is a private memories app for stories, places, photos, playback, and the people who share them.'**
+  String get profileAboutPlaceholderBody;
 }
 
 class _AppLocalizationsDelegate

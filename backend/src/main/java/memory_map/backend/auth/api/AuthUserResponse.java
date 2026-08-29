@@ -10,7 +10,9 @@ public record AuthUserResponse(
 
         String displayName,
 
-        String avatarUrl
+        String avatarUrl,
+
+        boolean hasCustomAvatar
 
 ) {
 
@@ -18,7 +20,18 @@ public record AuthUserResponse(
         return new AuthUserResponse(
                 user.id(),
                 user.displayName(),
-                user.avatarUrl()
+                effectiveAvatarUrl(user),
+                user.hasCustomAvatar()
+        );
+    }
+
+    private static String effectiveAvatarUrl(User user) {
+        if (!user.hasCustomAvatar()) {
+            return user.avatarUrl();
+        }
+
+        return "/api/v1/me/avatar/%d".formatted(
+                user.customAvatarUpdatedAt().toEpochMilli()
         );
     }
 }

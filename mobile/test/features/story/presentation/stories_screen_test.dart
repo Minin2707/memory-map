@@ -66,7 +66,10 @@ void main() {
       );
 
       final avatar = tester.widget<CircleAvatar>(
-        find.byKey(const ValueKey('stories.header.avatar')),
+        find.descendant(
+          of: find.byKey(const ValueKey('stories.header.avatar')),
+          matching: find.byType(CircleAvatar),
+        ),
       );
 
       expect(avatar.foregroundImage, isA<NetworkImage>());
@@ -88,6 +91,26 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('shouldCallProfileCallbackFromAvatar', (
+      WidgetTester tester,
+    ) async {
+      var profileCalls = 0;
+      await pumpScreen(
+        tester,
+        FakeStoryRepository(),
+        onProfileSelected: () {
+          profileCalls += 1;
+        },
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('stories.header.profile-action')),
+      );
+      await tester.pump();
+
+      expect(profileCalls, 1);
     });
 
     testWidgets('shouldRenderVisibleNoOpNotificationAction', (
@@ -438,6 +461,7 @@ Future<void> pumpScreen(
   String displayName = 'Anna',
   String? avatarUrl,
   VoidCallback? onCreateStory,
+  VoidCallback? onProfileSelected,
   ValueChanged<String>? onStorySelected,
   media_fixtures.FakeMediaRepository? mediaRepository,
   TextScaler textScaler = TextScaler.noScaling,
@@ -465,6 +489,7 @@ Future<void> pumpScreen(
           displayName: displayName,
           avatarUrl: avatarUrl,
           onCreateStory: onCreateStory,
+          onProfileSelected: onProfileSelected,
           onStorySelected: onStorySelected,
         ),
       ),

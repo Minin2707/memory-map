@@ -4,6 +4,7 @@ import 'package:memory_map/features/auth/data/remote/auth_remote_exception.dart'
 import 'package:memory_map/features/auth/data/storage/auth_session_storage.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
 import 'package:memory_map/features/auth/domain/auth_session_store.dart';
+import 'package:memory_map/features/auth/domain/auth_user.dart';
 import 'package:memory_map/features/auth/domain/authorized_session_manager.dart';
 
 final class DefaultAuthorizedSessionManager
@@ -63,6 +64,36 @@ final class DefaultAuthorizedSessionManager
     }
 
     await _clearInvalidSession();
+  }
+
+  @override
+  Future<AuthSession?> updateCurrentSessionUserIfStillCurrent({
+    required AuthSession expectedSession,
+    required AuthUser updatedUser,
+  }) async {
+    final currentSession = _authSessionStore.session;
+    if (currentSession == null ||
+        currentSession.user.id != expectedSession.user.id) {
+      return null;
+    }
+    if (updatedUser.id != currentSession.user.id) {
+      return null;
+    }
+
+    final updatedSession = AuthSession(
+      user: updatedUser,
+      tokens: currentSession.tokens,
+    );
+
+    try {
+      await _authSessionStorage.write(updatedSession);
+    } on AuthSessionStorageException {
+      _authSessionStore.setSession(updatedSession);
+      throw const AuthorizedSessionPersistenceException();
+    }
+
+    _authSessionStore.setSession(updatedSession);
+    return updatedSession;
   }
 
   Future<void> _writeRotatedSession(AuthSession session) async {

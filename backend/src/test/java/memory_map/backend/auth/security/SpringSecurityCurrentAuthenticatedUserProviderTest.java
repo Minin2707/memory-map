@@ -1,6 +1,8 @@
 package memory_map.backend.auth.security;
 
 import memory_map.backend.auth.domain.AuthenticatedUser;
+import memory_map.backend.user.domain.User;
+import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -13,6 +15,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -134,7 +137,23 @@ class SpringSecurityCurrentAuthenticatedUserProviderTest {
                 .hasMessage(USER_UNAVAILABLE_MESSAGE)
                 .hasCauseInstanceOf(IllegalArgumentException.class)
                 .satisfies(throwable -> assertThat(throwable.getMessage())
-                        .doesNotContain(subject));
+                .doesNotContain(subject));
+    }
+
+    @Test
+    void shouldRejectInactiveUserIdWhenRepositoryIsProvided() {
+
+        SpringSecurityCurrentAuthenticatedUserProvider activeUserProvider =
+                new SpringSecurityCurrentAuthenticatedUserProvider(
+                        new FakeUserRepository(false)
+                );
+        setAuthentication(
+                jwtAuthentication(
+                        jwtWithSubject(USER_ID.toString())
+                )
+        );
+
+        assertUnavailableState(activeUserProvider::getCurrentUser);
     }
 
     @Test
@@ -236,5 +255,35 @@ class SpringSecurityCurrentAuthenticatedUserProviderTest {
 
         void run();
 
+    }
+
+    private static final class FakeUserRepository
+            implements UserRepository {
+
+        private final boolean active;
+
+        private FakeUserRepository(boolean active) {
+            this.active = active;
+        }
+
+        @Override
+        public User save(User user) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<User> findById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean existsActiveById(UUID id) {
+            return active;
+        }
+
+        @Override
+        public Optional<User> findByGoogleSubject(String googleSubject) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

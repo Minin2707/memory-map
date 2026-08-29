@@ -1314,4 +1314,208 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playbackMemoryPhotoLabel => 'Фото воспоминания';
+
+  @override
+  String storiesOpenProfileLabel(String displayName) {
+    return 'Открыть профиль пользователя $displayName';
+  }
+
+  @override
+  String get profileTitle => 'Профиль';
+
+  @override
+  String get profileBackLabel => 'Вернуться к историям';
+
+  @override
+  String get profileCreatorLabel => 'Автор воспоминаний';
+
+  @override
+  String get profileQuote => 'Каждое воспоминание заслуживает своего места.';
+
+  @override
+  String get profileAccountSection => 'АККАУНТ';
+
+  @override
+  String get profilePhotoTitle => 'Фото профиля';
+
+  @override
+  String get profilePhotoSubtitle => 'Пока используется аватар Google';
+
+  @override
+  String get profilePhotoCustomSubtitle => 'Аватар Memory Story';
+
+  @override
+  String get profileAvatarChooseAction => 'Выбрать фото';
+
+  @override
+  String get profileAvatarReplaceAction => 'Заменить фото';
+
+  @override
+  String get profileAvatarRemoveAction => 'Удалить фото';
+
+  @override
+  String get profileAvatarUploading => 'Загрузка...';
+
+  @override
+  String get profileAvatarFailure =>
+      'Не удалось обновить фото профиля. Проверьте подключение и попробуйте снова.';
+
+  @override
+  String get profileAvatarInvalidFailure =>
+      'Выберите фото JPEG или PNG в пределах лимита загрузки.';
+
+  @override
+  String get profileAvatarUnauthorizedFailure =>
+      'Сеанс истёк. Войдите снова, чтобы изменить фото.';
+
+  @override
+  String get profileDisplayNameTitle => 'Отображаемое имя';
+
+  @override
+  String get profileDisplayNameEditTitle => 'Редактировать имя';
+
+  @override
+  String get profileDisplayNameFieldLabel => 'Отображаемое имя';
+
+  @override
+  String get profileDisplayNameSaveAction => 'Сохранить';
+
+  @override
+  String get profileDisplayNameSaving => 'Сохранение...';
+
+  @override
+  String get profileDisplayNameInvalidFailure => 'Введите отображаемое имя.';
+
+  @override
+  String get profileDisplayNameTooLongFailure =>
+      'Имя должно быть не длиннее 255 символов.';
+
+  @override
+  String get profileDisplayNameControlCharacterFailure =>
+      'Имя должно оставаться в одну строку.';
+
+  @override
+  String get profileDisplayNameFailure =>
+      'Не удалось сохранить имя. Проверьте подключение и попробуйте снова.';
+
+  @override
+  String get profileDisplayNameUnauthorizedFailure =>
+      'Сеанс истёк. Войдите снова, чтобы изменить имя.';
+
+  @override
+  String get profileDisplayNameLocalPersistenceFailure =>
+      'Имя сохранено, но не удалось сохранить его локально. Перезапустите приложение, если оно не обновится.';
+
+  @override
+  String get profileLanguageTitle => 'Язык';
+
+  @override
+  String get profileLanguageSubtitle => 'Выберите язык приложения';
+
+  @override
+  String get languageSystemOption => 'Системный';
+
+  @override
+  String get languageSystemSubtitle => 'Использовать язык устройства';
+
+  @override
+  String get languageRussianOption => 'Русский';
+
+  @override
+  String get languageEnglishOption => 'English';
+
+  @override
+  String get languageChangeFailure =>
+      'Не удалось сохранить язык. Попробуйте снова.';
+
+  @override
+  String get profileLegalSupportSection => 'ПРАВОВАЯ ИНФОРМАЦИЯ И ПОМОЩЬ';
+
+  @override
+  String get profilePrivacyPolicyTitle => 'Политика конфиденциальности';
+
+  @override
+  String get profilePrivacyPolicySubtitle => 'Как защищены личные воспоминания';
+
+  @override
+  String get profileTermsOfUseTitle => 'Условия использования';
+
+  @override
+  String get profileTermsOfUseSubtitle => 'Правила использования Memory Story';
+
+  @override
+  String get profileHelpSupportTitle => 'Помощь и поддержка';
+
+  @override
+  String get profileHelpSupportSubtitle => 'Вопросы и варианты поддержки';
+
+  @override
+  String get profileAboutTitle => 'О Memory Story';
+
+  @override
+  String get profileAboutSubtitle => 'Информация о приложении';
+
+  @override
+  String get profileAccountActionsSection => 'ДЕЙСТВИЯ С АККАУНТОМ';
+
+  @override
+  String get profileLogoutSubtitle => 'Завершить сеанс на этом устройстве';
+
+  @override
+  String get profileDeleteTitle => 'Удалить профиль';
+
+  @override
+  String get profileDeleteSubtitle => 'Навсегда удалить аккаунт';
+
+  @override
+  String get profileDeleteConfirmTitle => 'Удалить профиль?';
+
+  @override
+  String get profileDeleteConfirmBody =>
+      'Это навсегда удалит аккаунт и доступ к Memory Story. Истории, которым нужен владелец, сначала нужно передать другому участнику.';
+
+  @override
+  String get profileDeleteConfirmAction => 'Удалить профиль';
+
+  @override
+  String get profileDeletingAction => 'Удаление...';
+
+  @override
+  String get profileDeleteOwnershipConflict =>
+      'В одной из общих историй всё ещё нужен владелец. Передайте владение историей перед удалением профиля.';
+
+  @override
+  String get profileDeleteUnauthorized =>
+      'Сеанс истёк. Войдите снова, чтобы удалить профиль.';
+
+  @override
+  String get profileDeleteFailure =>
+      'Не удалось удалить профиль. Проверьте подключение и попробуйте снова.';
+
+  @override
+  String get profileDeleteUnavailableAction => 'Удаление недоступно';
+
+  @override
+  String get profilePhotoPlaceholderBody =>
+      'Редактирование фото профиля пока недоступно. Текущим изображением остаётся аватар Google.';
+
+  @override
+  String get profileDisplayNamePlaceholderBody =>
+      'Редактирование отображаемого имени пока недоступно. Сейчас показывается имя из Google.';
+
+  @override
+  String get profilePrivacyPolicyPlaceholderBody =>
+      'Полная политика конфиденциальности будет добавлена перед публичным релизом.';
+
+  @override
+  String get profileTermsPlaceholderBody =>
+      'Полные условия использования будут добавлены перед публичным релизом.';
+
+  @override
+  String get profileHelpPlaceholderBody =>
+      'Помощь и варианты поддержки будут добавлены перед публичным релизом.';
+
+  @override
+  String get profileAboutPlaceholderBody =>
+      'Memory Story — приватное приложение для историй, мест, фото, воспроизведения и людей, которые делят эти воспоминания.';
 }

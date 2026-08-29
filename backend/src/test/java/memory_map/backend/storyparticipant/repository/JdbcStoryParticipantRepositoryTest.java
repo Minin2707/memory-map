@@ -10,6 +10,7 @@ import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
@@ -503,5 +504,24 @@ class JdbcStoryParticipantRepositoryTest extends IntegrationTest {
 
         assertThatThrownBy(() -> repository.save(participant))
                 .isInstanceOf(DuplicateKeyException.class);
+    }
+
+    @Test
+    void shouldRejectTombstonedUserParticipant() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        userRepository.tombstoneById(user.id(), BASE_TIME.plusSeconds(60));
+
+        StoryParticipant participant = createParticipant(
+                story.id(),
+                user.id(),
+                StoryRole.OWNER,
+                BASE_TIME.plusSeconds(120)
+        );
+
+        assertThatThrownBy(() -> repository.save(participant))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(repository.find(story.id(), user.id())).isEmpty();
     }
 }

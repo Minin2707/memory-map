@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:memory_map/app/router_refresh_notifier.dart';
 import 'package:memory_map/features/auth/application/auth_notifier.dart';
+import 'package:memory_map/features/auth/application/auth_session_cleanup_coordinator.dart';
 import 'package:memory_map/features/auth/application/auth_state.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
 import 'package:memory_map/features/auth/presentation/auth_checking_screen.dart';
@@ -30,6 +31,8 @@ import 'package:memory_map/features/music/presentation/soundtrack_selection_scre
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
 import 'package:memory_map/features/playback/presentation/story_playback_route.dart';
+import 'package:memory_map/features/profile/presentation/profile_language_screen.dart';
+import 'package:memory_map/features/profile/presentation/profile_screen.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
@@ -37,6 +40,7 @@ import 'package:memory_map/features/story/presentation/create_story_screen.dart'
 import 'package:memory_map/features/story/presentation/edit_story_route.dart';
 import 'package:memory_map/features/story/presentation/story_details_screen.dart';
 import 'package:memory_map/features/story/presentation/stories_screen.dart';
+import 'package:memory_map/l10n/app_localizations.dart';
 
 const authCheckingRoute = '/auth/checking';
 const authLoginRoute = '/auth/login';
@@ -58,6 +62,14 @@ const createMemoryRoute = '/stories/:storyId/memories/create';
 const memoryDetailsRoute = '/memories/:memoryId';
 const editMemoryRoute = '/memories/:memoryId/edit';
 const memoryLocationPickerRoute = '/memory-location-picker';
+const profileRoute = '/profile';
+const profilePhotoRoute = '/profile/photo';
+const profileDisplayNameRoute = '/profile/display-name';
+const profileLanguageRoute = '/profile/language';
+const profilePrivacyRoute = '/profile/privacy';
+const profileTermsRoute = '/profile/terms';
+const profileHelpRoute = '/profile/help';
+const profileAboutRoute = '/profile/about';
 const acceptInviteRoute = '/invite/:token';
 
 const storiesRouteName = 'stories';
@@ -75,6 +87,14 @@ const createMemoryRouteName = 'createMemory';
 const memoryDetailsRouteName = 'memoryDetails';
 const editMemoryRouteName = 'editMemory';
 const memoryLocationPickerRouteName = 'memoryLocationPicker';
+const profileRouteName = 'profile';
+const profilePhotoRouteName = 'profilePhoto';
+const profileDisplayNameRouteName = 'profileDisplayName';
+const profileLanguageRouteName = 'profileLanguage';
+const profilePrivacyRouteName = 'profilePrivacy';
+const profileTermsRouteName = 'profileTerms';
+const profileHelpRouteName = 'profileHelp';
+const profileAboutRouteName = 'profileAbout';
 const acceptInviteRouteName = 'acceptInvite';
 
 const _storyIdPathParameter = 'storyId';
@@ -91,6 +111,10 @@ final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
   final notifier = RouterRefreshNotifier();
 
   ref.listen(authNotifierProvider, (previous, next) {
+    ref
+        .read(authSessionCleanupCoordinatorProvider)
+        .handleAuthStateChange(previous, next);
+
     if (_shouldClearPendingInviteAfterAuthChange(previous, next)) {
       ref.read(pendingInviteProvider.notifier).clear();
     }
@@ -192,11 +216,127 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             onCreateStory: () {
               context.pushNamed(createStoryRouteName);
             },
+            onProfileSelected: () {
+              context.goNamed(profileRouteName);
+            },
             onStorySelected: (storyId) {
               context.pushNamed(
                 storyDetailsRouteName,
                 pathParameters: {_storyIdPathParameter: storyId},
               );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: profileRouteName,
+        path: profileRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          return ProfileScreen(
+            onBack: () {
+              _popOrGoToStories(context);
+            },
+            onProfilePhoto: () {
+              context.pushNamed(profilePhotoRouteName);
+            },
+            onDisplayName: () {
+              context.pushNamed(profileDisplayNameRouteName);
+            },
+            onLanguage: () {
+              context.pushNamed(profileLanguageRouteName);
+            },
+            onPrivacyPolicy: () {
+              context.pushNamed(profilePrivacyRouteName);
+            },
+            onTermsOfUse: () {
+              context.pushNamed(profileTermsRouteName);
+            },
+            onHelpSupport: () {
+              context.pushNamed(profileHelpRouteName);
+            },
+            onAbout: () {
+              context.pushNamed(profileAboutRouteName);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: profilePhotoRouteName,
+        path: profilePhotoRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          return ProfilePlaceholderScreen(
+            title: AppLocalizations.of(context).profilePhotoTitle,
+            body: AppLocalizations.of(context).profilePhotoPlaceholderBody,
+            onBack: () {
+              _popOrGoToProfile(context);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: profileDisplayNameRouteName,
+        path: profileDisplayNameRoute,
+        redirect: (BuildContext context, GoRouterState state) => profileRoute,
+      ),
+      GoRoute(
+        name: profileLanguageRouteName,
+        path: profileLanguageRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          return ProfileLanguageScreen(
+            onBack: () {
+              _popOrGoToProfile(context);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: profilePrivacyRouteName,
+        path: profilePrivacyRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          return ProfilePlaceholderScreen(
+            title: AppLocalizations.of(context).profilePrivacyPolicyTitle,
+            body: AppLocalizations.of(context).profilePrivacyPolicyPlaceholderBody,
+            onBack: () {
+              _popOrGoToProfile(context);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: profileTermsRouteName,
+        path: profileTermsRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          return ProfilePlaceholderScreen(
+            title: AppLocalizations.of(context).profileTermsOfUseTitle,
+            body: AppLocalizations.of(context).profileTermsPlaceholderBody,
+            onBack: () {
+              _popOrGoToProfile(context);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: profileHelpRouteName,
+        path: profileHelpRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          return ProfilePlaceholderScreen(
+            title: AppLocalizations.of(context).profileHelpSupportTitle,
+            body: AppLocalizations.of(context).profileHelpPlaceholderBody,
+            onBack: () {
+              _popOrGoToProfile(context);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: profileAboutRouteName,
+        path: profileAboutRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          return ProfilePlaceholderScreen(
+            title: AppLocalizations.of(context).profileAboutTitle,
+            body: AppLocalizations.of(context).profileAboutPlaceholderBody,
+            onBack: () {
+              _popOrGoToProfile(context);
             },
           );
         },
@@ -717,6 +857,8 @@ bool _isAuthenticatedRoute(String path) {
   return path == storiesRoute ||
       path.startsWith('$storiesRoute/') ||
       path == memoryLocationPickerRoute ||
+      path == profileRoute ||
+      path.startsWith('$profileRoute/') ||
       path.startsWith('/memories/');
 }
 
@@ -762,6 +904,16 @@ void _popOrGoToStories(BuildContext context) {
   }
 
   context.goNamed(storiesRouteName);
+}
+
+void _popOrGoToProfile(BuildContext context) {
+  final router = GoRouter.of(context);
+  if (router.canPop()) {
+    router.pop();
+    return;
+  }
+
+  context.goNamed(profileRouteName);
 }
 
 void _popOrGoToStoryDetails(BuildContext context, String storyId) {

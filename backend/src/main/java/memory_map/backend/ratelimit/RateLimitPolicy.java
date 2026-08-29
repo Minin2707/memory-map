@@ -59,9 +59,18 @@ public class RateLimitPolicy {
             ));
         }
 
+        if (method.equals("PUT") && path.equals("/api/v1/me/avatar")) {
+            return Optional.of(rule(
+                    RateLimitCategory.MEDIA_UPLOAD,
+                    RateLimitIdentity.AUTHENTICATED_USER
+            ));
+        }
+
         if (method.equals("GET") &&
                 (matches(path, "/api/v1/media/", "/thumbnail") ||
-                        matches(path, "/api/v1/media/", "/display"))) {
+                        matches(path, "/api/v1/media/", "/display") ||
+                        path.equals("/api/v1/me/avatar") ||
+                        matches(path, "/api/v1/me/avatar/", ""))) {
             return Optional.of(rule(
                     RateLimitCategory.PRIVATE_MEDIA_READ,
                     RateLimitIdentity.AUTHENTICATED_USER
@@ -129,6 +138,19 @@ public class RateLimitPolicy {
     private static boolean isNormalMutation(String method, String path) {
         if (!path.startsWith("/api/v1/")) {
             return false;
+        }
+
+        if (method.equals("DELETE") && path.equals("/api/v1/me")) {
+            return true;
+        }
+
+        if (method.equals("DELETE") && path.equals("/api/v1/me/avatar")) {
+            return true;
+        }
+
+        if (method.equals("PATCH") &&
+                path.equals("/api/v1/me/display-name")) {
+            return true;
         }
 
         if (method.equals("POST") && path.equals("/api/v1/stories")) {

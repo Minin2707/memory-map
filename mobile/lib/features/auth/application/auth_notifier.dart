@@ -80,6 +80,27 @@ final class AuthNotifier extends AsyncNotifier<AuthState> {
     }
   }
 
+  void replaceCurrentSession(AuthSession session) {
+    final currentState = _currentState;
+
+    if (currentState is AuthAuthenticated) {
+      if (currentState.session != session) {
+        state = AsyncData<AuthState>(AuthAuthenticated(session));
+      }
+
+      return;
+    }
+
+    if (currentState is AuthLogoutFailure) {
+      state = AsyncData<AuthState>(
+        AuthLogoutFailure(
+          session: session,
+          failure: currentState.failure,
+        ),
+      );
+    }
+  }
+
   Future<AuthState> _restoreSession(AuthRepository repository) async {
     try {
       final session = await repository.restoreSession();

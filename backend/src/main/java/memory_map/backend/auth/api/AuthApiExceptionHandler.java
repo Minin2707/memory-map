@@ -2,6 +2,7 @@ package memory_map.backend.auth.api;
 
 import memory_map.backend.auth.google.GoogleIdentityVerificationException;
 import memory_map.backend.auth.refresh.InvalidRefreshTokenException;
+import memory_map.backend.auth.security.CurrentAuthenticatedUserException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,7 +16,8 @@ public class AuthApiExceptionHandler {
 
     @ExceptionHandler({
             GoogleIdentityVerificationException.class,
-            InvalidRefreshTokenException.class
+            InvalidRefreshTokenException.class,
+            CurrentAuthenticatedUserException.class
     })
     public ProblemDetail handleAuthenticationFailure() {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(

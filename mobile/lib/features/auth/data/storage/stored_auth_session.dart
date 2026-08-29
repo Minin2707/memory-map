@@ -35,6 +35,7 @@ final class StoredAuthSession {
           id: _requiredString(userJson, 'id'),
           displayName: _requiredString(userJson, 'displayName'),
           avatarUrl: _optionalString(userJson, 'avatarUrl'),
+          hasCustomAvatar: _optionalBool(userJson, 'hasCustomAvatar') ?? false,
         ),
         tokens: AuthTokens(
           accessToken: _requiredString(tokensJson, 'accessToken'),
@@ -65,6 +66,7 @@ final class StoredAuthSession {
         'id': user.id,
         'displayName': user.displayName,
         'avatarUrl': user.avatarUrl,
+        'hasCustomAvatar': user.hasCustomAvatar,
       },
       'tokens': <String, Object?>{
         'accessToken': tokens.accessToken,
@@ -113,6 +115,19 @@ final class StoredAuthSession {
     }
 
     if (value is String) {
+      return value;
+    }
+
+    throw const CorruptStoredAuthSessionException();
+  }
+
+  static bool? _optionalBool(Map<Object?, Object?> json, String key) {
+    final value = json[key];
+    if (value == null) {
+      return null;
+    }
+
+    if (value is bool) {
       return value;
     }
 

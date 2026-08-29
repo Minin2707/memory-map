@@ -17,7 +17,8 @@ class AuthSensitiveDtoTest {
             new AuthUserResponse(
                     USER_ID,
                     "Memory Map User",
-                    "https://example.com/avatar.png"
+                    "https://example.com/avatar.png",
+                    false
             );
 
     @Test

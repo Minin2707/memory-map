@@ -13,6 +13,7 @@ void main() {
       expect(user.id, 'user-id');
       expect(user.displayName, 'Ada Lovelace');
       expect(user.avatarUrl, 'https://example.com/avatar.png');
+      expect(user.hasCustomAvatar, isFalse);
     });
 
     test('shouldAllowNullAvatarUrl', () {
@@ -119,6 +120,22 @@ void main() {
       expect(first, isNot(different));
     });
 
+    test('shouldCompareCustomAvatarPresenceByValue', () {
+      final googleAvatar = AuthUser(
+        id: 'user-id',
+        displayName: 'Ada Lovelace',
+        avatarUrl: 'https://example.com/avatar.png',
+      );
+      final customAvatar = AuthUser(
+        id: 'user-id',
+        displayName: 'Ada Lovelace',
+        avatarUrl: '/api/v1/me/avatar/1',
+        hasCustomAvatar: true,
+      );
+
+      expect(googleAvatar, isNot(customAvatar));
+    });
+
     test('shouldProduceStableHashCode', () {
       final first = AuthUser(
         id: 'user-id',
@@ -144,7 +161,7 @@ void main() {
       expect(
         user.toString(),
         'AuthUser(id: user-id, displayName: Ada Lovelace, '
-        'avatarUrl: https://example.com/avatar.png)',
+        'avatarUrl: https://example.com/avatar.png, hasCustomAvatar: false)',
       );
     });
   });

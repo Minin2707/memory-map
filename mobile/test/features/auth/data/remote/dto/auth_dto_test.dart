@@ -106,6 +106,20 @@ void main() {
       expect(user.id, 'user-id');
       expect(user.displayName, 'Ada Lovelace');
       expect(user.avatarUrl, 'https://example.com/avatar.png');
+      expect(user.hasCustomAvatar, isFalse);
+    });
+
+    test('shouldParseCustomAvatarPresence', () {
+      final user = AuthUserDto.fromJson(
+        <String, Object?>{
+          ...validUserJson(),
+          'avatarUrl': '/api/v1/me/avatar/1',
+          'hasCustomAvatar': true,
+        },
+      );
+
+      expect(user.avatarUrl, '/api/v1/me/avatar/1');
+      expect(user.hasCustomAvatar, isTrue);
     });
 
     test('shouldAllowNullAvatarUrl', () {
@@ -196,6 +210,17 @@ void main() {
           <String, Object?>{
             ...validUserJson(),
             'avatarUrl': 123,
+          },
+        ),
+      );
+    });
+
+    test('shouldRejectNonBoolCustomAvatarPresence', () {
+      expectMalformed(
+        () => AuthUserDto.fromJson(
+          <String, Object?>{
+            ...validUserJson(),
+            'hasCustomAvatar': 'true',
           },
         ),
       );
@@ -390,6 +415,7 @@ Map<String, Object?> validUserJson() {
     'id': 'user-id',
     'displayName': 'Ada Lovelace',
     'avatarUrl': 'https://example.com/avatar.png',
+    'hasCustomAvatar': false,
   };
 }
 

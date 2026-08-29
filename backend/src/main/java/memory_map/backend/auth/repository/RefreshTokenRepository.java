@@ -34,6 +34,13 @@ public interface RefreshTokenRepository {
             Instant revokedAt
     );
 
+    default int revokeActiveByUserId(
+            UUID userId,
+            Instant revokedAt
+    ) {
+        throw new UnsupportedOperationException();
+    }
+
     void delete(UUID id);
 
 }

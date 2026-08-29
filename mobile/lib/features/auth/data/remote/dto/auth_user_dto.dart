@@ -8,6 +8,7 @@ final class AuthUserDto {
       id: _requiredString(map, 'id'),
       displayName: _requiredString(map, 'displayName'),
       avatarUrl: _optionalString(map, 'avatarUrl'),
+      hasCustomAvatar: _optionalBool(map, 'hasCustomAvatar') ?? false,
     );
   }
 
@@ -15,6 +16,7 @@ final class AuthUserDto {
     required this.id,
     required this.displayName,
     this.avatarUrl,
+    this.hasCustomAvatar = false,
   }) {
     if (id.trim().isEmpty) {
       throw const FormatException('Malformed auth response');
@@ -28,12 +30,14 @@ final class AuthUserDto {
   final String id;
   final String displayName;
   final String? avatarUrl;
+  final bool hasCustomAvatar;
 
   AuthUser toDomain() {
     return AuthUser(
       id: id,
       displayName: displayName,
       avatarUrl: avatarUrl,
+      hasCustomAvatar: hasCustomAvatar,
     );
   }
 
@@ -43,7 +47,8 @@ final class AuthUserDto {
         other is AuthUserDto &&
             id == other.id &&
             displayName == other.displayName &&
-            avatarUrl == other.avatarUrl;
+            avatarUrl == other.avatarUrl &&
+            hasCustomAvatar == other.hasCustomAvatar;
   }
 
   @override
@@ -51,6 +56,7 @@ final class AuthUserDto {
         id,
         displayName,
         avatarUrl,
+        hasCustomAvatar,
       );
 
   @override
@@ -81,6 +87,19 @@ String? _optionalString(Map<Object?, Object?> json, String key) {
   }
 
   if (value is String) {
+    return value;
+  }
+
+  throw const FormatException('Malformed auth response');
+}
+
+bool? _optionalBool(Map<Object?, Object?> json, String key) {
+  final value = json[key];
+  if (value == null) {
+    return null;
+  }
+
+  if (value is bool) {
     return value;
   }
 

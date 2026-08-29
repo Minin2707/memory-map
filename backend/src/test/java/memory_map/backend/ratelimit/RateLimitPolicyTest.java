@@ -53,6 +53,15 @@ class RateLimitPolicyTest {
     }
 
     @Test
+    void shouldMapAvatarUploadToUploadPolicy() {
+        RateLimitRule rule = ruleFor("PUT", "/api/v1/me/avatar");
+
+        assertThat(rule.category()).isEqualTo(RateLimitCategory.MEDIA_UPLOAD);
+        assertThat(rule.identity())
+                .isEqualTo(RateLimitIdentity.AUTHENTICATED_USER);
+    }
+
+    @Test
     void shouldMapPrivateMediaReadsToPermissiveReadPolicy() {
         assertThat(ruleFor(
                 "GET",
@@ -61,6 +70,14 @@ class RateLimitPolicyTest {
         assertThat(ruleFor(
                 "GET",
                 "/api/v1/media/media-1/display"
+        ).category()).isEqualTo(RateLimitCategory.PRIVATE_MEDIA_READ);
+        assertThat(ruleFor(
+                "GET",
+                "/api/v1/me/avatar"
+        ).category()).isEqualTo(RateLimitCategory.PRIVATE_MEDIA_READ);
+        assertThat(ruleFor(
+                "GET",
+                "/api/v1/me/avatar/1768039200000"
         ).category()).isEqualTo(RateLimitCategory.PRIVATE_MEDIA_READ);
     }
 
@@ -79,6 +96,12 @@ class RateLimitPolicyTest {
     @Test
     void shouldMapNormalMutationsWithoutLimitingNormalGets() {
         assertThat(ruleFor("POST", "/api/v1/stories").category())
+                .isEqualTo(RateLimitCategory.NORMAL_MUTATION);
+        assertThat(ruleFor("DELETE", "/api/v1/me").category())
+                .isEqualTo(RateLimitCategory.NORMAL_MUTATION);
+        assertThat(ruleFor("DELETE", "/api/v1/me/avatar").category())
+                .isEqualTo(RateLimitCategory.NORMAL_MUTATION);
+        assertThat(ruleFor("PATCH", "/api/v1/me/display-name").category())
                 .isEqualTo(RateLimitCategory.NORMAL_MUTATION);
         assertThat(ruleFor("PATCH", "/api/v1/stories/story-1").category())
                 .isEqualTo(RateLimitCategory.NORMAL_MUTATION);

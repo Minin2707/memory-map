@@ -109,6 +109,7 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
                 .isEqualTo(GOOGLE_SUBJECT);
         assertThat(persistedUser.displayName())
                 .isEqualTo("Konstantin");
+        assertThat(persistedUser.displayNameCustomized()).isFalse();
         assertThat(persistedUser.avatarUrl())
                 .isEqualTo("https://example.com/avatar.png");
         assertThat(persistedUser.createdAt())
@@ -165,10 +166,102 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(userRepository.findById(NEW_USER_ID)).isEmpty();
-        assertThat(result.user()).isEqualTo(existingUser);
-        assertThat(loadedExistingUser).isEqualTo(existingUser);
+        assertThat(result.user()).isEqualTo(loadedExistingUser);
+        assertThat(loadedExistingUser.id()).isEqualTo(existingUser.id());
+        assertThat(loadedExistingUser.googleSubject())
+                .isEqualTo(existingUser.googleSubject());
+        assertThat(loadedExistingUser.displayName())
+                .isEqualTo("New Google Name");
+        assertThat(loadedExistingUser.displayNameCustomized()).isFalse();
+        assertThat(loadedExistingUser.avatarUrl())
+                .isEqualTo("https://example.com/new.png");
+        assertThat(loadedExistingUser.customAvatarStorageKey()).isNull();
+        assertThat(loadedExistingUser.customAvatarUpdatedAt()).isNull();
+        assertThat(loadedExistingUser.createdAt())
+                .isEqualTo(existingUser.createdAt());
+        assertThat(loadedExistingUser.updatedAt()).isEqualTo(CURRENT_TIME);
         assertThat(persistedRefreshToken.userId())
                 .isEqualTo(EXISTING_USER_ID);
+    }
+
+    @Test
+    void shouldPreserveCustomizedDisplayNameForSubsequentGoogleLogin() {
+
+        User existingUser = saveUser(
+                EXISTING_USER_ID,
+                GOOGLE_SUBJECT,
+                "George",
+                "https://example.com/persisted.png",
+                BASE_TIME,
+                UPDATED_AT
+        );
+        userRepository.updateDisplayName(
+                existingUser.id(),
+                "Georgy B.",
+                UPDATED_AT.plusSeconds(1)
+        );
+        googleIdentityVerifier.identity(
+                new GoogleIdentity(
+                        GOOGLE_SUBJECT,
+                        "George Belyavsky",
+                        "https://example.com/new.png"
+                )
+        );
+
+        GoogleLoginResult result = loginService.login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        User loadedExistingUser = userRepository
+                .findById(EXISTING_USER_ID)
+                .orElseThrow();
+
+        assertThat(result.user()).isEqualTo(loadedExistingUser);
+        assertThat(loadedExistingUser.displayName()).isEqualTo("Georgy B.");
+        assertThat(loadedExistingUser.displayNameCustomized()).isTrue();
+        assertThat(loadedExistingUser.avatarUrl())
+                .isEqualTo("https://example.com/new.png");
+    }
+
+    @Test
+    void shouldCreateNewUserWhenPreviousGoogleSubjectWasTombstoned() {
+
+        User deletedUser = saveUser(
+                EXISTING_USER_ID,
+                GOOGLE_SUBJECT,
+                "Deleted User",
+                null,
+                BASE_TIME,
+                UPDATED_AT
+        );
+        userRepository.tombstoneById(deletedUser.id(), CURRENT_TIME);
+
+        GoogleLoginResult result = loginService.login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        User oldTombstone = userRepository.findById(deletedUser.id())
+                .orElseThrow();
+        User newUser = userRepository.findById(NEW_USER_ID)
+                .orElseThrow();
+
+        assertThat(oldTombstone.googleSubject()).isNull();
+        assertThat(oldTombstone.deletedAt()).isEqualTo(CURRENT_TIME);
+        assertThat(result.user()).isEqualTo(newUser);
+        assertThat(newUser.id()).isEqualTo(NEW_USER_ID);
+        assertThat(newUser.googleSubject()).isEqualTo(GOOGLE_SUBJECT);
+        assertThat(newUser.displayName()).isEqualTo("Konstantin");
+        assertThat(newUser.displayNameCustomized()).isFalse();
+        assertThat(refreshTokenRepository.findById(NEW_REFRESH_TOKEN_ID)
+                .orElseThrow()
+                .userId())
+                .isEqualTo(NEW_USER_ID);
     }
 
     @Test

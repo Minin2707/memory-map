@@ -58,8 +58,8 @@ class TransactionalGoogleLoginTransactionTest {
             new User(
                     EXISTING_USER_ID,
                     "google-subject-123",
-                    "Persisted Name",
-                    "https://example.com/persisted.png",
+                    "Konstantin",
+                    "https://example.com/avatar.png",
                     CREATED_AT,
                     UPDATED_AT
             );
@@ -95,7 +95,7 @@ class TransactionalGoogleLoginTransactionTest {
     }
 
     @Test
-    void shouldNotUpdateExistingUserProfile() {
+    void shouldRefreshGoogleProfileFallbackForExistingUser() {
 
         TestContext context = testContextWithExistingUser();
 
@@ -110,7 +110,123 @@ class TransactionalGoogleLoginTransactionTest {
                 CURRENT_TIME
         );
 
-        assertThat(result.user()).isEqualTo(EXISTING_USER);
+        assertThat(result.user().displayName())
+                .isEqualTo("New Google Name");
+        assertThat(result.user().avatarUrl())
+                .isEqualTo("https://example.com/new.png");
+        assertThat(result.user().hasCustomAvatar()).isFalse();
+        assertThat(context.userRepository().updatedGoogleProfileUserId())
+                .isEqualTo(EXISTING_USER_ID);
+        assertThat(context.userRepository().updatedGoogleProfileDisplayName())
+                .isEqualTo("New Google Name");
+        assertThat(context.userRepository().updatedGoogleProfileAvatarUrl())
+                .isEqualTo("https://example.com/new.png");
+        assertThat(context.userRepository().saveCalls()).isZero();
+    }
+
+    @Test
+    void shouldRefreshGoogleDisplayNameWhenNotCustomized() {
+
+        TestContext context = testContext();
+        context.userRepository().findResult(Optional.of(new User(
+                EXISTING_USER_ID,
+                "google-subject-123",
+                "George",
+                "https://example.com/avatar.png",
+                CREATED_AT,
+                UPDATED_AT
+        )));
+
+        GoogleLoginResult result = context.transaction().login(
+                new GoogleIdentity(
+                        "google-subject-123",
+                        "Georgy",
+                        "https://example.com/avatar.png"
+                ),
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(result.user().displayName()).isEqualTo("Georgy");
+        assertThat(result.user().displayNameCustomized()).isFalse();
+        assertThat(context.userRepository().updatedGoogleProfileDisplayName())
+                .isEqualTo("Georgy");
+    }
+
+    @Test
+    void shouldPreserveCustomizedDisplayNameDuringGoogleLogin() {
+
+        User existingUser = new User(
+                EXISTING_USER_ID,
+                "google-subject-123",
+                "Georgy B.",
+                true,
+                "https://example.com/avatar.png",
+                null,
+                null,
+                CREATED_AT,
+                UPDATED_AT,
+                null
+        );
+        TestContext context = testContext();
+        context.userRepository().findResult(Optional.of(existingUser));
+
+        GoogleLoginResult result = context.transaction().login(
+                new GoogleIdentity(
+                        "google-subject-123",
+                        "George Belyavsky",
+                        "https://example.com/avatar.png"
+                ),
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(result.user()).isEqualTo(existingUser);
+        assertThat(context.userRepository().updatedGoogleProfileUserId())
+                .isNull();
+        assertThat(context.userRepository().updatedGoogleAvatarUserId())
+                .isNull();
+    }
+
+    @Test
+    void shouldPreserveCustomAvatarWhenRefreshingGoogleFallback() {
+
+        User existingUser = new User(
+                EXISTING_USER_ID,
+                "google-subject-123",
+                "Persisted Name",
+                "https://example.com/old-google.png",
+                "users/%s/avatar/avatar-object".formatted(EXISTING_USER_ID),
+                UPDATED_AT,
+                CREATED_AT,
+                UPDATED_AT,
+                null
+        );
+        TestContext context = testContext();
+        context.userRepository().findResult(Optional.of(existingUser));
+
+        GoogleLoginResult result = context.transaction().login(
+                new GoogleIdentity(
+                        "google-subject-123",
+                        "New Google Name",
+                        "https://example.com/new-google.png"
+                ),
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        assertThat(result.user().avatarUrl())
+                .isEqualTo("https://example.com/new-google.png");
+        assertThat(result.user().displayName())
+                .isEqualTo("New Google Name");
+        assertThat(result.user().customAvatarStorageKey())
+                .isEqualTo(existingUser.customAvatarStorageKey());
+        assertThat(result.user().customAvatarUpdatedAt())
+                .isEqualTo(existingUser.customAvatarUpdatedAt());
+        assertThat(result.user().hasCustomAvatar()).isTrue();
         assertThat(context.userRepository().saveCalls()).isZero();
     }
 
@@ -585,6 +701,11 @@ class TransactionalGoogleLoginTransactionTest {
         private final List<String> events;
         private Optional<User> findResult = Optional.empty();
         private User savedUser;
+        private UUID updatedGoogleAvatarUserId;
+        private String updatedGoogleAvatarUrl;
+        private UUID updatedGoogleProfileUserId;
+        private String updatedGoogleProfileDisplayName;
+        private String updatedGoogleProfileAvatarUrl;
         private int saveCalls;
 
         private FakeUserRepository(List<String> events) {
@@ -612,6 +733,58 @@ class TransactionalGoogleLoginTransactionTest {
             return findResult;
         }
 
+        @Override
+        public User updateGoogleAvatarUrl(
+                UUID id,
+                String avatarUrl,
+                Instant updatedAt
+        ) {
+            events.add("updateGoogleAvatar");
+            updatedGoogleAvatarUserId = id;
+            updatedGoogleAvatarUrl = avatarUrl;
+            User existingUser = findResult.orElseThrow();
+
+            return new User(
+                    existingUser.id(),
+                    existingUser.googleSubject(),
+                    existingUser.displayName(),
+                    existingUser.displayNameCustomized(),
+                    avatarUrl,
+                    existingUser.customAvatarStorageKey(),
+                    existingUser.customAvatarUpdatedAt(),
+                    existingUser.createdAt(),
+                    updatedAt,
+                    existingUser.deletedAt()
+            );
+        }
+
+        @Override
+        public User updateGoogleProfileFallback(
+                UUID id,
+                String displayName,
+                String avatarUrl,
+                Instant updatedAt
+        ) {
+            events.add("updateGoogleProfile");
+            updatedGoogleProfileUserId = id;
+            updatedGoogleProfileDisplayName = displayName;
+            updatedGoogleProfileAvatarUrl = avatarUrl;
+            User existingUser = findResult.orElseThrow();
+
+            return new User(
+                    existingUser.id(),
+                    existingUser.googleSubject(),
+                    displayName,
+                    false,
+                    avatarUrl,
+                    existingUser.customAvatarStorageKey(),
+                    existingUser.customAvatarUpdatedAt(),
+                    existingUser.createdAt(),
+                    updatedAt,
+                    existingUser.deletedAt()
+            );
+        }
+
         private void findResult(Optional<User> findResult) {
             this.findResult = findResult;
         }
@@ -622,6 +795,26 @@ class TransactionalGoogleLoginTransactionTest {
 
         private int saveCalls() {
             return saveCalls;
+        }
+
+        private UUID updatedGoogleAvatarUserId() {
+            return updatedGoogleAvatarUserId;
+        }
+
+        private String updatedGoogleAvatarUrl() {
+            return updatedGoogleAvatarUrl;
+        }
+
+        private UUID updatedGoogleProfileUserId() {
+            return updatedGoogleProfileUserId;
+        }
+
+        private String updatedGoogleProfileDisplayName() {
+            return updatedGoogleProfileDisplayName;
+        }
+
+        private String updatedGoogleProfileAvatarUrl() {
+            return updatedGoogleProfileAvatarUrl;
         }
     }
 

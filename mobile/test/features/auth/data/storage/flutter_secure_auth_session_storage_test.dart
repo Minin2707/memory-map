@@ -236,6 +236,7 @@ Map<String, Object?> validUserJson() {
     'id': 'user-id',
     'displayName': 'Ada Lovelace',
     'avatarUrl': 'https://example.com/avatar.png',
+    'hasCustomAvatar': false,
   };
 }
 

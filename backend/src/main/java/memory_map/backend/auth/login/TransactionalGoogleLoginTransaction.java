@@ -75,6 +75,11 @@ public class TransactionalGoogleLoginTransaction
 
         User user = userRepository
                 .findByGoogleSubject(identity.subject())
+                .map(existingUser -> refreshGoogleProfileFallback(
+                        existingUser,
+                        identity,
+                        currentTime
+                ))
                 .orElseGet(() -> createUser(
                         identity,
                         newUserId,
@@ -121,9 +126,43 @@ public class TransactionalGoogleLoginTransaction
         return userRepository.save(user);
     }
 
+    private User refreshGoogleProfileFallback(
+            User user,
+            GoogleIdentity identity,
+            Instant currentTime
+    ) {
+        String googleDisplayName = resolveDisplayName(identity.displayName());
+        boolean shouldRefreshDisplayName =
+                !user.displayNameCustomized() &&
+                        !Objects.equals(user.displayName(), googleDisplayName);
+        boolean shouldRefreshAvatar =
+                !Objects.equals(user.avatarUrl(), identity.avatarUrl());
+
+        if (!shouldRefreshDisplayName && !shouldRefreshAvatar) {
+            return user;
+        }
+
+        if (shouldRefreshDisplayName) {
+            return userRepository.updateGoogleProfileFallback(
+                    user.id(),
+                    googleDisplayName,
+                    identity.avatarUrl(),
+                    currentTime
+            );
+        }
+
+        return userRepository.updateGoogleAvatarUrl(
+                user.id(),
+                identity.avatarUrl(),
+                currentTime
+        );
+    }
+
     private static String resolveDisplayName(String displayName) {
-        return displayName == null || displayName.isBlank()
-                ? DEFAULT_DISPLAY_NAME
-                : displayName;
+        if (displayName == null || displayName.isBlank()) {
+            return DEFAULT_DISPLAY_NAME;
+        }
+
+        return displayName.trim();
     }
 }

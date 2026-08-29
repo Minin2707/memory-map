@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:memory_map/app/app.dart';
+import 'package:memory_map/app/language/app_language_preference.dart';
+import 'package:memory_map/app/language/app_language_preference_storage.dart';
+import 'package:memory_map/app/language/file_app_language_preference_storage.dart';
 import 'package:memory_map/app/router.dart';
 import 'package:memory_map/features/auth/application/auth_application_exception.dart';
 import 'package:memory_map/features/auth/application/auth_application_providers.dart';
@@ -218,6 +221,14 @@ void main() {
         '/stories/story-1/memories/create',
         '/memories/memory-1',
         '/memories/memory-1/edit',
+        profileRoute,
+        profilePhotoRoute,
+        profileDisplayNameRoute,
+        profileLanguageRoute,
+        profilePrivacyRoute,
+        profileTermsRoute,
+        profileHelpRoute,
+        profileAboutRoute,
         memoryLocationPickerRoute,
         homeRoute,
       ]) {
@@ -245,6 +256,210 @@ void main() {
   });
 
   group('Router story navigation', () {
+    testWidgets('shouldOpenProfileFromStoriesAvatarAndBack', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('stories.header.profile-action')),
+      );
+
+      expect(
+        routerLocation(tester.element(find.text('Profile'))),
+        profileRoute,
+      );
+      expect(find.byKey(const ValueKey('profile.screen')), findsOneWidget);
+      expect(find.text('Ada Lovelace'), findsWidgets);
+      expect(find.textContaining('signed-access-token'), findsNothing);
+      expect(find.textContaining('raw-refresh-token'), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile.back-action')),
+      );
+
+      expect(find.text('Your stories'), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenProfilePlaceholderRoutes', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go(profilePrivacyRoute);
+      await tester.pumpAndSettle();
+
+      expect(
+        routerLocation(
+          tester.element(
+            find.byKey(const ValueKey('profile.placeholder.screen')),
+          ),
+        ),
+        profilePrivacyRoute,
+      );
+      expect(find.text('Privacy Policy'), findsOneWidget);
+      expect(
+        find.text('The full privacy policy will be added before public release.'),
+        findsOneWidget,
+      );
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile.placeholder.back-action')),
+      );
+
+      expect(find.byKey(const ValueKey('profile.screen')), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenLanguagePreferenceFromProfileAndBack', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('stories.header.profile-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile.language-action')),
+      );
+
+      expect(find.byKey(const ValueKey('profile-language.screen')), findsOneWidget);
+      expect(find.text('Language'), findsOneWidget);
+      expect(find.text('System'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile-language.back-action')),
+      );
+
+      expect(find.byKey(const ValueKey('profile.screen')), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenLanguagePreferenceDirectRouteWhenAuthenticated', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Your stories'));
+      GoRouter.of(context).go(profileLanguageRoute);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('profile-language.screen')), findsOneWidget);
+      expect(find.text('Language'), findsOneWidget);
+    });
+
+    testWidgets('shouldChangeLanguageWithoutResettingCurrentRoute', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final languageStorage = FakeAppLanguagePreferenceStorage();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        languageStorage: languageStorage,
+      );
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('stories.header.profile-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile.language-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile-language.option.ru')),
+      );
+
+      expect(languageStorage.storedPreference, AppLanguagePreference.russian);
+      expect(find.text('Язык'), findsOneWidget);
+      expect(find.byKey(const ValueKey('profile-language.screen')), findsOneWidget);
+      expect(find.text('Your stories'), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile-language.back-action')),
+      );
+
+      expect(find.byKey(const ValueKey('profile.screen')), findsOneWidget);
+      expect(find.text('Русский'), findsOneWidget);
+    });
+
+    testWidgets('shouldLogoutFromProfileThroughAuthNotifier', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('stories.header.profile-action')),
+      );
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('profile.logout-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile.logout-action')),
+      );
+
+      expect(fakeAuthRepository.logoutCalls, 1);
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.byKey(const ValueKey('profile.screen')), findsNothing);
+    });
+
+    testWidgets('shouldKeepLanguagePreferenceAfterLogout', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final languageStorage = FakeAppLanguagePreferenceStorage()
+        ..storedPreference = AppLanguagePreference.russian;
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        languageStorage: languageStorage,
+      );
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('stories.header.profile-action')),
+      );
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('profile.logout-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile.logout-action')),
+      );
+
+      expect(languageStorage.storedPreference, AppLanguagePreference.russian);
+      expect(find.text('Продолжить с Google'), findsOneWidget);
+      expect(find.byKey(const ValueKey('profile.screen')), findsNothing);
+    });
+
     testWidgets('shouldOpenCreateStoryAndCancelBackToStories', (
       WidgetTester tester,
     ) async {
@@ -2995,6 +3210,7 @@ Future<ProviderContainer> pumpApp(
   media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
   PlaybackMapBuilder? storyPlaybackMapBuilder,
+  FakeAppLanguagePreferenceStorage? languageStorage,
 }) async {
   final container = createContainer(
     fakeAuthRepository,
@@ -3007,6 +3223,7 @@ Future<ProviderContainer> pumpApp(
     mediaRepository: mediaRepository,
     storyMapBuilder: storyMapBuilder,
     storyPlaybackMapBuilder: storyPlaybackMapBuilder,
+    languageStorage: languageStorage,
   );
   addTearDown(container.dispose);
 
@@ -3032,10 +3249,14 @@ ProviderContainer createContainer(
   media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
   PlaybackMapBuilder? storyPlaybackMapBuilder,
+  FakeAppLanguagePreferenceStorage? languageStorage,
 }) {
   return ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(fakeAuthRepository),
+      appLanguagePreferenceStorageProvider.overrideWithValue(
+        languageStorage ?? FakeAppLanguagePreferenceStorage(),
+      ),
       storyRepositoryProvider.overrideWithValue(
         storyRepository ?? FakeStoryRepository(),
       ),
@@ -3075,6 +3296,21 @@ ProviderContainer createContainer(
       ),
     ],
   );
+}
+
+final class FakeAppLanguagePreferenceStorage
+    implements AppLanguagePreferenceStorage {
+  AppLanguagePreference? storedPreference;
+
+  @override
+  Future<AppLanguagePreference?> read() async {
+    return storedPreference;
+  }
+
+  @override
+  Future<void> write(AppLanguagePreference preference) async {
+    storedPreference = preference;
+  }
 }
 
 final AuthSession session = AuthSession(
@@ -3217,6 +3453,7 @@ final MusicTrack soundtrackTrack = MusicTrack(
 );
 
 final class FakeAuthRepository implements AuthRepository {
+  int logoutCalls = 0;
   AuthSession? restoreResult;
   Object? restoreFailure;
   Object? loginFailure;
@@ -3257,6 +3494,8 @@ final class FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> logout(AuthSession session) async {
+    logoutCalls += 1;
+
     final completer = logoutCompleter;
     if (completer != null) {
       return completer.future;

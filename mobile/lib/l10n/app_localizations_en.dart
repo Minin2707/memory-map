@@ -1295,4 +1295,209 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playbackMemoryPhotoLabel => 'Memory photo';
+
+  @override
+  String storiesOpenProfileLabel(String displayName) {
+    return 'Open $displayName\'s profile';
+  }
+
+  @override
+  String get profileTitle => 'Profile';
+
+  @override
+  String get profileBackLabel => 'Back to stories';
+
+  @override
+  String get profileCreatorLabel => 'Memory Creator';
+
+  @override
+  String get profileQuote => 'Every memory deserves a place to live.';
+
+  @override
+  String get profileAccountSection => 'ACCOUNT';
+
+  @override
+  String get profilePhotoTitle => 'Profile Photo';
+
+  @override
+  String get profilePhotoSubtitle => 'Google avatar for now';
+
+  @override
+  String get profilePhotoCustomSubtitle => 'Custom Memory Story avatar';
+
+  @override
+  String get profileAvatarChooseAction => 'Choose photo';
+
+  @override
+  String get profileAvatarReplaceAction => 'Replace photo';
+
+  @override
+  String get profileAvatarRemoveAction => 'Remove photo';
+
+  @override
+  String get profileAvatarUploading => 'Uploading...';
+
+  @override
+  String get profileAvatarFailure =>
+      'Profile photo could not be updated. Check your connection and try again.';
+
+  @override
+  String get profileAvatarInvalidFailure =>
+      'Choose a JPEG or PNG photo under the upload limit.';
+
+  @override
+  String get profileAvatarUnauthorizedFailure =>
+      'Your session expired. Sign in again before changing your photo.';
+
+  @override
+  String get profileDisplayNameTitle => 'Display Name';
+
+  @override
+  String get profileDisplayNameEditTitle => 'Edit display name';
+
+  @override
+  String get profileDisplayNameFieldLabel => 'Display name';
+
+  @override
+  String get profileDisplayNameSaveAction => 'Save';
+
+  @override
+  String get profileDisplayNameSaving => 'Saving...';
+
+  @override
+  String get profileDisplayNameInvalidFailure => 'Enter a display name.';
+
+  @override
+  String get profileDisplayNameTooLongFailure =>
+      'Display name must be 255 characters or fewer.';
+
+  @override
+  String get profileDisplayNameControlCharacterFailure =>
+      'Display name must stay on one line.';
+
+  @override
+  String get profileDisplayNameFailure =>
+      'Display name could not be saved. Check your connection and try again.';
+
+  @override
+  String get profileDisplayNameUnauthorizedFailure =>
+      'Your session expired. Sign in again before changing your name.';
+
+  @override
+  String get profileDisplayNameLocalPersistenceFailure =>
+      'Display name was saved, but could not be stored locally. Restart the app if it does not update.';
+
+  @override
+  String get profileLanguageTitle => 'Language';
+
+  @override
+  String get profileLanguageSubtitle => 'Choose the app language';
+
+  @override
+  String get languageSystemOption => 'System';
+
+  @override
+  String get languageSystemSubtitle => 'Use device language';
+
+  @override
+  String get languageRussianOption => 'Русский';
+
+  @override
+  String get languageEnglishOption => 'English';
+
+  @override
+  String get languageChangeFailure =>
+      'Language could not be saved. Please try again.';
+
+  @override
+  String get profileLegalSupportSection => 'LEGAL & SUPPORT';
+
+  @override
+  String get profilePrivacyPolicyTitle => 'Privacy Policy';
+
+  @override
+  String get profilePrivacyPolicySubtitle =>
+      'How private memories are protected';
+
+  @override
+  String get profileTermsOfUseTitle => 'Terms of Use';
+
+  @override
+  String get profileTermsOfUseSubtitle => 'The rules for using Memory Story';
+
+  @override
+  String get profileHelpSupportTitle => 'Help & Support';
+
+  @override
+  String get profileHelpSupportSubtitle => 'Questions and support options';
+
+  @override
+  String get profileAboutTitle => 'About Memory Story';
+
+  @override
+  String get profileAboutSubtitle => 'App information';
+
+  @override
+  String get profileAccountActionsSection => 'ACCOUNT ACTIONS';
+
+  @override
+  String get profileLogoutSubtitle => 'End this session on this device';
+
+  @override
+  String get profileDeleteTitle => 'Delete Profile';
+
+  @override
+  String get profileDeleteSubtitle => 'Permanently delete your account';
+
+  @override
+  String get profileDeleteConfirmTitle => 'Delete profile?';
+
+  @override
+  String get profileDeleteConfirmBody =>
+      'This permanently deletes your account and removes your access to Memory Story. Stories that still need an owner must be resolved first.';
+
+  @override
+  String get profileDeleteConfirmAction => 'Delete profile';
+
+  @override
+  String get profileDeletingAction => 'Deleting...';
+
+  @override
+  String get profileDeleteOwnershipConflict =>
+      'One of your shared stories still needs an owner. Resolve story ownership before deleting your profile.';
+
+  @override
+  String get profileDeleteUnauthorized =>
+      'Your session expired. Sign in again before deleting your profile.';
+
+  @override
+  String get profileDeleteFailure =>
+      'Profile could not be deleted. Check your connection and try again.';
+
+  @override
+  String get profileDeleteUnavailableAction => 'Deletion unavailable';
+
+  @override
+  String get profilePhotoPlaceholderBody =>
+      'Profile photo editing is not available yet. Your Google avatar remains the current profile image.';
+
+  @override
+  String get profileDisplayNamePlaceholderBody =>
+      'Display name editing is not available yet. Your current Google display name remains visible.';
+
+  @override
+  String get profilePrivacyPolicyPlaceholderBody =>
+      'The full privacy policy will be added before public release.';
+
+  @override
+  String get profileTermsPlaceholderBody =>
+      'The full terms of use will be added before public release.';
+
+  @override
+  String get profileHelpPlaceholderBody =>
+      'Help and support options will be added before public release.';
+
+  @override
+  String get profileAboutPlaceholderBody =>
+      'Memory Story is a private memories app for stories, places, photos, playback, and the people who share them.';
 }

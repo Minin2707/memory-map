@@ -675,6 +675,47 @@ class JdbcRefreshTokenRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldRevokeActiveRefreshTokensByUserId() {
+
+        User user = saveUser("google-subject-123");
+        User otherUser = saveUser("other-google-subject");
+        RefreshToken active = createRefreshToken(
+                user.id(),
+                "hash-refresh-001"
+        );
+        RefreshToken consumed = new RefreshToken(
+                UUID.randomUUID(),
+                user.id(),
+                UUID.randomUUID(),
+                "hash-refresh-002",
+                BASE_TIME.plusSeconds(1),
+                EXPIRES_AT,
+                CONSUMED_AT,
+                null
+        );
+        RefreshToken other = createRefreshToken(
+                otherUser.id(),
+                "hash-refresh-003"
+        );
+        repository.save(active);
+        repository.save(consumed);
+        repository.save(other);
+
+        int revoked = repository.revokeActiveByUserId(
+                user.id(),
+                REVOKED_AT
+        );
+
+        assertThat(revoked).isEqualTo(1);
+        assertThat(repository.findById(active.id()).orElseThrow().revokedAt())
+                .isEqualTo(REVOKED_AT);
+        assertThat(repository.findById(consumed.id()).orElseThrow().revokedAt())
+                .isNull();
+        assertThat(repository.findById(other.id()).orElseThrow().revokedAt())
+                .isNull();
+    }
+
+    @Test
     void shouldAllowOnlyOneConcurrentRevoke() throws Exception {
 
         User user = saveUser("google-subject-123");

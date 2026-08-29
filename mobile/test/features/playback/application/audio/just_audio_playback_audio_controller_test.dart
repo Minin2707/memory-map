@@ -309,6 +309,14 @@ final class FakeAuthorizedSessionManager
   Future<void> invalidateCurrentSession(AuthSession currentSession) async {
     operations.add('invalidate');
   }
+
+  @override
+  Future<AuthSession?> updateCurrentSessionUserIfStillCurrent({
+    required AuthSession expectedSession,
+    required AuthUser updatedUser,
+  }) {
+    throw UnimplementedError();
+  }
 }
 
 final class FakeJustAudioPlayerPort implements JustAudioPlayerPort {
