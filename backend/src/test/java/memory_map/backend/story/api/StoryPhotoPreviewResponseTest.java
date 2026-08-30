@@ -3,27 +3,26 @@ package memory_map.backend.story.api;
 import memory_map.backend.story.application.StoryPhotoPreview;
 import org.junit.jupiter.api.Test;
 
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StoryPhotoPreviewResponseTest {
 
-    private static final UUID MEDIA_ID =
-            UUID.fromString("00000000-0000-0000-0000-000000000031");
+    private static final String THUMBNAIL_URL =
+            "/api/v1/media/media-id/thumbnail";
+    private static final String DISPLAY_URL =
+            "/api/v1/media/media-id/display";
 
     @Test
-    void shouldGenerateBackendRelativeThumbnailUrl() {
+    void shouldMapBackendRelativePreviewUrls() {
 
         StoryPhotoPreviewResponse response =
                 StoryPhotoPreviewResponse.from(
-                        new StoryPhotoPreview(MEDIA_ID)
+                        new StoryPhotoPreview(THUMBNAIL_URL, DISPLAY_URL)
                 );
 
-        assertThat(response.mediaId()).isEqualTo(MEDIA_ID);
-        assertThat(response.thumbnailUrl())
-                .isEqualTo("/api/v1/media/%s/thumbnail".formatted(MEDIA_ID));
+        assertThat(response.thumbnailUrl()).isEqualTo(THUMBNAIL_URL);
+        assertThat(response.displayUrl()).isEqualTo(DISPLAY_URL);
     }
 
     @Test

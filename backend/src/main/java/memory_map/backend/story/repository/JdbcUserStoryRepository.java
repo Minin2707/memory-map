@@ -24,7 +24,22 @@ public class JdbcUserStoryRepository implements UserStoryRepository {
                 requester.role,
                 memory_count.memory_count,
                 participant_count.participant_count,
-                preview.preview_media_id
+                CASE
+                    WHEN s.cover_updated_at IS NOT NULL
+                        THEN '/api/v1/stories/' || s.id || '/cover/thumbnail/'
+                                || CAST(floor(extract(epoch from s.cover_updated_at) * 1000) AS BIGINT)
+                    WHEN preview.preview_media_id IS NOT NULL
+                        THEN '/api/v1/media/' || preview.preview_media_id || '/thumbnail'
+                    ELSE NULL
+                END AS preview_thumbnail_url,
+                CASE
+                    WHEN s.cover_updated_at IS NOT NULL
+                        THEN '/api/v1/stories/' || s.id || '/cover/display/'
+                                || CAST(floor(extract(epoch from s.cover_updated_at) * 1000) AS BIGINT)
+                    WHEN preview.preview_media_id IS NOT NULL
+                        THEN '/api/v1/media/' || preview.preview_media_id || '/display'
+                    ELSE NULL
+                END AS preview_display_url
             FROM story_participants requester
             JOIN stories s
               ON s.id = requester.story_id
@@ -72,7 +87,22 @@ public class JdbcUserStoryRepository implements UserStoryRepository {
                 requester.role,
                 memory_count.memory_count,
                 participant_count.participant_count,
-                preview.preview_media_id
+                CASE
+                    WHEN s.cover_updated_at IS NOT NULL
+                        THEN '/api/v1/stories/' || s.id || '/cover/thumbnail/'
+                                || CAST(floor(extract(epoch from s.cover_updated_at) * 1000) AS BIGINT)
+                    WHEN preview.preview_media_id IS NOT NULL
+                        THEN '/api/v1/media/' || preview.preview_media_id || '/thumbnail'
+                    ELSE NULL
+                END AS preview_thumbnail_url,
+                CASE
+                    WHEN s.cover_updated_at IS NOT NULL
+                        THEN '/api/v1/stories/' || s.id || '/cover/display/'
+                                || CAST(floor(extract(epoch from s.cover_updated_at) * 1000) AS BIGINT)
+                    WHEN preview.preview_media_id IS NOT NULL
+                        THEN '/api/v1/media/' || preview.preview_media_id || '/display'
+                    ELSE NULL
+                END AS preview_display_url
             FROM story_participants requester
             JOIN stories s
               ON s.id = requester.story_id

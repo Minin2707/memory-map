@@ -16,6 +16,8 @@ public record Story(
 
         UUID soundtrackId,
 
+        StoryCoverMetadata cover,
+
         Instant createdAt,
 
         Instant updatedAt
@@ -31,5 +33,26 @@ public record Story(
         if (title.isBlank()) {
             throw new IllegalArgumentException("title must not be blank");
         }
+    }
+
+    public Story(
+            UUID id,
+            UUID ownerId,
+            String title,
+            String description,
+            UUID soundtrackId,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+        this(
+                id,
+                ownerId,
+                title,
+                description,
+                soundtrackId,
+                null,
+                createdAt,
+                updatedAt
+        );
     }
 }

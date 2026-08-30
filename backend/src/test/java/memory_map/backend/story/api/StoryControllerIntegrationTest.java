@@ -1548,18 +1548,19 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 .isEqualTo("Projection Story");
         assertThat(response.at("/memoryCount").asInt()).isEqualTo(2);
         assertThat(response.at("/participantCount").asInt()).isEqualTo(2);
-        assertThat(response.at("/previewPhoto/mediaId").asText())
-                .isEqualTo(SECOND_MEDIA_ID.toString());
         assertThat(response.at("/previewPhoto/thumbnailUrl").asText())
                 .isEqualTo(
                         "/api/v1/media/%s/thumbnail".formatted(SECOND_MEDIA_ID)
+                );
+        assertThat(response.at("/previewPhoto/displayUrl").asText())
+                .isEqualTo(
+                        "/api/v1/media/%s/display".formatted(SECOND_MEDIA_ID)
                 );
         assertPublicStoryResponseIsConfidential(response);
         assertThat(response.toString())
                 .doesNotContain("storageKey")
                 .doesNotContain("bucket")
-                .doesNotContain("minio")
-                .doesNotContain("displayUrl");
+                .doesNotContain("minio");
     }
 
     private String validAccessToken(UUID userId) {
@@ -1600,8 +1601,7 @@ class StoryControllerIntegrationTest extends IntegrationTest {
                 .doesNotContain("archived")
                 .doesNotContain("storageKey")
                 .doesNotContain("bucket")
-                .doesNotContain("minio")
-                .doesNotContain("displayUrl");
+                .doesNotContain("minio");
     }
 
     private static void assertStoryNotFoundBodyIsSafe(JsonNode response) {

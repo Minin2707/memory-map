@@ -389,8 +389,8 @@ StoryPhotoPreview storyPreviewPhoto({
   required String mediaId,
 }) {
   return StoryPhotoPreview(
-    mediaId: mediaId,
     thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+    displayPath: '/api/v1/media/$mediaId/display',
   );
 }
 

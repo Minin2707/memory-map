@@ -16,8 +16,10 @@ class UserStoryTest {
             UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID OWNER_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000002");
-    private static final UUID MEDIA_ID =
-            UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final String THUMBNAIL_URL =
+            "/api/v1/media/media-id/thumbnail";
+    private static final String DISPLAY_URL =
+            "/api/v1/media/media-id/display";
     private static final Instant CURRENT_TIME =
             Instant.parse("2026-01-01T10:00:00Z");
     private static final Story STORY = new Story(
@@ -48,7 +50,8 @@ class UserStoryTest {
     @Test
     void shouldCreateUserStoryWithProjectionMetadata() {
 
-        StoryPhotoPreview previewPhoto = new StoryPhotoPreview(MEDIA_ID);
+        StoryPhotoPreview previewPhoto =
+                new StoryPhotoPreview(THUMBNAIL_URL, DISPLAY_URL);
 
         UserStory userStory = new UserStory(
                 STORY,
@@ -123,21 +126,21 @@ class UserStoryTest {
                 StoryRole.OWNER,
                 2,
                 3,
-                new StoryPhotoPreview(MEDIA_ID)
+                new StoryPhotoPreview(THUMBNAIL_URL, DISPLAY_URL)
         );
         UserStory second = new UserStory(
                 STORY,
                 StoryRole.OWNER,
                 2,
                 3,
-                new StoryPhotoPreview(MEDIA_ID)
+                new StoryPhotoPreview(THUMBNAIL_URL, DISPLAY_URL)
         );
         UserStory different = new UserStory(
                 STORY,
                 StoryRole.EDITOR,
                 2,
                 3,
-                new StoryPhotoPreview(MEDIA_ID)
+                new StoryPhotoPreview(THUMBNAIL_URL, DISPLAY_URL)
         );
 
         assertThat(first).isEqualTo(second);
@@ -153,7 +156,7 @@ class UserStoryTest {
                 StoryRole.OWNER,
                 4,
                 2,
-                new StoryPhotoPreview(MEDIA_ID)
+                new StoryPhotoPreview(THUMBNAIL_URL, DISPLAY_URL)
         );
 
         assertThat(userStory.toString())
@@ -161,7 +164,8 @@ class UserStoryTest {
                         "UserStory[role=OWNER, memoryCount=4, participantCount=2, hasPreviewPhoto=true]"
                 )
                 .doesNotContain(STORY_ID.toString())
-                .doesNotContain(MEDIA_ID.toString())
+                .doesNotContain(THUMBNAIL_URL)
+                .doesNotContain(DISPLAY_URL)
                 .doesNotContain("Our Story")
                 .doesNotContain("The beginning");
     }

@@ -70,7 +70,8 @@ public class RateLimitPolicy {
                 (matches(path, "/api/v1/media/", "/thumbnail") ||
                         matches(path, "/api/v1/media/", "/display") ||
                         path.equals("/api/v1/me/avatar") ||
-                        matches(path, "/api/v1/me/avatar/", ""))) {
+                        matches(path, "/api/v1/me/avatar/", "") ||
+                        matchesStoryCoverRead(path))) {
             return Optional.of(rule(
                     RateLimitCategory.PRIVATE_MEDIA_READ,
                     RateLimitIdentity.AUTHENTICATED_USER
@@ -133,6 +134,12 @@ public class RateLimitPolicy {
         );
 
         return !middle.isBlank() && !middle.contains("/");
+    }
+
+    private static boolean matchesStoryCoverRead(String path) {
+        return path.matches(
+                "^/api/v1/stories/[^/]+/cover/(display|thumbnail)/[^/]+$"
+        );
     }
 
     private static boolean isNormalMutation(String method, String path) {

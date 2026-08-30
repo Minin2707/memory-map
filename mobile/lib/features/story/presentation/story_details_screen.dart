@@ -451,8 +451,10 @@ class _HeroBackground extends StatelessWidget {
               devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
             );
             return AuthenticatedMediaPathImage(
-              key: ValueKey('story-details.hero-display.${preview.mediaId}'),
-              thumbnailPath: _displayPath(preview.mediaId),
+              key: ValueKey(
+                'story-details.hero-display.${preview.displayPath}',
+              ),
+              thumbnailPath: preview.displayPath,
               representation: AuthenticatedMediaRepresentation.display,
               fit: BoxFit.cover,
               cacheWidth: decodeSize.cacheWidth,
@@ -2219,10 +2221,6 @@ String _initials(String title) {
 
 String _participantInitials(String displayName) {
   return _initials(displayName).toUpperCase();
-}
-
-String _displayPath(String mediaId) {
-  return '/api/v1/media/$mediaId/display';
 }
 
 String? _storyPeriodLabel(

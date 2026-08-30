@@ -128,7 +128,11 @@ void main() {
       );
 
       expect(
-        find.byKey(const ValueKey('story-map.header-thumbnail.story-media')),
+        find.byKey(
+          const ValueKey(
+            'story-map.header-thumbnail./api/v1/media/story-media/thumbnail',
+          ),
+        ),
         findsOneWidget,
       );
       expect(
@@ -1095,8 +1099,8 @@ StoryPhotoPreview storyPreviewPhoto({
   required String mediaId,
 }) {
   return StoryPhotoPreview(
-    mediaId: mediaId,
     thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+    displayPath: '/api/v1/media/$mediaId/display',
   );
 }
 

@@ -3,7 +3,9 @@ package memory_map.backend.story.application;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.story.repository.StoryParticipantViewRepository;
 import memory_map.backend.story.repository.UserStoryRepository;
+import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -33,6 +35,25 @@ public class StoryApplicationConfiguration {
             UserStoryRepository userStoryRepository
     ) {
         return new DefaultGetStoryService(userStoryRepository);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "app.storage.minio",
+            name = "enabled",
+            havingValue = "true"
+    )
+    public DownloadStoryCoverUseCase downloadStoryCoverUseCase(
+            StoryRepository storyRepository,
+            StoryParticipantRepository storyParticipantRepository,
+            StorageService storageService
+    ) {
+        return new DefaultDownloadStoryCoverService(
+                storyRepository,
+                storyParticipantRepository,
+                storageService,
+                new StoryAccessPolicy()
+        );
     }
 
     @Bean

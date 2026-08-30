@@ -4,6 +4,7 @@ import memory_map.backend.IntegrationTest;
 import memory_map.backend.common.database.DatabaseTimestamps;
 import memory_map.backend.music.domain.MusicTrackStatus;
 import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
 import memory_map.backend.user.domain.User;
 import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +53,9 @@ class StoryRepositoryTest extends IntegrationTest {
         TRUNCATE TABLE users, music_tracks
         RESTART IDENTITY CASCADE
         """;
+
+    private static final Instant COVER_UPDATED_AT =
+            Instant.parse("2026-01-01T10:00:00Z");
 
     @BeforeEach
     void cleanDatabase() {
@@ -102,6 +106,7 @@ class StoryRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(loaded).isEqualTo(saved);
+        assertThat(loaded.cover()).isNull();
     }
 
     @Test
@@ -136,6 +141,22 @@ class StoryRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldFindStoryForUpdateWithCoverMetadata() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+        StoryCoverMetadata cover = coverMetadata("object-1", COVER_UPDATED_AT);
+        Story withCover = repository.updateCover(saved.id(), cover);
+
+        Optional<Story> found = repository.findByIdForUpdate(saved.id());
+
+        assertThat(found).contains(withCover);
+        assertThat(found.orElseThrow().cover()).isEqualTo(cover);
+    }
+
+    @Test
     void shouldLockExistingStoryById() {
 
         User user = userRepository.save(
@@ -161,6 +182,14 @@ class StoryRepositoryTest extends IntegrationTest {
     void shouldRejectNullStoryLockId() {
 
         assertThatThrownBy(() -> repository.lockById(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("id must not be null");
+    }
+
+    @Test
+    void shouldRejectNullStoryFindForUpdateId() {
+
+        assertThatThrownBy(() -> repository.findByIdForUpdate(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("id must not be null");
     }
@@ -276,6 +305,91 @@ class StoryRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldUpdateCoverMetadata() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+        StoryCoverMetadata cover = coverMetadata("object-1", COVER_UPDATED_AT);
+
+        Story updated = repository.updateCover(saved.id(), cover);
+
+        assertThat(updated.cover()).isEqualTo(cover);
+        assertThat(updated.updatedAt()).isEqualTo(saved.updatedAt());
+        assertThat(repository.findById(saved.id()).orElseThrow().cover())
+                .isEqualTo(cover);
+    }
+
+    @Test
+    void shouldReplaceCoverMetadata() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+        StoryCoverMetadata first = coverMetadata("object-1", COVER_UPDATED_AT);
+        StoryCoverMetadata second = coverMetadata(
+                "object-2",
+                COVER_UPDATED_AT.plusSeconds(60)
+        );
+        repository.updateCover(saved.id(), first);
+
+        Story updated = repository.updateCover(saved.id(), second);
+
+        assertThat(updated.cover()).isEqualTo(second);
+        assertThat(repository.findById(saved.id()).orElseThrow().cover())
+                .isEqualTo(second);
+    }
+
+    @Test
+    void shouldClearCoverMetadata() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+        repository.updateCover(
+                saved.id(),
+                coverMetadata("object-1", COVER_UPDATED_AT)
+        );
+
+        Story updated = repository.clearCover(saved.id());
+
+        assertThat(updated.cover()).isNull();
+        assertThat(repository.findById(saved.id()).orElseThrow().cover())
+                .isNull();
+        assertThat(countCoverMetadataColumns(saved.id())).isZero();
+    }
+
+    @Test
+    void shouldPreserveCoverMetadataWhenUpdatingStory() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        Story saved = repository.save(createStory(user.id()));
+        StoryCoverMetadata cover = coverMetadata("object-1", COVER_UPDATED_AT);
+        Story withCover = repository.updateCover(saved.id(), cover);
+        Instant metadataUpdatedAt = withCover.updatedAt().plusSeconds(60);
+
+        Story updated = repository.update(new Story(
+                withCover.id(),
+                withCover.ownerId(),
+                "Updated Story",
+                "Updated description",
+                withCover.soundtrackId(),
+                withCover.createdAt(),
+                metadataUpdatedAt
+        ));
+
+        assertThat(updated.cover()).isEqualTo(cover);
+        assertThat(updated.updatedAt()).isEqualTo(metadataUpdatedAt);
+        assertThat(repository.findById(saved.id()).orElseThrow().cover())
+                .isEqualTo(cover);
+    }
+
+    @Test
     void shouldUpdateStoryDescriptionToNull() {
 
         User user = userRepository.save(
@@ -388,6 +502,34 @@ class StoryRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldPreserveCoverMetadataWhenUpdatingStoryWithSoundtrack() {
+
+        User user = userRepository.save(
+                createUser("google-subject-123")
+        );
+        UUID soundtrackId = UUID.randomUUID();
+        insertMusicTrack(soundtrackId);
+        Story saved = repository.save(createStory(user.id()));
+        StoryCoverMetadata cover = coverMetadata("object-1", COVER_UPDATED_AT);
+        Story withCover = repository.updateCover(saved.id(), cover);
+
+        Story updated = repository.update(new Story(
+                withCover.id(),
+                withCover.ownerId(),
+                withCover.title(),
+                withCover.description(),
+                soundtrackId,
+                withCover.createdAt(),
+                withCover.updatedAt().plusSeconds(60)
+        ));
+
+        assertThat(updated.soundtrackId()).isEqualTo(soundtrackId);
+        assertThat(updated.cover()).isEqualTo(cover);
+        assertThat(repository.findById(saved.id()).orElseThrow().cover())
+                .isEqualTo(cover);
+    }
+
+    @Test
     void shouldRejectStoryWithUnknownSoundtrackId() {
 
         User user = userRepository.save(
@@ -451,6 +593,45 @@ class StoryRepositoryTest extends IntegrationTest {
                 .param("createdAt", DatabaseTimestamps.toOffsetDateTime(now))
                 .param("updatedAt", DatabaseTimestamps.toOffsetDateTime(now))
                 .update();
+    }
+
+    private static StoryCoverMetadata coverMetadata(
+            String objectId,
+            Instant updatedAt
+    ) {
+        return new StoryCoverMetadata(
+                "stories/story-1/cover/%s/display".formatted(objectId),
+                2_048L,
+                "stories/story-1/cover/%s/thumbnail".formatted(objectId),
+                512L,
+                "image/jpeg",
+                updatedAt
+        );
+    }
+
+    private int countCoverMetadataColumns(UUID storyId) {
+        return jdbcClient.sql("""
+                SELECT
+                    (
+                        CASE WHEN cover_display_storage_key IS NULL
+                            THEN 0 ELSE 1 END
+                        + CASE WHEN cover_display_file_size IS NULL
+                            THEN 0 ELSE 1 END
+                        + CASE WHEN cover_thumbnail_storage_key IS NULL
+                            THEN 0 ELSE 1 END
+                        + CASE WHEN cover_thumbnail_file_size IS NULL
+                            THEN 0 ELSE 1 END
+                        + CASE WHEN cover_mime_type IS NULL
+                            THEN 0 ELSE 1 END
+                        + CASE WHEN cover_updated_at IS NULL
+                            THEN 0 ELSE 1 END
+                    ) AS metadata_count
+                FROM stories
+                WHERE id = :storyId
+                """)
+                .param("storyId", storyId)
+                .query(Integer.class)
+                .single();
     }
 
     private static void await(CountDownLatch latch) {

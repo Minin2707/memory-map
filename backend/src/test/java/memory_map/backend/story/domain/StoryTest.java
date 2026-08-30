@@ -80,6 +80,48 @@ class StoryTest {
     }
 
     @Test
+    void shouldAllowNullableCoverMetadata() {
+
+        Story story = new Story(
+                STORY_ID,
+                OWNER_ID,
+                "Our Story",
+                null,
+                null,
+                CREATED_AT,
+                UPDATED_AT
+        );
+
+        assertThat(story.cover()).isNull();
+    }
+
+    @Test
+    void shouldAllowCoverMetadata() {
+
+        StoryCoverMetadata cover = new StoryCoverMetadata(
+                "stories/story-1/cover/object-1/display",
+                2_048L,
+                "stories/story-1/cover/object-1/thumbnail",
+                512L,
+                "image/jpeg",
+                UPDATED_AT
+        );
+
+        Story story = new Story(
+                STORY_ID,
+                OWNER_ID,
+                "Our Story",
+                null,
+                null,
+                cover,
+                CREATED_AT,
+                UPDATED_AT
+        );
+
+        assertThat(story.cover()).isEqualTo(cover);
+    }
+
+    @Test
     void shouldRejectNullId() {
 
         assertThatThrownBy(() -> new Story(

@@ -79,6 +79,14 @@ class RateLimitPolicyTest {
                 "GET",
                 "/api/v1/me/avatar/1768039200000"
         ).category()).isEqualTo(RateLimitCategory.PRIVATE_MEDIA_READ);
+        assertThat(ruleFor(
+                "GET",
+                "/api/v1/stories/story-1/cover/thumbnail/1768039200000"
+        ).category()).isEqualTo(RateLimitCategory.PRIVATE_MEDIA_READ);
+        assertThat(ruleFor(
+                "GET",
+                "/api/v1/stories/story-1/cover/display/1768039200000"
+        ).category()).isEqualTo(RateLimitCategory.PRIVATE_MEDIA_READ);
     }
 
     @Test

@@ -523,7 +523,9 @@ class _StoryMapHeaderThumbnail extends StatelessWidget {
           child: SizedBox.square(
             dimension: 54,
             child: AuthenticatedMediaPathImage(
-              key: ValueKey('story-map.header-thumbnail.${preview.mediaId}'),
+              key: ValueKey(
+                'story-map.header-thumbnail.${preview.thumbnailPath}',
+              ),
               thumbnailPath: preview.thumbnailPath,
               fit: BoxFit.cover,
               placeholder: fallback,

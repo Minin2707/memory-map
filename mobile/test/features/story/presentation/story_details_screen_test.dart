@@ -503,7 +503,11 @@ void main() {
       final resizeImage = resizeImageFor(
         tester,
         find.descendant(
-          of: find.byKey(const ValueKey('story-details.hero-display.media-a')),
+          of: find.byKey(
+            const ValueKey(
+              'story-details.hero-display./api/v1/media/media-a/display',
+            ),
+          ),
           matching: find.byType(Image),
         ),
       );
@@ -1536,8 +1540,8 @@ MemoryDate memoryDate(int year) {
 
 StoryPhotoPreview previewPhoto(String mediaId) {
   return StoryPhotoPreview(
-    mediaId: mediaId,
     thumbnailPath: '/api/v1/media/$mediaId/thumbnail',
+    displayPath: '/api/v1/media/$mediaId/display',
   );
 }
 

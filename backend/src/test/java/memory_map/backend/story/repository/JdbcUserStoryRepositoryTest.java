@@ -11,6 +11,7 @@ import memory_map.backend.music.domain.MusicTrackStatus;
 import memory_map.backend.story.application.StoryPhotoPreview;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -378,7 +379,55 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(found.previewPhoto())
-                .isEqualTo(new StoryPhotoPreview(MEDIA_ID));
+                .isEqualTo(preview(MEDIA_ID));
+    }
+
+    @Test
+    void shouldPreferExplicitCoverOverAutomaticMemoryPreview() {
+
+        User owner = saveUser(USER_ID, "owner-google-subject");
+        Story story = saveStory(STORY_ID, owner.id(), "Cover Story", null);
+        Memory memory = saveMemory(
+                MEMORY_ID,
+                story.id(),
+                owner.id(),
+                BASE_DATE,
+                BASE_TIME
+        );
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        saveMedia(MEDIA_ID, memory.id(), MediaType.PHOTO, BASE_TIME);
+        Instant coverUpdatedAt = BASE_TIME.plusSeconds(123);
+        storyRepository.updateCover(
+                story.id(),
+                coverMetadata(story.id(), coverUpdatedAt)
+        );
+
+        UserStory found = repository
+                .findByStoryIdAndUserId(story.id(), owner.id())
+                .orElseThrow();
+
+        assertThat(found.previewPhoto())
+                .isEqualTo(coverPreview(story.id(), coverUpdatedAt));
+    }
+
+    @Test
+    void shouldReturnExplicitCoverPreviewWithoutMemoryPhotos() {
+
+        User owner = saveUser(USER_ID, "owner-google-subject");
+        Story story = saveStory(STORY_ID, owner.id(), "Cover Only Story", null);
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        Instant coverUpdatedAt = BASE_TIME.plusMillis(789);
+        storyRepository.updateCover(
+                story.id(),
+                coverMetadata(story.id(), coverUpdatedAt)
+        );
+
+        UserStory found = repository
+                .findByStoryIdAndUserId(story.id(), owner.id())
+                .orElseThrow();
+
+        assertThat(found.previewPhoto())
+                .isEqualTo(coverPreview(story.id(), coverUpdatedAt));
     }
 
     @Test
@@ -420,7 +469,7 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(found.previewPhoto())
-                .isEqualTo(new StoryPhotoPreview(SECOND_MEDIA_ID));
+                .isEqualTo(preview(SECOND_MEDIA_ID));
     }
 
     @Test
@@ -444,7 +493,7 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(found.previewPhoto())
-                .isEqualTo(new StoryPhotoPreview(MEDIA_ID));
+                .isEqualTo(preview(MEDIA_ID));
     }
 
     @Test
@@ -480,7 +529,7 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(found.previewPhoto())
-                .isEqualTo(new StoryPhotoPreview(SECOND_MEDIA_ID));
+                .isEqualTo(preview(SECOND_MEDIA_ID));
     }
 
     @Test
@@ -516,7 +565,7 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(found.previewPhoto())
-                .isEqualTo(new StoryPhotoPreview(SECOND_MEDIA_ID));
+                .isEqualTo(preview(SECOND_MEDIA_ID));
     }
 
     @Test
@@ -595,7 +644,7 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(found.previewPhoto())
-                .isEqualTo(new StoryPhotoPreview(SECOND_MEDIA_ID));
+                .isEqualTo(preview(SECOND_MEDIA_ID));
     }
 
     @Test
@@ -625,7 +674,7 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
         assertThat(listItem.memoryCount()).isEqualTo(1);
         assertThat(listItem.participantCount()).isEqualTo(2);
         assertThat(listItem.previewPhoto())
-                .isEqualTo(new StoryPhotoPreview(MEDIA_ID));
+                .isEqualTo(preview(MEDIA_ID));
     }
 
     @Test
@@ -843,6 +892,44 @@ class JdbcUserStoryRepositoryTest extends IntegrationTest {
                         type == MediaType.PHOTO ? "image/jpeg" : "audio/mpeg",
                         createdAt
                 )
+        );
+    }
+
+    private static StoryPhotoPreview preview(UUID mediaId) {
+        return new StoryPhotoPreview(
+                "/api/v1/media/%s/thumbnail".formatted(mediaId),
+                "/api/v1/media/%s/display".formatted(mediaId)
+        );
+    }
+
+    private static StoryPhotoPreview coverPreview(
+            UUID storyId,
+            Instant updatedAt
+    ) {
+        long version = updatedAt.toEpochMilli();
+        return new StoryPhotoPreview(
+                "/api/v1/stories/%s/cover/thumbnail/%d".formatted(
+                        storyId,
+                        version
+                ),
+                "/api/v1/stories/%s/cover/display/%d".formatted(
+                        storyId,
+                        version
+                )
+        );
+    }
+
+    private static StoryCoverMetadata coverMetadata(
+            UUID storyId,
+            Instant updatedAt
+    ) {
+        return new StoryCoverMetadata(
+                "stories/%s/cover/display".formatted(storyId),
+                2_048L,
+                "stories/%s/cover/thumbnail".formatted(storyId),
+                512L,
+                "image/jpeg",
+                updatedAt
         );
     }
 }

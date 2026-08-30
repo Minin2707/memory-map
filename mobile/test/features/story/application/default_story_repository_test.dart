@@ -396,8 +396,8 @@ final UserStory userStoryFixture = UserStory(
 );
 
 final StoryPhotoPreview storyPreviewPhoto = StoryPhotoPreview(
-  mediaId: 'media-id',
   thumbnailPath: '/api/v1/media/media-id/thumbnail',
+  displayPath: '/api/v1/media/media-id/display',
 );
 
 UserStory userStoryFixtureWithProjection() {

@@ -190,18 +190,24 @@ void main() {
         <String, Object?>{
           ...validUserStoryJson(),
           'previewPhoto': <String, Object?>{
-            'mediaId': 'media-id',
             'thumbnailUrl': '/api/v1/media/media-id/thumbnail',
+            'displayUrl': '/api/v1/media/media-id/display',
           },
         },
       );
 
-      expect(userStory.previewPhoto?.mediaId, 'media-id');
       expect(
         userStory.previewPhoto?.thumbnailPath,
         '/api/v1/media/media-id/thumbnail',
       );
-      expect(userStory.toDomain().previewPhoto?.mediaId, 'media-id');
+      expect(
+        userStory.previewPhoto?.displayPath,
+        '/api/v1/media/media-id/display',
+      );
+      expect(
+        userStory.toDomain().previewPhoto?.displayPath,
+        '/api/v1/media/media-id/display',
+      );
     });
 
     test('shouldParseAllBackendRoles', () {
@@ -293,8 +299,8 @@ void main() {
           <String, Object?>{
             ...validUserStoryJson(),
             'previewPhoto': <String, Object?>{
-              'mediaId': 'media-id',
               'thumbnailUrl': 'https://cdn.example/media-id',
+              'displayUrl': '/api/v1/media/media-id/display',
             },
           },
         ),

@@ -1,19 +1,31 @@
 package memory_map.backend.story.application;
 
 import java.util.Objects;
-import java.util.UUID;
 
 public record StoryPhotoPreview(
 
-        UUID mediaId
+        String thumbnailUrl,
+
+        String displayUrl
 
 ) {
     public StoryPhotoPreview {
-        Objects.requireNonNull(mediaId, "mediaId must not be null");
+        Objects.requireNonNull(thumbnailUrl, "thumbnailUrl must not be null");
+        Objects.requireNonNull(displayUrl, "displayUrl must not be null");
+
+        if (thumbnailUrl.isBlank()) {
+            throw new IllegalArgumentException(
+                    "thumbnailUrl must not be blank"
+            );
+        }
+
+        if (displayUrl.isBlank()) {
+            throw new IllegalArgumentException("displayUrl must not be blank");
+        }
     }
 
     @Override
     public String toString() {
-        return "StoryPhotoPreview[hasMediaId=true]";
+        return "StoryPhotoPreview[hasThumbnailUrl=true, hasDisplayUrl=true]";
     }
 }

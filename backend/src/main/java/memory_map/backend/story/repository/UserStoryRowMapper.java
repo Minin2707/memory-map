@@ -25,7 +25,13 @@ public class UserStoryRowMapper implements RowMapper<UserStory> {
                 rs.getObject("updated_at", OffsetDateTime.class).toInstant()
         );
 
-        UUID previewMediaId = rs.getObject("preview_media_id", UUID.class);
+        String previewThumbnailUrl = rs.getString("preview_thumbnail_url");
+        String previewDisplayUrl = rs.getString("preview_display_url");
+
+        StoryPhotoPreview previewPhoto = previewPhoto(
+                previewThumbnailUrl,
+                previewDisplayUrl
+        );
 
         return new UserStory(
                 story,
@@ -35,10 +41,23 @@ public class UserStoryRowMapper implements RowMapper<UserStory> {
                         rs.getLong("participant_count"),
                         "participant_count"
                 ),
-                previewMediaId == null
-                        ? null
-                        : new StoryPhotoPreview(previewMediaId)
+                previewPhoto
         );
+    }
+
+    private static StoryPhotoPreview previewPhoto(
+            String thumbnailUrl,
+            String displayUrl
+    ) throws SQLException {
+        if (thumbnailUrl == null && displayUrl == null) {
+            return null;
+        }
+
+        if (thumbnailUrl == null || displayUrl == null) {
+            throw new SQLException("Partial story preview photo projection");
+        }
+
+        return new StoryPhotoPreview(thumbnailUrl, displayUrl);
     }
 
     private static int toIntExact(long value, String columnName)

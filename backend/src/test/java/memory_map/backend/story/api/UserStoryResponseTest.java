@@ -18,8 +18,10 @@ class UserStoryResponseTest {
             UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID OWNER_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000002");
-    private static final UUID MEDIA_ID =
-            UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final String THUMBNAIL_URL =
+            "/api/v1/media/media-id/thumbnail";
+    private static final String DISPLAY_URL =
+            "/api/v1/media/media-id/display";
     private static final Instant CREATED_AT =
             Instant.parse("2026-01-01T10:00:00Z");
     private static final Instant UPDATED_AT =
@@ -53,14 +55,14 @@ class UserStoryResponseTest {
                         StoryRole.OWNER,
                         12,
                         3,
-                        new StoryPhotoPreview(MEDIA_ID)
+                        new StoryPhotoPreview(THUMBNAIL_URL, DISPLAY_URL)
                 )
         );
 
         assertThat(response.previewPhoto())
                 .isEqualTo(new StoryPhotoPreviewResponse(
-                        MEDIA_ID,
-                        "/api/v1/media/%s/thumbnail".formatted(MEDIA_ID)
+                        THUMBNAIL_URL,
+                        DISPLAY_URL
                 ));
     }
 

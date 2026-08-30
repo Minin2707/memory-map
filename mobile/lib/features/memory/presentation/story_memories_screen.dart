@@ -318,7 +318,9 @@ class _StoryHeaderThumbnail extends StatelessWidget {
         child: SizedBox.square(
           dimension: 56,
           child: AuthenticatedMediaPathImage(
-            key: ValueKey('story-memories.header-thumbnail.${preview.mediaId}'),
+            key: ValueKey(
+              'story-memories.header-thumbnail.${preview.thumbnailPath}',
+            ),
             thumbnailPath: preview.thumbnailPath,
             fit: BoxFit.cover,
             placeholder: fallback,

@@ -151,8 +151,8 @@ void main() {
           responseData: <String, Object?>{
             ...validUserStoryJson(),
             'previewPhoto': <String, Object?>{
-              'mediaId': 'media-id',
               'thumbnailUrl': '/api/v1/media/media-id/thumbnail',
+              'displayUrl': '/api/v1/media/media-id/display',
             },
           },
         ),
@@ -160,10 +160,13 @@ void main() {
 
       final story = await dataSource.getStory('story-id');
 
-      expect(story.previewPhoto?.mediaId, 'media-id');
       expect(
         story.previewPhoto?.thumbnailPath,
         '/api/v1/media/media-id/thumbnail',
+      );
+      expect(
+        story.previewPhoto?.displayPath,
+        '/api/v1/media/media-id/display',
       );
     });
 

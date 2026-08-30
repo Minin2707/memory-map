@@ -71,8 +71,8 @@ final class StoryPhotoPreviewDto {
     final map = storyRequiredRootMap(json);
 
     return StoryPhotoPreviewDto(
-      mediaId: storyRequiredString(map, 'mediaId'),
       thumbnailPath: storyRequiredString(map, 'thumbnailUrl'),
+      displayPath: storyRequiredString(map, 'displayUrl'),
     );
   }
 
@@ -85,26 +85,26 @@ final class StoryPhotoPreviewDto {
   }
 
   StoryPhotoPreviewDto({
-    required this.mediaId,
     required this.thumbnailPath,
+    required this.displayPath,
   }) {
     try {
       StoryPhotoPreview(
-        mediaId: mediaId,
         thumbnailPath: thumbnailPath,
+        displayPath: displayPath,
       );
     } on Object {
       throw const FormatException('Malformed story response');
     }
   }
 
-  final String mediaId;
   final String thumbnailPath;
+  final String displayPath;
 
   StoryPhotoPreview toDomain() {
     return StoryPhotoPreview(
-      mediaId: mediaId,
       thumbnailPath: thumbnailPath,
+      displayPath: displayPath,
     );
   }
 
@@ -112,12 +112,12 @@ final class StoryPhotoPreviewDto {
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is StoryPhotoPreviewDto &&
-            mediaId == other.mediaId &&
-            thumbnailPath == other.thumbnailPath;
+            thumbnailPath == other.thumbnailPath &&
+            displayPath == other.displayPath;
   }
 
   @override
-  int get hashCode => Object.hash(mediaId, thumbnailPath);
+  int get hashCode => Object.hash(thumbnailPath, displayPath);
 
   @override
   String toString() => 'StoryPhotoPreviewDto';
