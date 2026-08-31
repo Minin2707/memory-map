@@ -87,7 +87,11 @@ void main() {
 
       await pumpApp(tester, fakeAuthRepository);
 
-      expect(find.textContaining('Checking your session'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Checking your session'), findsNothing);
     });
 
     testWidgets('shouldRouteUnauthenticatedStateToLogin', (
@@ -2829,8 +2833,9 @@ void main() {
         ..restoreCompleter = restoreCompleter;
       final container = await pumpApp(tester, fakeAuthRepository);
 
-      final checkingContext =
-          tester.element(find.textContaining('Checking your session'));
+      final checkingContext = tester.element(
+        find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+      );
       GoRouter.of(checkingContext).go('/invite/$validInviteToken');
       await tester.pump();
 
@@ -2838,7 +2843,11 @@ void main() {
         container.read(pendingInviteProvider).rawToken,
         validInviteToken,
       );
-      expect(find.textContaining('Checking your session'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Checking your session'), findsNothing);
 
       restoreCompleter.complete(null);
       await tester.pumpAndSettle();

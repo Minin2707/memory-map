@@ -32,7 +32,6 @@ void main() {
 
     expect(l10n.continueWithGoogle, 'Continue with Google');
     expect(l10n.signingIn, 'Signing in…');
-    expect(l10n.checkingSession, 'Checking your session…');
     expect(l10n.restoreSessionTitle, 'Could not restore your session');
     expect(l10n.unexpectedErrorTitle, 'Something went wrong');
     expect(l10n.authenticatedSessionReady, 'Authenticated session is ready');
@@ -49,7 +48,6 @@ void main() {
 
     expect(l10n.continueWithGoogle, 'Продолжить с Google');
     expect(l10n.signingIn, 'Выполняется вход…');
-    expect(l10n.checkingSession, 'Проверяем ваш сеанс…');
     expect(l10n.restoreSessionTitle, 'Не удалось восстановить сеанс');
     expect(l10n.unexpectedErrorTitle, 'Что-то пошло не так');
     expect(l10n.authenticatedSessionReady, 'Сеанс авторизации готов');

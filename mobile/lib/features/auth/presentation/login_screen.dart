@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:memory_map/features/auth/application/auth_notifier.dart';
 import 'package:memory_map/features/auth/application/auth_state.dart';
 import 'package:memory_map/features/auth/presentation/auth_failure_message.dart';
+import 'package:memory_map/features/auth/presentation/memory_map_brand_mark.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 const _heroAsset = 'assets/loginscreen.png';
@@ -179,7 +180,10 @@ class _LoginContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Center(
-          child: _MemoryMapLogo(size: logoSize),
+          child: MemoryMapHeartPin(
+            key: const ValueKey('login.memory-map.logo'),
+            size: logoSize,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -231,109 +235,6 @@ class _LoginContent extends StatelessWidget {
       ],
     );
   }
-}
-
-class _MemoryMapLogo extends StatelessWidget {
-  const _MemoryMapLogo({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: AppLocalizations.of(context).appName,
-      image: true,
-      child: CustomPaint(
-        key: const ValueKey('login.memory-map.logo'),
-        size: Size(size, size * 1.16),
-        painter: const _MemoryMapLogoPainter(),
-      ),
-    );
-  }
-}
-
-class _MemoryMapLogoPainter extends CustomPainter {
-  const _MemoryMapLogoPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = _accent;
-    final width = size.width;
-    final height = size.height;
-    final centerX = width / 2;
-    final topY = height * 0.03;
-    final widestY = height * 0.35;
-    final lowerY = height * 0.74;
-    final tipY = height;
-    final widestHalf = width * 0.44;
-
-    final pin = Path()
-      ..moveTo(centerX, topY)
-      ..cubicTo(
-        centerX + width * 0.26,
-        topY,
-        centerX + widestHalf,
-        height * 0.16,
-        centerX + widestHalf,
-        widestY,
-      )
-      ..cubicTo(
-        centerX + widestHalf,
-        height * 0.52,
-        centerX + width * 0.27,
-        lowerY,
-        centerX,
-        tipY,
-      )
-      ..cubicTo(
-        centerX - width * 0.27,
-        lowerY,
-        centerX - widestHalf,
-        height * 0.52,
-        centerX - widestHalf,
-        widestY,
-      )
-      ..cubicTo(
-        centerX - widestHalf,
-        height * 0.16,
-        centerX - width * 0.26,
-        topY,
-        centerX,
-        topY,
-      )
-      ..close();
-
-    canvas.drawPath(pin, paint);
-
-    final heartPaint = Paint()..color = Colors.white;
-    final heartTopY = topY + width * 0.16;
-    final heartMiddleY = topY + width * 0.34;
-    final heartBottomY = topY + width * 0.52;
-    final heart = Path()
-      ..moveTo(centerX, heartBottomY)
-      ..cubicTo(
-        width * 0.24,
-        heartMiddleY,
-        width * 0.32,
-        heartTopY,
-        centerX,
-        topY + width * 0.28,
-      )
-      ..cubicTo(
-        width * 0.68,
-        heartTopY,
-        width * 0.76,
-        heartMiddleY,
-        centerX,
-        heartBottomY,
-      )
-      ..close();
-
-    canvas.drawPath(heart, heartPaint);
-  }
-
-  @override
-  bool shouldRepaint(_MemoryMapLogoPainter oldDelegate) => false;
 }
 
 class _HeartDivider extends StatelessWidget {

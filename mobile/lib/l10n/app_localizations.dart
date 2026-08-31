@@ -218,12 +218,6 @@ abstract class AppLocalizations {
   /// **'Something went wrong. Please try again.'**
   String get unknownAuthFailure;
 
-  /// No description provided for @checkingSession.
-  ///
-  /// In en, this message translates to:
-  /// **'Checking your session…'**
-  String get checkingSession;
-
   /// No description provided for @restoreSessionTitle.
   ///
   /// In en, this message translates to:

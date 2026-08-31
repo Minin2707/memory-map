@@ -76,9 +76,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get unknownAuthFailure => 'Что-то пошло не так. Попробуйте ещё раз.';
 
   @override
-  String get checkingSession => 'Проверяем ваш сеанс…';
-
-  @override
   String get restoreSessionTitle => 'Не удалось восстановить сеанс';
 
   @override

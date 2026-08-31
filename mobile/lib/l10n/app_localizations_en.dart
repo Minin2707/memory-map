@@ -78,9 +78,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unknownAuthFailure => 'Something went wrong. Please try again.';
 
   @override
-  String get checkingSession => 'Checking your session…';
-
-  @override
   String get restoreSessionTitle => 'Could not restore your session';
 
   @override

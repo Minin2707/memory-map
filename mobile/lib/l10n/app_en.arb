@@ -23,7 +23,6 @@
   "secureStorageFailure": "Could not securely save your session. Please try again.",
   "corruptSession": "Local session data was invalid. Please try again.",
   "unknownAuthFailure": "Something went wrong. Please try again.",
-  "checkingSession": "Checking your session…",
   "restoreSessionTitle": "Could not restore your session",
   "retry": "Retry",
   "unexpectedErrorTitle": "Something went wrong",

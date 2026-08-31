@@ -28,7 +28,12 @@ void main() {
     await pumpApp(tester, fakeRepository);
 
     expect(find.text('Memory Map'), findsWidgets);
-    expect(find.text('Checking your session…'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('Checking your session…'), findsNothing);
     expect(find.text('Flutter bootstrap is ready'), findsNothing);
   });
 
@@ -51,7 +56,11 @@ void main() {
     );
 
     expect(find.text('Memory Map'), findsWidgets);
-    expect(find.text('Проверяем ваш сеанс…'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+      findsOneWidget,
+    );
+    expect(find.text('Проверяем ваш сеанс…'), findsNothing);
   });
 
   testWidgets('shouldUsePersistedRussianLanguagePreference', (
@@ -76,7 +85,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Проверяем ваш сеанс…'), findsOneWidget);
+    expect(find.text('Memory Map'), findsWidgets);
+    expect(find.text('Проверяем ваш сеанс…'), findsNothing);
   });
 
   testWidgets('shouldFallbackUnsupportedSystemLocaleToEnglish', (
@@ -99,7 +109,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Checking your session…'), findsOneWidget);
+    expect(find.text('Memory Map'), findsWidgets);
+    expect(find.text('Checking your session…'), findsNothing);
   });
 
   testWidgets('shouldUsePersistedEnglishLanguagePreference', (
@@ -124,7 +135,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Checking your session…'), findsOneWidget);
+    expect(find.text('Memory Map'), findsWidgets);
+    expect(find.text('Checking your session…'), findsNothing);
   });
 
   testWidgets('shouldCreateMaterialAppRouter', (WidgetTester tester) async {
