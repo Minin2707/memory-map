@@ -15,7 +15,7 @@ import 'package:memory_map/features/auth/presentation/login_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 void main() {
-  testWidgets('shouldRenderLargeHeroSection', (WidgetTester tester) async {
+  testWidgets('shouldRenderCompactHeroSection', (WidgetTester tester) async {
     await setPortraitSurface(tester);
     await pumpScreen(tester, FakeAuthRepository());
 
@@ -24,7 +24,7 @@ void main() {
     );
 
     expect(heroSize.height, greaterThanOrEqualTo(380));
-    expect(heroSize.height, lessThanOrEqualTo(620));
+    expect(heroSize.height, lessThanOrEqualTo(455));
   });
 
   testWidgets('shouldUseLoginScreenHeroAsset', (WidgetTester tester) async {

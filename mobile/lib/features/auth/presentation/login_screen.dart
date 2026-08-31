@@ -36,10 +36,10 @@ class LoginScreen extends ConsumerWidget {
           builder: (context, constraints) {
             final isLandscape = constraints.maxWidth > constraints.maxHeight;
             final heroHeight = (constraints.maxHeight *
-                    (isLandscape ? 0.62 : 0.56))
+                    (isLandscape ? 0.62 : 0.53))
                 .clamp(
                   isLandscape ? 260.0 : 380.0,
-                  isLandscape ? 430.0 : 620.0,
+                  isLandscape ? 430.0 : 455.0,
                 )
                 .toDouble();
 
@@ -52,7 +52,7 @@ class LoginScreen extends ConsumerWidget {
                     SafeArea(
                       top: false,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+                        padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 520),
@@ -136,13 +136,16 @@ class _HeroCurveClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
+    final curveInset = (size.height * 0.16).clamp(42.0, 64.0).toDouble();
+    final controlDip = (size.height * 0.08).clamp(20.0, 30.0).toDouble();
+
     return Path()
-      ..lineTo(0, size.height - 64)
+      ..lineTo(0, size.height - curveInset)
       ..quadraticBezierTo(
         size.width / 2,
-        size.height + 30,
+        size.height + controlDip,
         size.width,
-        size.height - 64,
+        size.height - curveInset,
       )
       ..lineTo(size.width, 0)
       ..close();
@@ -169,7 +172,7 @@ class _LoginContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final textScaler = MediaQuery.textScalerOf(context);
     final largeText = textScaler.scale(1) > 1.25;
-    final logoSize = largeText ? 58.0 : 68.0;
+    final logoSize = largeText ? 54.0 : 62.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -178,7 +181,7 @@ class _LoginContent extends StatelessWidget {
         Center(
           child: _MemoryMapLogo(size: logoSize),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Text(
           l10n.appName,
           textAlign: TextAlign.center,
@@ -189,7 +192,7 @@ class _LoginContent extends StatelessWidget {
             height: 1.05,
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 16),
         Text(
           l10n.loginHeadline,
           textAlign: TextAlign.center,
@@ -200,9 +203,9 @@ class _LoginContent extends StatelessWidget {
             height: 1.28,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
         const _HeartDivider(),
-        const SizedBox(height: 22),
+        const SizedBox(height: 12),
         Text(
           l10n.loginDescription,
           textAlign: TextAlign.center,
@@ -213,7 +216,7 @@ class _LoginContent extends StatelessWidget {
             height: 1.42,
           ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 20),
         _GoogleSignInButton(
           l10n: l10n,
           isAuthenticating: isAuthenticating,
@@ -242,7 +245,7 @@ class _MemoryMapLogo extends StatelessWidget {
       image: true,
       child: CustomPaint(
         key: const ValueKey('login.memory-map.logo'),
-        size: Size.square(size),
+        size: Size(size, size * 1.16),
         painter: const _MemoryMapLogoPainter(),
       ),
     );
@@ -258,58 +261,71 @@ class _MemoryMapLogoPainter extends CustomPainter {
     final width = size.width;
     final height = size.height;
     final centerX = width / 2;
-    final topCircleRadius = width * 0.38;
-    final topCenterY = height * 0.32;
+    final topY = height * 0.03;
+    final widestY = height * 0.35;
+    final lowerY = height * 0.74;
+    final tipY = height;
+    final widestHalf = width * 0.44;
 
     final pin = Path()
-      ..moveTo(centerX, height * 0.95)
+      ..moveTo(centerX, topY)
       ..cubicTo(
-        width * 0.22,
-        height * 0.58,
-        width * 0.12,
-        height * 0.44,
-        width * 0.12,
-        topCenterY,
-      )
-      ..arcTo(
-        Rect.fromCircle(
-          center: Offset(centerX, topCenterY),
-          radius: topCircleRadius,
-        ),
-        3.14,
-        6.28,
-        false,
+        centerX + width * 0.26,
+        topY,
+        centerX + widestHalf,
+        height * 0.16,
+        centerX + widestHalf,
+        widestY,
       )
       ..cubicTo(
-        width * 0.88,
-        height * 0.44,
-        width * 0.78,
-        height * 0.58,
+        centerX + widestHalf,
+        height * 0.52,
+        centerX + width * 0.27,
+        lowerY,
         centerX,
-        height * 0.95,
+        tipY,
+      )
+      ..cubicTo(
+        centerX - width * 0.27,
+        lowerY,
+        centerX - widestHalf,
+        height * 0.52,
+        centerX - widestHalf,
+        widestY,
+      )
+      ..cubicTo(
+        centerX - widestHalf,
+        height * 0.16,
+        centerX - width * 0.26,
+        topY,
+        centerX,
+        topY,
       )
       ..close();
 
     canvas.drawPath(pin, paint);
 
     final heartPaint = Paint()..color = Colors.white;
+    final heartTopY = topY + width * 0.16;
+    final heartMiddleY = topY + width * 0.34;
+    final heartBottomY = topY + width * 0.52;
     final heart = Path()
-      ..moveTo(centerX, height * 0.51)
+      ..moveTo(centerX, heartBottomY)
       ..cubicTo(
         width * 0.24,
-        height * 0.35,
+        heartMiddleY,
         width * 0.32,
-        height * 0.16,
+        heartTopY,
         centerX,
-        height * 0.28,
+        topY + width * 0.28,
       )
       ..cubicTo(
         width * 0.68,
-        height * 0.16,
+        heartTopY,
         width * 0.76,
-        height * 0.35,
+        heartMiddleY,
         centerX,
-        height * 0.51,
+        heartBottomY,
       )
       ..close();
 
