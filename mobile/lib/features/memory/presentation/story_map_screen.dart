@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/common/presentation/widgets/glass_circle_icon_button.dart';
 import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/map/config/map_source_configuration.dart';
 import 'package:memory_map/features/map/domain/map_camera.dart';
@@ -734,21 +735,13 @@ class _StoryMapControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 7,
-      shadowColor: const Color(0x1A0F172A),
-      child: IconButton(
-        key: buttonKey,
-        onPressed: onPressed,
-        tooltip: tooltip,
-        icon: Icon(icon, size: 20),
-        color: const Color(0xFF111827),
-        disabledColor: const Color(0xFFB8C0CC),
-        constraints: const BoxConstraints.tightFor(width: 42, height: 42),
-        padding: EdgeInsets.zero,
-      ),
+    return GlassCircleIconButton.icon(
+      key: buttonKey,
+      tooltip: tooltip,
+      icon: icon,
+      onPressed: onPressed,
+      size: 44,
+      iconSize: 20,
     );
   }
 }

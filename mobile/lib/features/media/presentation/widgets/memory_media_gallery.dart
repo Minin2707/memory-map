@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/common/presentation/widgets/glass_circle_icon_button.dart';
 import 'package:memory_map/features/media/application/delete_media_notifier.dart';
 import 'package:memory_map/features/media/application/delete_media_state.dart';
 import 'package:memory_map/features/media/application/memory_media_notifier.dart';
@@ -328,17 +329,16 @@ class _DisplayDialogState extends ConsumerState<_DisplayDialog> {
                 top: 8,
                 left: 8,
                 child: widget.canDeletePhoto
-                    ? IconButton.filled(
+                    ? GlassCircleIconButton(
                         key: const ValueKey(
                           'memory-media.display.delete-action',
                         ),
                         onPressed:
                             isDeleting ? null : () => _confirmDeleteMedia(),
                         tooltip: l10n.deletePhotoAction,
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xCCFFFFFF),
-                          foregroundColor: const Color(0xFFFF5D72),
-                        ),
+                        size: 48,
+                        foregroundColor: const Color(0xFFFF5D72),
+                        disabledForegroundColor: const Color(0x99FF5D72),
                         icon: isDeleting
                             ? const SizedBox.square(
                                 dimension: 18,
@@ -354,7 +354,7 @@ class _DisplayDialogState extends ConsumerState<_DisplayDialog> {
               Positioned(
                 top: 8,
                 right: 8,
-                child: IconButton.filled(
+                child: GlassCircleIconButton.icon(
                   key: const ValueKey('memory-media.display.close-action'),
                   onPressed: isDeleting
                       ? null
@@ -362,11 +362,8 @@ class _DisplayDialogState extends ConsumerState<_DisplayDialog> {
                           Navigator.of(context).pop();
                         },
                   tooltip: l10n.memoryMediaClosePhotoAction,
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xCCFFFFFF),
-                    foregroundColor: const Color(0xFF111827),
-                  ),
-                  icon: const Icon(Icons.close_rounded),
+                  size: 48,
+                  icon: Icons.close_rounded,
                 ),
               ),
               if (failureMessage != null)

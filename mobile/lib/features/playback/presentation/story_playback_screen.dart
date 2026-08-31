@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/common/presentation/widgets/glass_circle_icon_button.dart';
 import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/memory/domain/memory_photo_preview.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
@@ -663,20 +664,13 @@ class _PlaybackPhotoArrowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 44,
-      child: IconButton(
-        key: buttonKey,
-        tooltip: tooltip,
-        onPressed: onPressed,
-        style: IconButton.styleFrom(
-          backgroundColor: const Color(0x8C000000),
-          foregroundColor: Colors.white,
-          shadowColor: const Color(0x66000000),
-          elevation: 6,
-        ),
-        icon: Icon(icon, size: 28),
-      ),
+    return GlassCircleIconButton.icon(
+      key: buttonKey,
+      tooltip: tooltip,
+      icon: icon,
+      onPressed: onPressed,
+      size: 44,
+      iconSize: 26,
     );
   }
 }
@@ -1480,18 +1474,13 @@ class _PlaybackChromeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 50,
-      child: IconButton(
-        key: buttonKey,
-        tooltip: tooltip,
-        onPressed: onPressed,
-        style: IconButton.styleFrom(
-          backgroundColor: const Color(0x99000000),
-          foregroundColor: Colors.white,
-        ),
-        icon: Icon(icon, size: 28),
-      ),
+    return GlassCircleIconButton.icon(
+      key: buttonKey,
+      tooltip: tooltip,
+      icon: icon,
+      onPressed: onPressed,
+      size: 50,
+      iconSize: 24,
     );
   }
 }

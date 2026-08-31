@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/common/presentation/widgets/glass_circle_icon_button.dart';
 import 'package:memory_map/features/map/config/map_source_configuration.dart';
 import 'package:memory_map/features/map/domain/map_camera.dart';
 import 'package:memory_map/features/map/domain/map_coordinate.dart';
@@ -571,9 +572,8 @@ class _MemoryPhotoHero extends StatelessWidget {
                     Positioned(
                       left: 12,
                       top: 10,
-                      child: _HeroCircleButton(
-                        buttonKey:
-                            const ValueKey('memory-details.back-action'),
+                      child: GlassCircleIconButton.icon(
+                        key: const ValueKey('memory-details.back-action'),
                         tooltip: l10n.memoryDetailsBackLabel,
                         onPressed: editEnabled ? onBack : null,
                         icon: Icons.arrow_back_ios_new_rounded,
@@ -583,9 +583,8 @@ class _MemoryPhotoHero extends StatelessWidget {
                       Positioned(
                         right: 12,
                         top: 10,
-                        child: _HeroCircleButton(
-                          buttonKey:
-                              const ValueKey('memory-details.edit-action'),
+                        child: GlassCircleIconButton.icon(
+                          key: const ValueKey('memory-details.edit-action'),
                           tooltip: l10n.memoryDetailsEditAction,
                           onPressed:
                               editEnabled ? () => onEdit!(memory) : null,
@@ -831,36 +830,6 @@ class _HeroDateText extends StatelessWidget {
         fontWeight: FontWeight.w800,
         letterSpacing: 0,
       ),
-    );
-  }
-}
-
-class _HeroCircleButton extends StatelessWidget {
-  const _HeroCircleButton({
-    required this.buttonKey,
-    required this.tooltip,
-    required this.onPressed,
-    required this.icon,
-  });
-
-  final Key buttonKey;
-  final String tooltip;
-  final VoidCallback? onPressed;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton.filled(
-      key: buttonKey,
-      onPressed: onPressed,
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.88),
-        disabledBackgroundColor: Colors.white.withValues(alpha: 0.54),
-        foregroundColor: const Color(0xFF28323C),
-        disabledForegroundColor: const Color(0xFF8A93A3),
-      ),
-      icon: Icon(icon, size: 21),
     );
   }
 }

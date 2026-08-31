@@ -1,5 +1,8 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/common/presentation/widgets/glass_circle_icon_button.dart';
 import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/memory/application/story_details_memory_projection.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
@@ -341,7 +344,7 @@ class _StoryHero extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          _HeroCircleButton(
+                          GlassCircleIconButton.icon(
                             key: const ValueKey('story-details.back-action'),
                             tooltip: l10n.storyDetailsBackLabel,
                             icon: Icons.arrow_back_ios_new_rounded,
@@ -349,7 +352,7 @@ class _StoryHero extends StatelessWidget {
                           ),
                           const Spacer(),
                           if (onInvite != null) ...[
-                            _HeroCircleButton(
+                            GlassCircleIconButton.icon(
                               key: const ValueKey(
                                 'story-details.invite-action',
                               ),
@@ -360,7 +363,7 @@ class _StoryHero extends StatelessWidget {
                             const SizedBox(width: 10),
                           ],
                           if (onEditStory != null)
-                            _HeroCircleButton(
+                            GlassCircleIconButton.icon(
                               key: const ValueKey(
                                 'story-details.edit-action',
                               ),
@@ -541,36 +544,6 @@ class _HeroDisplayFailureFallback extends StatelessWidget {
   }
 }
 
-class _HeroCircleButton extends StatelessWidget {
-  const _HeroCircleButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-    super.key,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton.filled(
-      onPressed: onPressed,
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        fixedSize: const Size.square(56),
-        backgroundColor: Colors.white.withValues(alpha: 0.92),
-        disabledBackgroundColor: Colors.white.withValues(alpha: 0.72),
-        foregroundColor: const Color(0xFF111827),
-        disabledForegroundColor: const Color(0xFF111827),
-        shape: const CircleBorder(),
-      ),
-      icon: Icon(icon, size: 24),
-    );
-  }
-}
-
 class _HeroMetadataRow extends StatelessWidget {
   const _HeroMetadataRow({
     required this.userStory,
@@ -619,34 +592,52 @@ class _HeroMetadataPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 210),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: const Color(0x66000000),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x22FFFFFF)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14.5,
-                height: 1.15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
+    final borderRadius = BorderRadius.circular(18);
+
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 210),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: borderRadius,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.10),
+                Colors.white.withValues(alpha: 0.04),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.14),
+              width: 0.5,
             ),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.5,
+                    height: 1.15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
