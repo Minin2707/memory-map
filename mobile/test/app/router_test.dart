@@ -17,6 +17,7 @@ import 'package:memory_map/features/auth/domain/auth_repository.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
 import 'package:memory_map/features/auth/domain/auth_tokens.dart';
 import 'package:memory_map/features/auth/domain/auth_user.dart';
+import 'package:memory_map/features/auth/presentation/auth_checking_screen.dart';
 import 'package:memory_map/features/invite/application/invite_application_exception.dart';
 import 'package:memory_map/features/invite/application/invite_application_providers.dart';
 import 'package:memory_map/features/invite/application/pending_invite_notifier.dart';
@@ -92,12 +93,34 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('Checking your session'), findsNothing);
+
+      await pumpStartupBrandingAnimation(tester);
+
+      expect(find.text('Memory Map'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        findsOneWidget,
+      );
+      expect(find.text('Continue with Google'), findsNothing);
+
+      restoreCompleter.complete(null);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
     });
 
     testWidgets('shouldRouteUnauthenticatedStateToLogin', (
       WidgetTester tester,
     ) async {
       await pumpApp(tester, FakeAuthRepository());
+
+      expect(
+        find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        findsOneWidget,
+      );
+      expect(find.text('Continue with Google'), findsNothing);
+
+      await pumpStartupBrandingAnimation(tester);
       await tester.pumpAndSettle();
 
       expect(find.text('Continue with Google'), findsOneWidget);
@@ -169,11 +192,21 @@ void main() {
       final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
 
       await pumpApp(tester, fakeAuthRepository);
+
+      expect(
+        find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        findsOneWidget,
+      );
+      expect(find.text('Continue with Google'), findsNothing);
+      expect(find.text('Your stories'), findsNothing);
+
+      await pumpStartupBrandingAnimation(tester);
       await tester.pumpAndSettle();
 
       expect(find.text('Hi, Ada! 👋'), findsOneWidget);
       expect(find.textContaining('Ada Lovelace!'), findsNothing);
       expect(find.text('Your stories'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsNothing);
       expect(find.text('Welcome, Ada Lovelace'), findsNothing);
     });
 
@@ -3035,6 +3068,14 @@ Future<void> tapVisibleText(WidgetTester tester, String text) async {
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
+}
+
+Future<void> pumpStartupBrandingAnimation(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(
+    startupBrandingAnimationDuration + const Duration(milliseconds: 1),
+  );
+  await tester.pump();
 }
 
 Future<void> tapButton(

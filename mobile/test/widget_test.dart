@@ -10,6 +10,7 @@ import 'package:memory_map/app/app.dart';
 import 'package:memory_map/features/auth/application/auth_application_providers.dart';
 import 'package:memory_map/features/auth/domain/auth_repository.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
+import 'package:memory_map/features/auth/presentation/auth_checking_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 void main() {
@@ -27,7 +28,6 @@ void main() {
 
     await pumpApp(tester, fakeRepository);
 
-    expect(find.text('Memory Map'), findsWidgets);
     expect(
       find.byKey(const ValueKey('auth-checking.memory-map.logo')),
       findsOneWidget,
@@ -35,6 +35,10 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Checking your session…'), findsNothing);
     expect(find.text('Flutter bootstrap is ready'), findsNothing);
+
+    await pumpStartupBrandingAnimation(tester);
+
+    expect(find.text('Memory Map'), findsWidgets);
   });
 
   testWidgets('shouldRenderRussianAuthCheckingScreen', (
@@ -55,12 +59,15 @@ void main() {
       locale: const Locale('ru'),
     );
 
-    expect(find.text('Memory Map'), findsWidgets);
     expect(
       find.byKey(const ValueKey('auth-checking.memory-map.logo')),
       findsOneWidget,
     );
     expect(find.text('Проверяем ваш сеанс…'), findsNothing);
+
+    await pumpStartupBrandingAnimation(tester);
+
+    expect(find.text('Memory Map'), findsWidgets);
   });
 
   testWidgets('shouldUsePersistedRussianLanguagePreference', (
@@ -85,8 +92,26 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Memory Map'), findsWidgets);
     expect(find.text('Проверяем ваш сеанс…'), findsNothing);
+
+    await pumpStartupBrandingAnimation(tester);
+
+    expect(find.text('Memory Map'), findsWidgets);
+  });
+
+  testWidgets('shouldNotRestartAuthRestoreAcrossRootRebuildsAfterBranding', (
+    WidgetTester tester,
+  ) async {
+    final fakeRepository = FakeAuthRepository();
+
+    await pumpApp(tester, fakeRepository);
+    await pumpStartupBrandingAnimation(tester);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(fakeRepository.restoreCalls, 1);
   });
 
   testWidgets('shouldFallbackUnsupportedSystemLocaleToEnglish', (
@@ -109,8 +134,11 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Memory Map'), findsWidgets);
     expect(find.text('Checking your session…'), findsNothing);
+
+    await pumpStartupBrandingAnimation(tester);
+
+    expect(find.text('Memory Map'), findsWidgets);
   });
 
   testWidgets('shouldUsePersistedEnglishLanguagePreference', (
@@ -135,8 +163,11 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Memory Map'), findsWidgets);
     expect(find.text('Checking your session…'), findsNothing);
+
+    await pumpStartupBrandingAnimation(tester);
+
+    expect(find.text('Memory Map'), findsWidgets);
   });
 
   testWidgets('shouldCreateMaterialAppRouter', (WidgetTester tester) async {
@@ -205,6 +236,14 @@ Future<void> pumpApp(
   await tester.pump();
 }
 
+Future<void> pumpStartupBrandingAnimation(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(
+    startupBrandingAnimationDuration + const Duration(milliseconds: 1),
+  );
+  await tester.pump();
+}
+
 final class FakeAppLanguagePreferenceStorage
     implements AppLanguagePreferenceStorage {
   AppLanguagePreference? storedPreference;
@@ -222,9 +261,11 @@ final class FakeAppLanguagePreferenceStorage
 
 final class FakeAuthRepository implements AuthRepository {
   Completer<AuthSession?>? restoreCompleter;
+  int restoreCalls = 0;
 
   @override
   Future<AuthSession?> restoreSession() {
+    restoreCalls += 1;
     final completer = restoreCompleter;
     if (completer != null) {
       return completer.future;

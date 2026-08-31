@@ -109,6 +109,13 @@ const _inviteDeepLinkParser = InviteDeepLinkParser();
 
 final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
   final notifier = RouterRefreshNotifier();
+  final startupBrandingGate = ref.watch(_startupBrandingGateProvider);
+
+  void refreshAfterStartupBranding() {
+    notifier.refresh();
+  }
+
+  startupBrandingGate.addListener(refreshAfterStartupBranding);
 
   ref.listen(authNotifierProvider, (previous, next) {
     ref
@@ -121,10 +128,35 @@ final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
 
     notifier.refresh();
   });
-  ref.onDispose(notifier.dispose);
+
+  ref.onDispose(() {
+    startupBrandingGate.removeListener(refreshAfterStartupBranding);
+    notifier.dispose();
+  });
 
   return notifier;
 });
+
+final _startupBrandingGateProvider = Provider<_StartupBrandingGate>((ref) {
+  final gate = _StartupBrandingGate();
+  ref.onDispose(gate.dispose);
+  return gate;
+});
+
+final class _StartupBrandingGate extends ChangeNotifier {
+  bool _completed = false;
+
+  bool get completed => _completed;
+
+  void complete() {
+    if (_completed) {
+      return;
+    }
+
+    _completed = true;
+    notifyListeners();
+  }
+}
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = ref.watch(routerRefreshNotifierProvider);
@@ -133,6 +165,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refreshNotifier,
     redirect: (BuildContext context, GoRouterState state) {
       final authState = ref.read(authNotifierProvider);
+      final startupBrandingComplete =
+          ref.read(_startupBrandingGateProvider).completed;
       final inviteToken = _inviteTokenFromState(state);
       if (inviteToken != null && !_hasAuthenticatedSession(authState)) {
         ref.read(pendingInviteProvider.notifier).setToken(inviteToken);
@@ -142,13 +176,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         authState,
         state.uri.path,
         ref.read(pendingInviteProvider),
+        startupBrandingComplete: startupBrandingComplete,
       );
     },
     routes: [
       GoRoute(
         path: authCheckingRoute,
         builder: (BuildContext context, GoRouterState state) {
-          return const AuthCheckingScreen();
+          return AuthCheckingScreen(
+            onBrandAnimationCompleted: () {
+              ref.read(_startupBrandingGateProvider).complete();
+            },
+          );
         },
       ),
       GoRoute(
@@ -792,8 +831,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 String? _redirectFor(
   AsyncValue<AuthState> authState,
   String path,
-  PendingInviteState pendingInvite,
-) {
+  PendingInviteState pendingInvite, {
+  required bool startupBrandingComplete,
+}) {
+  if (!startupBrandingComplete) {
+    return path == authCheckingRoute ? null : authCheckingRoute;
+  }
+
   if (authState.isLoading) {
     return path == authCheckingRoute ? null : authCheckingRoute;
   }

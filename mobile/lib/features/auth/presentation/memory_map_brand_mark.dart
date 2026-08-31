@@ -3,8 +3,13 @@ import 'package:memory_map/l10n/app_localizations.dart';
 
 const memoryMapWarmBackground = Color(0xFFFBF7F4);
 
-const _brandText = Color(0xFF172330);
 const _brandAccent = Color(0xFFF55F6F);
+const memoryMapBrandTitleStyle = TextStyle(
+  color: Color(0xFF172330),
+  fontSize: 30,
+  fontWeight: FontWeight.w800,
+  height: 1.05,
+);
 
 class MemoryMapBrandMark extends StatelessWidget {
   const MemoryMapBrandMark({
@@ -33,12 +38,7 @@ class MemoryMapBrandMark extends StatelessWidget {
         Text(
           l10n.appName,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _brandText,
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            height: 1.05,
-          ),
+          style: memoryMapBrandTitleStyle,
         ),
       ],
     );
