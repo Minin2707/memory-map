@@ -1,9 +1,12 @@
 package memory_map.backend.story.application;
 
+import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.TransactionRollbackCoordinator;
+import memory_map.backend.media.image.ImageProcessor;
+import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.story.repository.StoryParticipantViewRepository;
 import memory_map.backend.story.repository.UserStoryRepository;
-import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -53,6 +56,66 @@ public class StoryApplicationConfiguration {
                 storyParticipantRepository,
                 storageService,
                 new StoryAccessPolicy()
+        );
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "app.storage.minio",
+            name = "enabled",
+            havingValue = "true"
+    )
+    public StoryCoverStorageKeyFactory storyCoverStorageKeyFactory() {
+        return new DeterministicStoryCoverStorageKeyFactory();
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "app.storage.minio",
+            name = "enabled",
+            havingValue = "true"
+    )
+    public UploadStoryCoverUseCase uploadStoryCoverUseCase(
+            StoryRepository storyRepository,
+            StoryParticipantRepository storyParticipantRepository,
+            UserStoryRepository userStoryRepository,
+            ImageProcessor imageProcessor,
+            StoryCoverStorageKeyFactory storageKeyFactory,
+            StorageService storageService,
+            TransactionRollbackCoordinator rollbackCoordinator,
+            TransactionCommitCoordinator commitCoordinator
+    ) {
+        return new DefaultUploadStoryCoverService(
+                storyRepository,
+                storyParticipantRepository,
+                userStoryRepository,
+                imageProcessor,
+                storageKeyFactory,
+                storageService,
+                rollbackCoordinator,
+                commitCoordinator
+        );
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "app.storage.minio",
+            name = "enabled",
+            havingValue = "true"
+    )
+    public RemoveStoryCoverUseCase removeStoryCoverUseCase(
+            StoryRepository storyRepository,
+            StoryParticipantRepository storyParticipantRepository,
+            UserStoryRepository userStoryRepository,
+            StorageService storageService,
+            TransactionCommitCoordinator commitCoordinator
+    ) {
+        return new DefaultRemoveStoryCoverService(
+                storyRepository,
+                storyParticipantRepository,
+                userStoryRepository,
+                storageService,
+                commitCoordinator
         );
     }
 

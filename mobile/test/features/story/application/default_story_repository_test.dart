@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/story/application/default_story_repository.dart';
 import 'package:memory_map/features/story/application/story_application_exception.dart';
 import 'package:memory_map/features/story/data/remote/create_story_remote_request.dart';
@@ -265,6 +268,68 @@ void main() {
     });
   });
 
+  group('DefaultStoryRepository story cover', () {
+    test('shouldUploadPreparedStoryCoverAndReturnAuthoritativeStory', () async {
+      final explicitCoverStory = userStoryFixtureWithProjection(
+        StoryPhotoPreview(
+          thumbnailPath: '/api/v1/stories/story-id/cover/thumbnail/111',
+          displayPath: '/api/v1/stories/story-id/cover/display/111',
+        ),
+      );
+      final fakes = StoryRepositoryFakes()
+        ..remote.uploadCoverResult = explicitCoverStory;
+      final repository = fakes.createRepository();
+      final photo = preparedPhotoUpload();
+
+      final story = await repository.uploadStoryCover(
+        storyId: 'story-id',
+        photo: photo,
+      );
+
+      expect(story, explicitCoverStory);
+      expect(fakes.remote.uploadCoverCalls, 1);
+      expect(fakes.remote.receivedUploadCoverStoryId, 'story-id');
+      expect(fakes.remote.receivedUploadCoverPhoto, photo);
+    });
+
+    test('shouldRemoveStoryCoverAndKeepAuthoritativeFallbackPreview', () async {
+      final fallbackPreview = StoryPhotoPreview(
+        thumbnailPath: '/api/v1/media/fallback-media/thumbnail',
+        displayPath: '/api/v1/media/fallback-media/display',
+      );
+      final fallbackStory = userStoryFixtureWithProjection(fallbackPreview);
+      final fakes = StoryRepositoryFakes()
+        ..remote.removeCoverResult = fallbackStory;
+      final repository = fakes.createRepository();
+
+      final story = await repository.removeStoryCover(storyId: 'story-id');
+
+      expect(story, fallbackStory);
+      expect(story.previewPhoto, fallbackPreview);
+      expect(fakes.remote.removeCoverCalls, 1);
+      expect(fakes.remote.receivedRemoveCoverStoryId, 'story-id');
+    });
+
+    test('shouldRejectBlankStoryCoverMutationStoryIds', () async {
+      final fakes = StoryRepositoryFakes();
+      final repository = fakes.createRepository();
+
+      await expectLater(
+        repository.uploadStoryCover(
+          storyId: '   ',
+          photo: preparedPhotoUpload(),
+        ),
+        throwsA(argumentErrorWithMessage('storyId must not be blank')),
+      );
+      await expectLater(
+        repository.removeStoryCover(storyId: '   '),
+        throwsA(argumentErrorWithMessage('storyId must not be blank')),
+      );
+      expect(fakes.remote.uploadCoverCalls, 0);
+      expect(fakes.remote.removeCoverCalls, 0);
+    });
+  });
+
   group('DefaultStoryRepository failure mapping', () {
     test('shouldMapKnownRemoteFailures', () async {
       final cases = <RemoteFailureCase>[
@@ -400,13 +465,20 @@ final StoryPhotoPreview storyPreviewPhoto = StoryPhotoPreview(
   displayPath: '/api/v1/media/media-id/display',
 );
 
-UserStory userStoryFixtureWithProjection() {
+UserStory userStoryFixtureWithProjection([StoryPhotoPreview? previewPhoto]) {
   return UserStory(
     story: storyFixture,
     role: StoryRole.owner,
     memoryCount: 12,
     participantCount: 2,
-    previewPhoto: storyPreviewPhoto,
+    previewPhoto: previewPhoto ?? storyPreviewPhoto,
+  );
+}
+
+PreparedPhotoUpload preparedPhotoUpload() {
+  return PreparedPhotoUpload(
+    bytes: Uint8List.fromList(<int>[1, 2, 3]),
+    contentType: 'image/jpeg',
   );
 }
 
@@ -434,13 +506,20 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
   int getStoriesCalls = 0;
   int getStoryCalls = 0;
   int updateStoryCalls = 0;
+  int uploadCoverCalls = 0;
+  int removeCoverCalls = 0;
   Object? failure;
   CreateStoryRemoteRequest? receivedCreateRequest;
   String? receivedStoryId;
   String? receivedUpdateStoryId;
   UpdateStoryRemoteRequest? receivedUpdateRequest;
+  String? receivedUploadCoverStoryId;
+  PreparedPhotoUpload? receivedUploadCoverPhoto;
+  String? receivedRemoveCoverStoryId;
   List<UserStory> stories = <UserStory>[userStoryFixture];
   UserStory story = userStoryFixture;
+  UserStory uploadCoverResult = userStoryFixture;
+  UserStory removeCoverResult = userStoryFixture;
 
   @override
   Future<Story> createStory(CreateStoryRemoteRequest request) async {
@@ -479,6 +558,28 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
     _throwIfConfigured();
 
     return userStoryFixture;
+  }
+
+  @override
+  Future<UserStory> uploadCover(
+    String storyId,
+    PreparedPhotoUpload photo,
+  ) async {
+    uploadCoverCalls += 1;
+    receivedUploadCoverStoryId = storyId;
+    receivedUploadCoverPhoto = photo;
+    _throwIfConfigured();
+
+    return uploadCoverResult;
+  }
+
+  @override
+  Future<UserStory> removeCover(String storyId) async {
+    removeCoverCalls += 1;
+    receivedRemoveCoverStoryId = storyId;
+    _throwIfConfigured();
+
+    return removeCoverResult;
   }
 
   void _throwIfConfigured() {

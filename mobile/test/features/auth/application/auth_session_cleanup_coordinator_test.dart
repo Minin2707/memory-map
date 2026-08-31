@@ -13,6 +13,7 @@ import 'package:memory_map/features/auth/domain/auth_repository.dart';
 import 'package:memory_map/features/auth/domain/auth_session.dart';
 import 'package:memory_map/features/auth/domain/auth_tokens.dart';
 import 'package:memory_map/features/auth/domain/auth_user.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
 import 'package:memory_map/features/memory/application/memory_details_state.dart';
@@ -430,6 +431,21 @@ final class FakeStoryRepository implements StoryRepository {
 
   @override
   Future<UserStory> updateStory(UpdateStoryInput input) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> uploadStoryCover({
+    required String storyId,
+    required PreparedPhotoUpload photo,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> removeStoryCover({
+    required String storyId,
+  }) {
     throw UnimplementedError();
   }
 }

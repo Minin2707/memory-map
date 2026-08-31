@@ -201,6 +201,69 @@ void main() {
       expect(fetchCalls, 1);
       expect(await directory.list().isEmpty, isTrue);
     });
+
+    test('shouldCacheVersionedStoryCoverRepresentationPaths', () async {
+      const policy = PrivateMediaCachePathPolicy();
+
+      expect(
+        policy.isCacheable(
+          '/api/v1/stories/$storyId/cover/thumbnail/123',
+        ),
+        isTrue,
+      );
+      expect(
+        policy.isCacheable(
+          '/api/v1/stories/$storyId/cover/display/123',
+        ),
+        isTrue,
+      );
+      expect(policy.isCacheable(thumbnailPath), isTrue);
+      expect(policy.isCacheable(displayPath), isTrue);
+    });
+
+    test('shouldRejectMalformedStoryCoverRepresentationPaths', () {
+      const policy = PrivateMediaCachePathPolicy();
+
+      expect(policy.isCacheable('/api/v1/stories/$storyId'), isFalse);
+      expect(policy.isCacheable('/api/v1/stories/$storyId/cover'), isFalse);
+      expect(
+        policy.isCacheable('/api/v1/stories/$storyId/cover/thumbnail'),
+        isFalse,
+      );
+      expect(
+        policy.isCacheable('/api/v1/stories/$storyId/cover/display'),
+        isFalse,
+      );
+      expect(
+        policy.isCacheable('/api/v1/stories/$storyId/cover/foo/123'),
+        isFalse,
+      );
+      expect(
+        policy.isCacheable(
+          '/api/v1/stories/$storyId/cover/thumbnail/not-a-version',
+        ),
+        isFalse,
+      );
+      expect(
+        policy.isCacheable('/api/v1/stories/$storyId/cover/thumbnail/-1'),
+        isFalse,
+      );
+      expect(
+        policy.isCacheable('/api/v1/stories/$storyId/cover/thumbnail/123?x=1'),
+        isFalse,
+      );
+    });
+
+    test('shouldKeepStoryCoverVersionInCacheIdentity', () {
+      final first = privateMediaCacheFileNameForPath(
+        '/api/v1/stories/$storyId/cover/display/111',
+      );
+      final second = privateMediaCacheFileNameForPath(
+        '/api/v1/stories/$storyId/cover/display/222',
+      );
+
+      expect(first, isNot(second));
+    });
   });
 }
 
@@ -243,6 +306,7 @@ Uint8List imageBytes(int marker) {
 
 const String thumbnailPath = '/api/v1/media/media-id/thumbnail';
 const String displayPath = '/api/v1/media/media-id/display';
+const String storyId = '00000000-0000-0000-0000-000000000001';
 
 final class FakeClock {
   FakeClock(this._value);

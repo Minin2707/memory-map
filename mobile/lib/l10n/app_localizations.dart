@@ -572,6 +572,42 @@ abstract class AppLocalizations {
   /// **'Creating story...'**
   String get createStoryCreatingButton;
 
+  /// No description provided for @createStoryCoverRemoveSelectionAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove selected cover'**
+  String get createStoryCoverRemoveSelectionAction;
+
+  /// No description provided for @createStoryCoverUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading cover...'**
+  String get createStoryCoverUploading;
+
+  /// No description provided for @createStoryCoverPartialTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Story created'**
+  String get createStoryCoverPartialTitle;
+
+  /// No description provided for @createStoryCoverPartialMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Story was created, but cover could not be uploaded.'**
+  String get createStoryCoverPartialMessage;
+
+  /// No description provided for @createStoryCoverRetryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry cover upload'**
+  String get createStoryCoverRetryAction;
+
+  /// No description provided for @createStoryCoverContinueAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue without cover'**
+  String get createStoryCoverContinueAction;
+
   /// No description provided for @storyDetailsPageTitle.
   ///
   /// In en, this message translates to:
@@ -1105,24 +1141,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Refresh timeline'**
   String get storyTimelineRefreshAction;
-
-  /// No description provided for @storyTimelineTabTimeline.
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline'**
-  String get storyTimelineTabTimeline;
-
-  /// No description provided for @storyTimelineTabMap.
-  ///
-  /// In en, this message translates to:
-  /// **'Map'**
-  String get storyTimelineTabMap;
-
-  /// No description provided for @storyTimelineTabStats.
-  ///
-  /// In en, this message translates to:
-  /// **'Stats'**
-  String get storyTimelineTabStats;
 
   /// No description provided for @storyTimelineCreate.
   ///
@@ -1801,6 +1819,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Update the name and note shown to story participants'**
   String get editStoryHeroSubtitle;
+
+  /// No description provided for @editStoryCoverLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover'**
+  String get editStoryCoverLabel;
+
+  /// No description provided for @editStoryCoverNoPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'No cover photo'**
+  String get editStoryCoverNoPhoto;
+
+  /// No description provided for @editStoryCoverPhotoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Story cover photo'**
+  String get editStoryCoverPhotoLabel;
+
+  /// No description provided for @editStoryCoverChooseAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose cover'**
+  String get editStoryCoverChooseAction;
+
+  /// No description provided for @editStoryCoverChangeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Change cover'**
+  String get editStoryCoverChangeAction;
+
+  /// No description provided for @editStoryCoverRemoveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove cover'**
+  String get editStoryCoverRemoveAction;
+
+  /// No description provided for @editStoryCoverSelecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Choosing photo...'**
+  String get editStoryCoverSelecting;
+
+  /// No description provided for @editStoryCoverPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing photo...'**
+  String get editStoryCoverPreparing;
+
+  /// No description provided for @editStoryCoverUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating cover...'**
+  String get editStoryCoverUploading;
+
+  /// No description provided for @editStoryCoverRemoving.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing cover...'**
+  String get editStoryCoverRemoving;
+
+  /// No description provided for @editStoryCoverUpdatedFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover updated'**
+  String get editStoryCoverUpdatedFeedback;
+
+  /// No description provided for @editStoryCoverRemovedFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover removed'**
+  String get editStoryCoverRemovedFeedback;
+
+  /// No description provided for @editStoryCoverAutosaveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover changes are saved automatically.'**
+  String get editStoryCoverAutosaveHint;
 
   /// No description provided for @editStoryTitleLabel.
   ///

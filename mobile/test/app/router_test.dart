@@ -27,6 +27,7 @@ import 'package:memory_map/features/invite/domain/invite_failure.dart';
 import 'package:memory_map/features/invite/domain/invite_repository.dart';
 import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/media/domain/media.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
 import 'package:memory_map/features/memory/domain/create_memory_input.dart';
@@ -1517,12 +1518,19 @@ void main() {
         find.byKey(const ValueKey('story-details.timeline-action')),
       );
 
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
+        findsOneWidget,
+      );
       expect(find.text(memoryA.title), findsOneWidget);
       expect(fakeMemoryRepository.getMemoriesCalls, 1);
       expect(fakeMemoryRepository.getMemoryCalls, 0);
       expect(
         find.byKey(const ValueKey('story-timeline.tabs')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
         findsOneWidget,
       );
 
@@ -1551,7 +1559,10 @@ void main() {
       GoRouter.of(context).go('/stories/${ownerStory.story.id}/timeline');
       await tester.pumpAndSettle();
 
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
+        findsOneWidget,
+      );
       expect(find.text(memoryA.title), findsOneWidget);
 
       await tapButton(
@@ -1706,6 +1717,10 @@ void main() {
 
       expect(
         find.byKey(const ValueKey('story-timeline.tabs')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
         findsOneWidget,
       );
       expect(find.text(memoryA.title), findsOneWidget);
@@ -1927,7 +1942,10 @@ void main() {
         find.byKey(const ValueKey('memory-details.back-action')),
       );
 
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
+        findsOneWidget,
+      );
       expect(find.text(memoryA.title), findsOneWidget);
     });
 
@@ -2217,7 +2235,10 @@ void main() {
         find.byKey(const ValueKey('story-details.timeline-action')),
       );
 
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
+        findsOneWidget,
+      );
       expect(find.text(memoryA.title), findsOneWidget);
       expect(
         find.byKey(const ValueKey('story-timeline.create-action')),
@@ -2466,7 +2487,10 @@ void main() {
         find.byKey(const ValueKey('memory-details.back-action')),
       );
 
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
+        findsOneWidget,
+      );
       expect(find.text(newYearMemory.title), findsOneWidget);
       expect(find.text('2027'), findsOneWidget);
     });
@@ -2590,7 +2614,10 @@ void main() {
         find.byKey(const ValueKey('memory-details.back-action')),
       );
 
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
+        findsOneWidget,
+      );
       expect(find.text(editedIntoNewYear.title), findsOneWidget);
       expect(find.text('2027'), findsOneWidget);
       final storyMemories = container
@@ -2693,6 +2720,10 @@ void main() {
       expect(fakeMemoryRepository.deleteMemoryCalls, 1);
       expect(
         find.byKey(const ValueKey('story-timeline.tabs')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
         findsOneWidget,
       );
       expect(find.text(only2025.title), findsNothing);
@@ -3550,6 +3581,21 @@ final class FakeStoryRepository implements StoryRepository {
   Future<UserStory> updateStory(UpdateStoryInput input) async {
     updateStoryCalls += 1;
     return updateStoryResult;
+  }
+
+  @override
+  Future<UserStory> uploadStoryCover({
+    required String storyId,
+    required PreparedPhotoUpload photo,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> removeStoryCover({
+    required String storyId,
+  }) async {
+    throw UnimplementedError();
   }
 }
 

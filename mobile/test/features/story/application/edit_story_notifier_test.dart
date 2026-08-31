@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/story/application/edit_story_notifier.dart';
 import 'package:memory_map/features/story/application/edit_story_state.dart';
 import 'package:memory_map/features/story/application/story_application_exception.dart';
@@ -251,6 +252,21 @@ final class FakeStoryRepository implements StoryRepository {
     }
 
     return updateStoryResult;
+  }
+
+  @override
+  Future<UserStory> uploadStoryCover({
+    required String storyId,
+    required PreparedPhotoUpload photo,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> removeStoryCover({
+    required String storyId,
+  }) async {
+    throw UnimplementedError();
   }
 }
 

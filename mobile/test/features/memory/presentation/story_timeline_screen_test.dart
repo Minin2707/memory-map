@@ -35,9 +35,17 @@ void main() {
           ],
       );
 
-      expect(find.text('Timeline'), findsNWidgets(2));
-      expect(find.text('Map'), findsOneWidget);
-      expect(find.text('Stats'), findsOneWidget);
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('Map'), findsNothing);
+      expect(find.text('Stats'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('story-timeline.tabs')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-timeline.refresh-action')),
+        findsOneWidget,
+      );
       expect(find.text('2024'), findsOneWidget);
       expect(find.text('Family picnic'), findsOneWidget);
       expect(find.text('2023'), findsNothing);
@@ -47,6 +55,8 @@ void main() {
 
       await scrollDownUntilFound(tester, find.text('2023'));
       expect(find.text('2023'), findsOneWidget);
+
+      await scrollDownUntilFound(tester, find.text('Winter lights'));
       expect(find.text('Winter lights'), findsOneWidget);
     });
 
@@ -60,7 +70,7 @@ void main() {
       );
 
       expect(find.text('Our story'), findsOneWidget);
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('Timeline'), findsNothing);
     });
 
     testWidgets('shouldRenderRussianTimelineCopy', (tester) async {
@@ -70,9 +80,9 @@ void main() {
         locale: const Locale('ru'),
       );
 
-      expect(find.text('Хронология'), findsWidgets);
-      expect(find.text('Карта'), findsOneWidget);
-      expect(find.text('Статистика'), findsOneWidget);
+      expect(find.text('Хронология'), findsOneWidget);
+      expect(find.text('Карта'), findsNothing);
+      expect(find.text('Статистика'), findsNothing);
       expect(find.text('Хронология пока пуста'), findsOneWidget);
     });
 

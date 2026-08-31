@@ -294,6 +294,26 @@ class AppLocalizationsRu extends AppLocalizations {
   String get createStoryCreatingButton => 'Создаём историю...';
 
   @override
+  String get createStoryCoverRemoveSelectionAction =>
+      'Убрать выбранную обложку';
+
+  @override
+  String get createStoryCoverUploading => 'Загружаем обложку...';
+
+  @override
+  String get createStoryCoverPartialTitle => 'История создана';
+
+  @override
+  String get createStoryCoverPartialMessage =>
+      'История создана, но обложку загрузить не удалось.';
+
+  @override
+  String get createStoryCoverRetryAction => 'Повторить загрузку обложки';
+
+  @override
+  String get createStoryCoverContinueAction => 'Продолжить без обложки';
+
+  @override
   String get storyDetailsPageTitle => 'История';
 
   @override
@@ -612,15 +632,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get storyTimelineRefreshAction => 'Обновить хронологию';
-
-  @override
-  String get storyTimelineTabTimeline => 'Хронология';
-
-  @override
-  String get storyTimelineTabMap => 'Карта';
-
-  @override
-  String get storyTimelineTabStats => 'Статистика';
 
   @override
   String get storyTimelineCreate => 'Добавить воспоминание';
@@ -993,6 +1004,46 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get editStoryHeroSubtitle =>
       'Обновите название и заметку, которые видят участники истории';
+
+  @override
+  String get editStoryCoverLabel => 'Обложка';
+
+  @override
+  String get editStoryCoverNoPhoto => 'Фото обложки пока нет';
+
+  @override
+  String get editStoryCoverPhotoLabel => 'Фото обложки истории';
+
+  @override
+  String get editStoryCoverChooseAction => 'Выбрать обложку';
+
+  @override
+  String get editStoryCoverChangeAction => 'Изменить обложку';
+
+  @override
+  String get editStoryCoverRemoveAction => 'Удалить обложку';
+
+  @override
+  String get editStoryCoverSelecting => 'Выбираем фото...';
+
+  @override
+  String get editStoryCoverPreparing => 'Подготавливаем фото...';
+
+  @override
+  String get editStoryCoverUploading => 'Обновляем обложку...';
+
+  @override
+  String get editStoryCoverRemoving => 'Удаляем обложку...';
+
+  @override
+  String get editStoryCoverUpdatedFeedback => 'Обложка обновлена';
+
+  @override
+  String get editStoryCoverRemovedFeedback => 'Обложка удалена';
+
+  @override
+  String get editStoryCoverAutosaveHint =>
+      'Изменения обложки сохраняются автоматически.';
 
   @override
   String get editStoryTitleLabel => 'Название истории';

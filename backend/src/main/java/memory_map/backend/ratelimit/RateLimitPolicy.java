@@ -66,6 +66,14 @@ public class RateLimitPolicy {
             ));
         }
 
+        if (method.equals("PUT") &&
+                matches(path, "/api/v1/stories/", "/cover")) {
+            return Optional.of(rule(
+                    RateLimitCategory.MEDIA_UPLOAD,
+                    RateLimitIdentity.AUTHENTICATED_USER
+            ));
+        }
+
         if (method.equals("GET") &&
                 (matches(path, "/api/v1/media/", "/thumbnail") ||
                         matches(path, "/api/v1/media/", "/display") ||
@@ -194,6 +202,11 @@ public class RateLimitPolicy {
 
         if ((method.equals("PUT") || method.equals("DELETE")) &&
                 matches(path, "/api/v1/stories/", "/soundtrack")) {
+            return true;
+        }
+
+        if (method.equals("DELETE") &&
+                matches(path, "/api/v1/stories/", "/cover")) {
             return true;
         }
 

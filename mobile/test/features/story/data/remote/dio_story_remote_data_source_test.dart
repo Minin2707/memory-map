@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/story/data/remote/create_story_remote_request.dart';
 import 'package:memory_map/features/story/data/remote/dio_story_remote_data_source.dart';
 import 'package:memory_map/features/story/data/remote/story_patch_field.dart';
@@ -261,6 +262,118 @@ void main() {
     });
   });
 
+  group('DioStoryRemoteDataSource story cover', () {
+    test('shouldPutMultipartStoryCoverByEncodedStoryId', () async {
+      final adapter = FakeHttpClientAdapter(
+        responseData: <String, Object?>{
+          ...validUserStoryJson(),
+          'previewPhoto': <String, Object?>{
+            'thumbnailUrl': '/api/v1/stories/story%2Fid/cover/thumbnail/111',
+            'displayUrl': '/api/v1/stories/story%2Fid/cover/display/111',
+          },
+        },
+      );
+      final dataSource = createDataSource(adapter);
+
+      await dataSource.uploadCover(
+        'story/id',
+        preparedPhotoUpload(bytes: <int>[4, 5, 6]),
+      );
+
+      expect(adapter.lastMethod, 'PUT');
+      expect(adapter.lastPath, '/api/v1/stories/story%2Fid/cover');
+      expect(adapter.lastContentType, startsWith('multipart/form-data'));
+      expect(adapter.lastBody, isA<String>());
+      final body = adapter.lastBody! as String;
+      expect(body, contains('name="file"'));
+      expect(body, contains('filename="story-cover.jpg"'));
+      expect(body.toLowerCase(), contains('content-type: image/jpeg'));
+      expect(body, isNot(contains('storyId')));
+      expect(body, isNot(contains('storageKey')));
+      expect(body, isNot(contains('MinIO')));
+    });
+
+    test('shouldReturnAuthoritativeUploadedStoryCoverPreview', () async {
+      final dataSource = createDataSource(
+        FakeHttpClientAdapter(
+          responseData: <String, Object?>{
+            ...validUserStoryJson(),
+            'previewPhoto': <String, Object?>{
+              'thumbnailUrl': '/api/v1/stories/story-id/cover/thumbnail/111',
+              'displayUrl': '/api/v1/stories/story-id/cover/display/111',
+            },
+          },
+        ),
+      );
+
+      final story = await dataSource.uploadCover(
+        'story-id',
+        preparedPhotoUpload(),
+      );
+
+      expect(
+        story.previewPhoto?.thumbnailPath,
+        '/api/v1/stories/story-id/cover/thumbnail/111',
+      );
+      expect(
+        story.previewPhoto?.displayPath,
+        '/api/v1/stories/story-id/cover/display/111',
+      );
+    });
+
+    test('shouldDeleteStoryCoverWithoutBodyAndMapFallbackPreview', () async {
+      final adapter = FakeHttpClientAdapter(
+        responseData: <String, Object?>{
+          ...validUserStoryJson(),
+          'previewPhoto': <String, Object?>{
+            'thumbnailUrl': '/api/v1/media/fallback-media/thumbnail',
+            'displayUrl': '/api/v1/media/fallback-media/display',
+          },
+        },
+      );
+      final dataSource = createDataSource(adapter);
+
+      final story = await dataSource.removeCover('story/id');
+
+      expect(adapter.lastMethod, 'DELETE');
+      expect(adapter.lastPath, '/api/v1/stories/story%2Fid/cover');
+      expect(adapter.lastBody, isNull);
+      expect(
+        story.previewPhoto?.thumbnailPath,
+        '/api/v1/media/fallback-media/thumbnail',
+      );
+      expect(
+        story.previewPhoto?.displayPath,
+        '/api/v1/media/fallback-media/display',
+      );
+    });
+
+    test('shouldDeleteStoryCoverAndMapNullPreview', () async {
+      final dataSource = createDataSource(
+        FakeHttpClientAdapter(responseData: validUserStoryJson()),
+      );
+
+      final story = await dataSource.removeCover('story-id');
+
+      expect(story.previewPhoto, isNull);
+    });
+
+    test('shouldRejectBlankStoryCoverIdsWithoutNetworkCall', () async {
+      final adapter = FakeHttpClientAdapter(responseData: validUserStoryJson());
+      final dataSource = createDataSource(adapter);
+
+      await expectLater(
+        dataSource.uploadCover('   ', preparedPhotoUpload()),
+        throwsA(argumentErrorWithMessage('storyId must not be blank')),
+      );
+      await expectLater(
+        dataSource.removeCover('   '),
+        throwsA(argumentErrorWithMessage('storyId must not be blank')),
+      );
+      expect(adapter.fetchCalls, 0);
+    });
+  });
+
   group('DioStoryRemoteDataSource errors', () {
     test('shouldMap400ToValidationFailure', () async {
       await expectStoryStatusFailure(
@@ -401,6 +514,13 @@ void main() {
   });
 }
 
+PreparedPhotoUpload preparedPhotoUpload({List<int> bytes = const <int>[1]}) {
+  return PreparedPhotoUpload(
+    bytes: Uint8List.fromList(bytes),
+    contentType: 'image/jpeg',
+  );
+}
+
 DioStoryRemoteDataSource createDataSource(FakeHttpClientAdapter adapter) {
   final dio = Dio(
     BaseOptions(
@@ -507,6 +627,7 @@ final class FakeHttpClientAdapter implements HttpClientAdapter {
   String? lastPath;
   Object? lastBody;
   Map<String, dynamic> lastHeaders = <String, dynamic>{};
+  String? lastContentType;
 
   @override
   Future<ResponseBody> fetch(
@@ -518,6 +639,7 @@ final class FakeHttpClientAdapter implements HttpClientAdapter {
     lastMethod = options.method;
     lastPath = options.path;
     lastHeaders = options.headers;
+    lastContentType = options.contentType;
     lastBody = await decodeRequestBody(requestStream);
 
     final configuredFailure = failure;
@@ -548,7 +670,12 @@ Future<Object?> decodeRequestBody(Stream<Uint8List>? requestStream) async {
     return null;
   }
 
-  return jsonDecode(utf8.decode(bytes));
+  final text = latin1.decode(bytes);
+  try {
+    return jsonDecode(text);
+  } on FormatException {
+    return text;
+  }
 }
 
 String encodeResponseBody(Object? responseData) {

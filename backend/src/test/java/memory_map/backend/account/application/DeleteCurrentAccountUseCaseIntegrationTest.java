@@ -1,6 +1,7 @@
 package memory_map.backend.account.application;
 
 import memory_map.backend.IntegrationTest;
+import memory_map.backend.account.repository.AccountDeletionRepository;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.domain.RefreshToken;
 import memory_map.backend.auth.repository.RefreshTokenRepository;
@@ -18,6 +19,7 @@ import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.story.repository.UserStoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
@@ -75,6 +77,9 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
     private UserStoryRepository userStoryRepository;
 
     @Autowired
+    private AccountDeletionRepository accountDeletionRepository;
+
+    @Autowired
     private TestStorageService storageService;
 
     @Autowired
@@ -94,6 +99,8 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
             UUID.fromString("00000000-0000-0000-0000-000000000011");
     private static final UUID OTHER_STORY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000012");
+    private static final UUID THIRD_STORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000013");
     private static final UUID MEMORY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000021");
     private static final UUID MEDIA_ID =
@@ -180,13 +187,103 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void shouldFindStoryCoverStorageKeysOnlyForRequestedStories() {
+
+        User user = saveUser(USER_ID, "google-subject-123");
+        Story storyWithCover = saveStory(
+                STORY_ID,
+                user.id(),
+                null,
+                coverMetadata(STORY_ID, "cover-a")
+        );
+        Story storyWithoutCover = saveStory(OTHER_STORY_ID, user.id(), null);
+        StoryCoverMetadata unrelatedCover =
+                coverMetadata(THIRD_STORY_ID, "cover-c");
+        saveStory(
+                THIRD_STORY_ID,
+                user.id(),
+                null,
+                unrelatedCover
+        );
+
+        List<String> storageKeys = accountDeletionRepository
+                .findStoryCoverStorageKeysByStoryIds(List.of(
+                        storyWithCover.id(),
+                        storyWithoutCover.id()
+                ));
+
+        assertThat(storageKeys).containsExactly(
+                storyWithCover.cover().thumbnailStorageKey(),
+                storyWithCover.cover().displayStorageKey()
+        );
+        assertThat(storageKeys)
+                .doesNotContain(unrelatedCover.thumbnailStorageKey())
+                .doesNotContain(unrelatedCover.displayStorageKey());
+        assertThat(accountDeletionRepository
+                .findStoryCoverStorageKeysByStoryIds(List.of()))
+                .isEmpty();
+    }
+
+    @Test
+    void shouldCleanupOnlyCoversForPhysicallyDeletedStoriesAfterCommit() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User coOwner = saveUser(CO_OWNER_ID, "co-owner-google-subject");
+        Story deletedWithCover = saveStory(
+                STORY_ID,
+                owner.id(),
+                null,
+                coverMetadata(STORY_ID, "deleted-cover")
+        );
+        Story deletedWithoutCover = saveStory(
+                OTHER_STORY_ID,
+                owner.id(),
+                null
+        );
+        Story survivingWithCover = saveStory(
+                THIRD_STORY_ID,
+                owner.id(),
+                null,
+                coverMetadata(THIRD_STORY_ID, "surviving-cover")
+        );
+        saveParticipant(deletedWithCover.id(), owner.id(), StoryRole.OWNER);
+        saveParticipant(deletedWithoutCover.id(), owner.id(), StoryRole.OWNER);
+        saveParticipant(survivingWithCover.id(), owner.id(), StoryRole.OWNER);
+        saveParticipant(
+                survivingWithCover.id(),
+                coOwner.id(),
+                StoryRole.CO_OWNER
+        );
+
+        deleteCurrentAccountUseCase.deleteCurrentAccount(command(owner.id()));
+
+        assertThat(storyRepository.findById(deletedWithCover.id())).isEmpty();
+        assertThat(storyRepository.findById(deletedWithoutCover.id()))
+                .isEmpty();
+        Story transferred = storyRepository.findById(survivingWithCover.id())
+                .orElseThrow();
+
+        assertThat(transferred.ownerId()).isEqualTo(coOwner.id());
+        assertThat(transferred.cover()).isEqualTo(survivingWithCover.cover());
+        assertThat(storageService.deletedKeys).containsExactly(
+                new StorageKey(deletedWithCover.cover().thumbnailStorageKey()),
+                new StorageKey(deletedWithCover.cover().displayStorageKey())
+        );
+    }
+
+    @Test
     void shouldTransferOwnedStoryToEarliestCoOwnerAndPreserveStoryData() {
 
         User owner = saveUser(OWNER_ID, "owner-google-subject");
         User laterCoOwner = saveUser(USER_ID, "later-google-subject");
         User earliestCoOwner = saveUser(CO_OWNER_ID, "co-owner-google-subject");
         UUID soundtrackId = saveMusicTrack();
-        Story story = saveStory(STORY_ID, owner.id(), soundtrackId);
+        Story story = saveStory(
+                STORY_ID,
+                owner.id(),
+                soundtrackId,
+                coverMetadata(STORY_ID, "surviving-cover")
+        );
         saveParticipant(story.id(), owner.id(), StoryRole.OWNER, BASE_TIME);
         saveParticipant(
                 story.id(),
@@ -219,6 +316,7 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
         assertThat(mediaFileRepository.findById(mediaFile.id()))
                 .contains(mediaFile);
         assertThat(transferred.soundtrackId()).isEqualTo(soundtrackId);
+        assertThat(transferred.cover()).isEqualTo(story.cover());
         assertThat(storageService.deletedKeys).isEmpty();
         assertThat(userStoryRepository.findByUserId(owner.id())).isEmpty();
     }
@@ -291,8 +389,18 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
         User owner = saveUser(OWNER_ID, "owner-google-subject");
         User coOwner = saveUser(CO_OWNER_ID, "co-owner-google-subject");
         User editor = saveUser(EDITOR_ID, "editor-google-subject");
-        Story transferable = saveStory(STORY_ID, owner.id(), null);
-        Story blocked = saveStory(OTHER_STORY_ID, owner.id(), null);
+        Story transferable = saveStory(
+                STORY_ID,
+                owner.id(),
+                null,
+                coverMetadata(STORY_ID, "transferable-cover")
+        );
+        Story blocked = saveStory(
+                OTHER_STORY_ID,
+                owner.id(),
+                null,
+                coverMetadata(OTHER_STORY_ID, "blocked-cover")
+        );
         saveParticipant(transferable.id(), owner.id(), StoryRole.OWNER);
         saveParticipant(transferable.id(), coOwner.id(), StoryRole.CO_OWNER);
         saveParticipant(blocked.id(), owner.id(), StoryRole.OWNER);
@@ -319,6 +427,15 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
                 .orElseThrow()
                 .revokedAt())
                 .isNull();
+        assertThat(storyRepository.findById(transferable.id())
+                .orElseThrow()
+                .cover())
+                .isEqualTo(transferable.cover());
+        assertThat(storyRepository.findById(blocked.id())
+                .orElseThrow()
+                .cover())
+                .isEqualTo(blocked.cover());
+        assertThat(storageService.deletedKeys).isEmpty();
     }
 
     private void assertOwnerDeletionBlockedForRole(StoryRole otherRole) {
@@ -393,15 +510,39 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
     }
 
     private Story saveStory(UUID id, UUID ownerId, UUID soundtrackId) {
+        return saveStory(id, ownerId, soundtrackId, null);
+    }
+
+    private Story saveStory(
+            UUID id,
+            UUID ownerId,
+            UUID soundtrackId,
+            StoryCoverMetadata cover
+    ) {
         return storyRepository.save(new Story(
                 id,
                 ownerId,
                 "Our Story",
                 "The beginning",
                 soundtrackId,
+                cover,
                 BASE_TIME,
                 BASE_TIME
         ));
+    }
+
+    private static StoryCoverMetadata coverMetadata(
+            UUID storyId,
+            String objectId
+    ) {
+        return new StoryCoverMetadata(
+                "stories/%s/cover/%s/display".formatted(storyId, objectId),
+                2_048L,
+                "stories/%s/cover/%s/thumbnail".formatted(storyId, objectId),
+                512L,
+                "image/jpeg",
+                BASE_TIME
+        );
     }
 
     private void saveParticipant(

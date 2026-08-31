@@ -9,6 +9,7 @@ import 'package:memory_map/features/media/application/media_application_provider
 import 'package:memory_map/features/media/application/memory_media_notifier.dart';
 import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/media/domain/media_failure.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/memory/application/memory_application_exception.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
@@ -490,6 +491,21 @@ final class FakeStoryRepository implements StoryRepository {
 
   @override
   Future<UserStory> updateStory(UpdateStoryInput input) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> uploadStoryCover({
+    required String storyId,
+    required PreparedPhotoUpload photo,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> removeStoryCover({
+    required String storyId,
+  }) async {
     throw UnimplementedError();
   }
 }

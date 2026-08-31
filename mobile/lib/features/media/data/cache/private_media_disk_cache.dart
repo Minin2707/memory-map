@@ -203,9 +203,27 @@ final class PrivateMediaCachePathPolicy {
       return false;
     }
 
+    return _isMemoryMediaPath(backendPath) || _isStoryCoverPath(backendPath);
+  }
+
+  bool _isMemoryMediaPath(String backendPath) {
     return backendPath.startsWith('/api/v1/media/') &&
         (backendPath.endsWith('/thumbnail') ||
             backendPath.endsWith('/display'));
+  }
+
+  bool _isStoryCoverPath(String backendPath) {
+    final segments = Uri(path: backendPath).pathSegments;
+    if (segments.length != 7 ||
+        segments[0] != 'api' ||
+        segments[1] != 'v1' ||
+        segments[2] != 'stories' ||
+        segments[4] != 'cover' ||
+        (segments[5] != 'thumbnail' && segments[5] != 'display')) {
+      return false;
+    }
+
+    return RegExp(r'^[0-9]+$').hasMatch(segments[6]);
   }
 }
 

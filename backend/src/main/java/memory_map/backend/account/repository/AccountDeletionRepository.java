@@ -23,6 +23,10 @@ public interface AccountDeletionRepository {
             Collection<UUID> storyIds
     );
 
+    List<String> findStoryCoverStorageKeysByStoryIds(
+            Collection<UUID> storyIds
+    );
+
     void transferStoryOwner(
             UUID storyId,
             UUID newOwnerId,

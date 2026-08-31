@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memory_map/features/media/application/media_application_exception.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
+import 'package:memory_map/features/media/domain/media_failure.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
+import 'package:memory_map/features/media/presentation/media_failure_message.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/stories_state.dart';
+import 'package:memory_map/features/story/application/story_cover_notifier.dart';
+import 'package:memory_map/features/story/application/story_cover_state.dart';
 import 'package:memory_map/features/story/domain/story.dart';
+import 'package:memory_map/features/story/domain/story_failure.dart';
+import 'package:memory_map/features/story/domain/user_story.dart';
 import 'package:memory_map/features/story/presentation/story_failure_message.dart';
 import 'package:memory_map/features/story/presentation/widgets/story_form_failure_banner.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
@@ -30,9 +39,19 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
 
   bool _submitInFlight = false;
   bool _createdCallbackCalled = false;
+  bool _isSelectingCover = false;
+  bool _isPreparingCover = false;
+  bool _isUploadingCover = false;
+  bool _coverUploadFailed = false;
+  PreparedPhotoUpload? _preparedCover;
+  MediaFailure? _coverMediaFailure;
+  StoryFailure? _coverUploadFailure;
+  Story? _createdStoryAwaitingCover;
+  ProviderSubscription<AsyncValue<StoryCoverState>>? _coverSubscription;
 
   @override
   void dispose() {
+    _coverSubscription?.close();
     _titleController.dispose();
     _descriptionController.dispose();
     _titleFocusNode.dispose();
@@ -45,17 +64,30 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
     final l10n = AppLocalizations.of(context);
     final storiesValue = ref.watch(storiesNotifierProvider);
     final storiesState = storiesValue.asData?.value;
-    final isCreating = _submitInFlight || (storiesState?.isCreating ?? false);
+    final isCreatingStory =
+        _submitInFlight || (storiesState?.isCreating ?? false);
+    final isCoverBusy = _isSelectingCover || _isPreparingCover ||
+        _isUploadingCover;
+    final isBusy = isCreatingStory || isCoverBusy;
+    final hasPersistedStory = _createdStoryAwaitingCover != null;
+    final hasPartialCoverFailure = hasPersistedStory && _coverUploadFailed;
+    final hasLocalCoverState = _preparedCover != null ||
+        _coverMediaFailure != null;
     final failureMessage = _failureMessage(l10n, storiesValue, storiesState);
+    final coverFailureMessage = _coverFailureMessage(l10n);
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop || isCreating) {
+        if (didPop || isBusy) {
           return;
         }
 
-        widget.onCancel?.call();
+        if (hasPersistedStory) {
+          _continueWithoutCover();
+        } else {
+          widget.onCancel?.call();
+        }
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF7F8FA),
@@ -72,8 +104,10 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                   sliver: SliverToBoxAdapter(
                     child: _CreateStoryAppBar(
-                      isCreating: isCreating,
-                      onCancel: widget.onCancel,
+                      isBusy: isBusy,
+                      onCancel: hasPersistedStory
+                          ? _continueWithoutCover
+                          : widget.onCancel,
                     ),
                   ),
                 ),
@@ -104,38 +138,67 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
                             descriptionController: _descriptionController,
                             titleFocusNode: _titleFocusNode,
                             descriptionFocusNode: _descriptionFocusNode,
-                            enabled: !isCreating,
+                            enabled: !isBusy && !hasPersistedStory,
+                            preparedCover: _preparedCover,
+                            isCoverSelecting: _isSelectingCover,
+                            isCoverPreparing: _isPreparingCover,
+                            isCoverUploading: _isUploadingCover,
+                            coverFailureMessage: coverFailureMessage,
+                            onChooseCover:
+                                isBusy || hasPersistedStory ? null : _chooseCover,
+                            onRemoveSelectedCover:
+                                isBusy || hasPersistedStory || !hasLocalCoverState
+                                    ? null
+                                    : _removeSelectedCover,
                           ),
                           if (failureMessage != null) ...[
                             const SizedBox(height: 16),
                             StoryFormFailureBanner(message: failureMessage),
                           ],
-                          const SizedBox(height: 24),
-                          _CreateStoryButton(
-                            isCreating: isCreating,
-                            onPressed: isCreating ? null : _submit,
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton(
-                            key: const ValueKey('create-story.cancel-action'),
-                            onPressed: isCreating ? null : widget.onCancel,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFFF5D72),
-                              side: const BorderSide(
-                                color: Color(0xFFFF8A99),
-                              ),
-                              minimumSize: const Size.fromHeight(56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              textStyle: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0,
-                              ),
+                          if (hasPartialCoverFailure) ...[
+                            const SizedBox(height: 16),
+                            _CreateStoryCoverPartialSuccessPanel(
+                              failureMessage: _partialCoverFailureMessage(l10n),
+                              isRetrying: _isUploadingCover,
+                              onRetry: _isUploadingCover
+                                  ? null
+                                  : _retryCoverUpload,
+                              onContinue: _isUploadingCover
+                                  ? null
+                                  : _continueWithoutCover,
                             ),
-                            child: Text(l10n.cancel),
-                          ),
+                          ],
+                          const SizedBox(height: 24),
+                          if (!hasPartialCoverFailure) ...[
+                            _CreateStoryButton(
+                              isCreating: isCreatingStory,
+                              isUploadingCover: _isUploadingCover,
+                              onPressed: isBusy || hasPersistedStory
+                                  ? null
+                                  : _submit,
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              key: const ValueKey('create-story.cancel-action'),
+                              onPressed: isBusy ? null : widget.onCancel,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFFF5D72),
+                                side: const BorderSide(
+                                  color: Color(0xFFFF8A99),
+                                ),
+                                minimumSize: const Size.fromHeight(56),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              child: Text(l10n.cancel),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -166,8 +229,108 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
     return storyFailureMessage(l10n, failure);
   }
 
+  String? _coverFailureMessage(AppLocalizations l10n) {
+    final failure = _coverMediaFailure;
+    if (failure == null) {
+      return null;
+    }
+
+    return mediaFailureMessage(l10n, failure);
+  }
+
+  String? _partialCoverFailureMessage(AppLocalizations l10n) {
+    final failure = _coverUploadFailure;
+    if (failure == null) {
+      return null;
+    }
+
+    return storyFailureMessage(l10n, failure);
+  }
+
+  Future<void> _chooseCover() async {
+    if (_isCoverFlowBusy || _createdStoryAwaitingCover != null) {
+      return;
+    }
+
+    setState(() {
+      _coverMediaFailure = null;
+      _coverUploadFailure = null;
+      _coverUploadFailed = false;
+      _isSelectingCover = true;
+    });
+
+    try {
+      final selected = await ref.read(photoSelectionGatewayProvider)
+          .selectPhoto();
+      if (!mounted) {
+        return;
+      }
+
+      if (selected == null) {
+        setState(() {
+          _isSelectingCover = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _isSelectingCover = false;
+        _isPreparingCover = true;
+      });
+
+      final prepared = await ref.read(photoPreprocessorProvider).process(
+            selected,
+          );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _preparedCover = prepared;
+        _coverMediaFailure = null;
+        _isPreparingCover = false;
+      });
+    } on MediaApplicationException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSelectingCover = false;
+        _isPreparingCover = false;
+        _coverMediaFailure = error.failure;
+      });
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSelectingCover = false;
+        _isPreparingCover = false;
+        _coverMediaFailure = const UnknownMediaFailure();
+      });
+    }
+  }
+
+  void _removeSelectedCover() {
+    if (_isCoverFlowBusy || _createdStoryAwaitingCover != null) {
+      return;
+    }
+
+    setState(() {
+      _preparedCover = null;
+      _coverMediaFailure = null;
+      _coverUploadFailure = null;
+      _coverUploadFailed = false;
+    });
+  }
+
   Future<void> _submit() async {
-    if (_submitInFlight) {
+    if (_submitInFlight ||
+        _isCoverFlowBusy ||
+        _createdStoryAwaitingCover != null ||
+        _coverMediaFailure != null) {
       return;
     }
 
@@ -178,6 +341,9 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
 
     FocusScope.of(context).unfocus();
     setState(() {
+      _coverMediaFailure = null;
+      _coverUploadFailure = null;
+      _coverUploadFailed = false;
       _submitInFlight = true;
     });
 
@@ -195,10 +361,114 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
       _submitInFlight = false;
     });
 
-    if (createdStory != null && !_createdCallbackCalled) {
-      _createdCallbackCalled = true;
-      widget.onCreated?.call(createdStory);
+    if (createdStory == null) {
+      return;
     }
+
+    if (_preparedCover == null) {
+      _finishCreated(createdStory);
+      return;
+    }
+
+    setState(() {
+      _createdStoryAwaitingCover = createdStory;
+    });
+
+    final uploadedStory = await _uploadCover(createdStory);
+    if (uploadedStory != null && !_createdCallbackCalled) {
+      ref.read(storiesNotifierProvider.notifier).upsertUserStory(uploadedStory);
+      _finishCreated(uploadedStory.story);
+    }
+  }
+
+  Future<void> _retryCoverUpload() async {
+    if (_isCoverFlowBusy) {
+      return;
+    }
+
+    final createdStory = _createdStoryAwaitingCover;
+    if (createdStory == null || _preparedCover == null) {
+      return;
+    }
+
+    final uploadedStory = await _uploadCover(createdStory);
+    if (uploadedStory != null && !_createdCallbackCalled) {
+      ref.read(storiesNotifierProvider.notifier).upsertUserStory(uploadedStory);
+      _finishCreated(uploadedStory.story);
+    }
+  }
+
+  void _continueWithoutCover() {
+    final createdStory = _createdStoryAwaitingCover;
+    if (createdStory == null || _createdCallbackCalled) {
+      return;
+    }
+
+    _releaseCoverSubscription();
+    _finishCreated(createdStory);
+  }
+
+  Future<UserStory?> _uploadCover(Story createdStory) async {
+    final preparedCover = _preparedCover;
+    if (preparedCover == null) {
+      return null;
+    }
+
+    final coverProvider = storyCoverProvider(createdStory.id);
+    _coverSubscription ??= ref.listenManual(
+      coverProvider,
+      (_, __) {},
+    );
+    setState(() {
+      _isUploadingCover = true;
+      _coverUploadFailure = null;
+      _coverUploadFailed = false;
+    });
+
+    await ref.read(coverProvider.future);
+    if (!mounted) {
+      return null;
+    }
+
+    final uploadedStory = await ref
+        .read(coverProvider.notifier)
+        .uploadStoryCover(preparedCover);
+    if (!mounted) {
+      return null;
+    }
+
+    if (uploadedStory == null) {
+      final coverValue = ref.read(coverProvider);
+      setState(() {
+        _isUploadingCover = false;
+        _coverUploadFailed = true;
+        _coverUploadFailure = coverValue.asData?.value.failure;
+      });
+      return null;
+    }
+
+    setState(() {
+      _isUploadingCover = false;
+      _coverUploadFailed = false;
+      _coverUploadFailure = null;
+      _createdStoryAwaitingCover = null;
+    });
+    _releaseCoverSubscription();
+    return uploadedStory;
+  }
+
+  void _finishCreated(Story createdStory) {
+    if (_createdCallbackCalled) {
+      return;
+    }
+
+    _createdCallbackCalled = true;
+    widget.onCreated?.call(createdStory);
+  }
+
+  void _releaseCoverSubscription() {
+    _coverSubscription?.close();
+    _coverSubscription = null;
   }
 
   String? _descriptionForSubmit() {
@@ -209,15 +479,19 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
 
     return description;
   }
+
+  bool get _isCoverFlowBusy {
+    return _isSelectingCover || _isPreparingCover || _isUploadingCover;
+  }
 }
 
 class _CreateStoryAppBar extends StatelessWidget {
   const _CreateStoryAppBar({
-    required this.isCreating,
+    required this.isBusy,
     required this.onCancel,
   });
 
-  final bool isCreating;
+  final bool isBusy;
   final VoidCallback? onCancel;
 
   @override
@@ -228,7 +502,7 @@ class _CreateStoryAppBar extends StatelessWidget {
       children: [
         IconButton(
           key: const ValueKey('create-story.back-action'),
-          onPressed: isCreating ? null : onCancel,
+          onPressed: isBusy ? null : onCancel,
           tooltip: l10n.createStoryBackLabel,
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
         ),
@@ -404,6 +678,13 @@ class _CreateStoryFormCard extends StatelessWidget {
     required this.titleFocusNode,
     required this.descriptionFocusNode,
     required this.enabled,
+    required this.preparedCover,
+    required this.isCoverSelecting,
+    required this.isCoverPreparing,
+    required this.isCoverUploading,
+    required this.coverFailureMessage,
+    required this.onChooseCover,
+    required this.onRemoveSelectedCover,
   });
 
   final TextEditingController titleController;
@@ -411,6 +692,13 @@ class _CreateStoryFormCard extends StatelessWidget {
   final FocusNode titleFocusNode;
   final FocusNode descriptionFocusNode;
   final bool enabled;
+  final PreparedPhotoUpload? preparedCover;
+  final bool isCoverSelecting;
+  final bool isCoverPreparing;
+  final bool isCoverUploading;
+  final String? coverFailureMessage;
+  final VoidCallback? onChooseCover;
+  final VoidCallback? onRemoveSelectedCover;
 
   @override
   Widget build(BuildContext context) {
@@ -432,6 +720,16 @@ class _CreateStoryFormCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _CreateStoryCoverSection(
+            preparedCover: preparedCover,
+            isSelecting: isCoverSelecting,
+            isPreparing: isCoverPreparing,
+            isUploading: isCoverUploading,
+            failureMessage: coverFailureMessage,
+            onChooseCover: onChooseCover,
+            onRemoveSelectedCover: onRemoveSelectedCover,
+          ),
+          const SizedBox(height: 24),
           _FieldLabel(
             label: l10n.createStoryTitleLabel,
             required: true,
@@ -532,6 +830,340 @@ class _CreateStoryFormCard extends StatelessWidget {
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+    );
+  }
+}
+
+class _CreateStoryCoverSection extends StatelessWidget {
+  const _CreateStoryCoverSection({
+    required this.preparedCover,
+    required this.isSelecting,
+    required this.isPreparing,
+    required this.isUploading,
+    required this.failureMessage,
+    required this.onChooseCover,
+    required this.onRemoveSelectedCover,
+  });
+
+  final PreparedPhotoUpload? preparedCover;
+  final bool isSelecting;
+  final bool isPreparing;
+  final bool isUploading;
+  final String? failureMessage;
+  final VoidCallback? onChooseCover;
+  final VoidCallback? onRemoveSelectedCover;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final hasCover = preparedCover != null;
+    final hasLocalSelectionState = hasCover || failureMessage != null;
+    final chooseLabel = hasCover
+        ? l10n.editStoryCoverChangeAction
+        : l10n.editStoryCoverChooseAction;
+    final statusMessage = _statusMessage(l10n);
+
+    return Column(
+      key: const ValueKey('create-story.cover-section'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FieldLabel(label: l10n.editStoryCoverLabel),
+        const SizedBox(height: 12),
+        _LocalStoryCoverPreview(
+          preparedCover: preparedCover,
+          photoLabel: l10n.editStoryCoverPhotoLabel,
+          emptyLabel: l10n.editStoryCoverNoPhoto,
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            OutlinedButton.icon(
+              key: const ValueKey('create-story.cover.choose-action'),
+              onPressed: onChooseCover,
+              icon: isSelecting || isPreparing || isUploading
+                  ? const _ButtonProgressIndicator()
+                  : const Icon(Icons.photo_library_rounded),
+              label: Text(chooseLabel),
+            ),
+            if (hasLocalSelectionState)
+              TextButton.icon(
+                key: const ValueKey(
+                  'create-story.cover.remove-selection-action',
+                ),
+                onPressed: onRemoveSelectedCover,
+                icon: const Icon(Icons.close_rounded),
+                label: Text(l10n.createStoryCoverRemoveSelectionAction),
+              ),
+          ],
+        ),
+        if (statusMessage != null) ...[
+          const SizedBox(height: 10),
+          _CoverStatusMessage(message: statusMessage),
+        ],
+        if (failureMessage != null) ...[
+          const SizedBox(height: 12),
+          StoryFormFailureBanner(message: failureMessage!),
+        ],
+      ],
+    );
+  }
+
+  String? _statusMessage(AppLocalizations l10n) {
+    if (isSelecting) {
+      return l10n.editStoryCoverSelecting;
+    }
+
+    if (isPreparing) {
+      return l10n.editStoryCoverPreparing;
+    }
+
+    if (isUploading) {
+      return l10n.createStoryCoverUploading;
+    }
+
+    return null;
+  }
+}
+
+class _LocalStoryCoverPreview extends StatelessWidget {
+  const _LocalStoryCoverPreview({
+    required this.preparedCover,
+    required this.photoLabel,
+    required this.emptyLabel,
+  });
+
+  final PreparedPhotoUpload? preparedCover;
+  final String photoLabel;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    const borderRadius = BorderRadius.all(Radius.circular(20));
+    final cover = preparedCover;
+
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: SizedBox(
+        height: 176,
+        width: double.infinity,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            color: Color(0xFFFFF1F3),
+            borderRadius: borderRadius,
+          ),
+          child: cover == null
+              ? _StoryCoverEmptyState(
+                  key: const ValueKey('create-story.cover.no-photo'),
+                  message: emptyLabel,
+                )
+              : Semantics(
+                  image: true,
+                  label: photoLabel,
+                  child: ExcludeSemantics(
+                    child: Image.memory(
+                      cover.bytes,
+                      key: const ValueKey(
+                        'create-story.cover.local-preview-image',
+                      ),
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryCoverEmptyState extends StatelessWidget {
+  const _StoryCoverEmptyState({
+    required this.message,
+    super.key,
+  });
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(
+              Icons.image_outlined,
+              color: Color(0xFFFF5D72),
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 14,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoverStatusMessage extends StatelessWidget {
+  const _CoverStatusMessage({
+    required this.message,
+  });
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Row(
+        key: const ValueKey('create-story.cover.status'),
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFFFF5D72),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CreateStoryCoverPartialSuccessPanel extends StatelessWidget {
+  const _CreateStoryCoverPartialSuccessPanel({
+    required this.failureMessage,
+    required this.isRetrying,
+    required this.onRetry,
+    required this.onContinue,
+  });
+
+  final String? failureMessage;
+  final bool isRetrying;
+  final VoidCallback? onRetry;
+  final VoidCallback? onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Container(
+      key: const ValueKey('create-story.cover.partial-success-panel'),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFFED7AA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                color: Color(0xFFF97316),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.createStoryCoverPartialTitle,
+                      style: const TextStyle(
+                        color: Color(0xFF1F2937),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.createStoryCoverPartialMessage,
+                      style: const TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 14,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    if (failureMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        failureMessage!,
+                        style: const TextStyle(
+                          color: Color(0xFF92400E),
+                          fontSize: 13,
+                          height: 1.35,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                key: const ValueKey('create-story.cover.retry-action'),
+                onPressed: onRetry,
+                icon: isRetrying
+                    ? const _ButtonProgressIndicator(color: Colors.white)
+                    : const Icon(Icons.refresh_rounded),
+                label: Text(l10n.createStoryCoverRetryAction),
+              ),
+              TextButton(
+                key: const ValueKey('create-story.cover.continue-action'),
+                onPressed: onContinue,
+                child: Text(l10n.createStoryCoverContinueAction),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -704,10 +1336,12 @@ class _IdeaText extends StatelessWidget {
 class _CreateStoryButton extends StatelessWidget {
   const _CreateStoryButton({
     required this.isCreating,
+    required this.isUploadingCover,
     required this.onPressed,
   });
 
   final bool isCreating;
+  final bool isUploadingCover;
   final VoidCallback? onPressed;
 
   @override
@@ -732,7 +1366,7 @@ class _CreateStoryButton extends StatelessWidget {
           letterSpacing: 0,
         ),
       ),
-      child: isCreating
+      child: isCreating || isUploadingCover
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -744,10 +1378,34 @@ class _CreateStoryButton extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(l10n.createStoryCreatingButton),
+                Text(
+                  isUploadingCover
+                      ? l10n.createStoryCoverUploading
+                      : l10n.createStoryCreatingButton,
+                ),
               ],
             )
           : Text(l10n.createStorySubmitButton),
+    );
+  }
+}
+
+class _ButtonProgressIndicator extends StatelessWidget {
+  const _ButtonProgressIndicator({
+    this.color = const Color(0xFFFF5D72),
+  });
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: color,
+      ),
     );
   }
 }

@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:memory_map/features/auth/data/network/authorized_dio_provider.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/story/data/dto/story_dto.dart';
 import 'package:memory_map/features/story/data/dto/user_story_dto.dart';
 import 'package:memory_map/features/story/data/remote/create_story_remote_request.dart';
@@ -32,6 +34,34 @@ final class DioStoryRemoteDataSource implements StoryRemoteDataSource {
 
     return _mapResponse(
       () => StoryDto.fromJson(response.data).toDomain(),
+    );
+  }
+
+  @override
+  Future<UserStory> uploadCover(
+    String storyId,
+    PreparedPhotoUpload photo,
+  ) async {
+    final response = await _putMultipart(
+      _storyCoverPath(storyId),
+      photo,
+    );
+
+    _ensureExpectedStatus(response, 200);
+
+    return _mapResponse(
+      () => UserStoryDto.fromJson(response.data).toDomain(),
+    );
+  }
+
+  @override
+  Future<UserStory> removeCover(String storyId) async {
+    final response = await _delete(_storyCoverPath(storyId));
+
+    _ensureExpectedStatus(response, 200);
+
+    return _mapResponse(
+      () => UserStoryDto.fromJson(response.data).toDomain(),
     );
   }
 
@@ -117,6 +147,37 @@ final class DioStoryRemoteDataSource implements StoryRemoteDataSource {
     }
   }
 
+  Future<Response<Object?>> _putMultipart(
+    String path,
+    PreparedPhotoUpload photo,
+  ) async {
+    final formData = FormData.fromMap(<String, Object?>{
+      'file': MultipartFile.fromBytes(
+        photo.bytes,
+        filename: 'story-cover.jpg',
+        contentType: http_parser.MediaType.parse(photo.contentType),
+      ),
+    });
+
+    try {
+      return await _dio.put<Object?>(
+        path,
+        data: formData,
+        options: Options(contentType: Headers.multipartFormDataContentType),
+      );
+    } on DioException catch (error) {
+      _throwMappedDioException(error);
+    }
+  }
+
+  Future<Response<Object?>> _delete(String path) async {
+    try {
+      return await _dio.delete<Object?>(path);
+    } on DioException catch (error) {
+      _throwMappedDioException(error);
+    }
+  }
+
   T _mapResponse<T>(T Function() mapper) {
     try {
       return mapper();
@@ -146,6 +207,10 @@ final class DioStoryRemoteDataSource implements StoryRemoteDataSource {
     return '$_storiesPath/${Uri.encodeComponent(storyId)}';
   }
 
+  String _storyCoverPath(String storyId) {
+    return '${_storyPath(storyId)}/cover';
+  }
+
   Never _throwMappedDioException(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
@@ -165,7 +230,7 @@ final class DioStoryRemoteDataSource implements StoryRemoteDataSource {
   }
 
   Never _throwMappedStatus(int? statusCode) {
-    if (statusCode == 400) {
+    if (statusCode == 400 || statusCode == 413 || statusCode == 415) {
       throw const StoryRemoteValidationException();
     }
 

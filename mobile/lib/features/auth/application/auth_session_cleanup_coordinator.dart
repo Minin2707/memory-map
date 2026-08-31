@@ -10,6 +10,7 @@ import 'package:memory_map/features/music/application/story_soundtrack_notifier.
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/story/application/edit_story_notifier.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
+import 'package:memory_map/features/story/application/story_cover_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 
 final authSessionCleanupCoordinatorProvider =
@@ -43,6 +44,7 @@ final class AuthSessionCleanupCoordinator {
     _ref.invalidate(storiesNotifierProvider);
     _ref.invalidate(storyDetailsProvider);
     _ref.invalidate(editStoryProvider);
+    _ref.invalidate(storyCoverProvider);
 
     _ref.invalidate(storyMemoriesProvider);
     _ref.invalidate(memoryDetailsProvider);

@@ -71,10 +71,6 @@ class StoryTimelineScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SliverPadding(
-                  padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
-                  sliver: SliverToBoxAdapter(child: _TimelineTabs()),
-                ),
                 ..._contentSlivers(context, ref, memoriesValue, sectionsValue),
                 const SliverToBoxAdapter(child: SizedBox(height: 104)),
               ],
@@ -272,94 +268,6 @@ class _StoryTimelineAppBar extends StatelessWidget {
           icon: const Icon(Icons.refresh_rounded),
         ),
       ],
-    );
-  }
-}
-
-class _TimelineTabs extends StatelessWidget {
-  const _TimelineTabs();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return DecoratedBox(
-      key: const ValueKey('story-timeline.tabs'),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFE9EC),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          children: [
-            Expanded(
-              child: _TimelineTab(
-                label: l10n.storyTimelineTabTimeline,
-                selected: true,
-              ),
-            ),
-            Expanded(
-              child: _TimelineTab(
-                label: l10n.storyTimelineTabMap,
-                selected: false,
-              ),
-            ),
-            Expanded(
-              child: _TimelineTab(
-                label: l10n.storyTimelineTabStats,
-                selected: false,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TimelineTab extends StatelessWidget {
-  const _TimelineTab({
-    required this.label,
-    required this.selected,
-  });
-
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      selected: selected,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: selected
-              ? const [
-                  BoxShadow(
-                    color: Color(0x140F172A),
-                    offset: Offset(0, 6),
-                    blurRadius: 16,
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: selected ? const Color(0xFFFF5D72) : const Color(0xFF7B8494),
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
-          ),
-        ),
-      ),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/story/application/story_application_exception.dart';
 import 'package:memory_map/features/story/data/remote/create_story_remote_request.dart';
 import 'package:memory_map/features/story/data/remote/story_patch_field.dart';
@@ -67,6 +68,37 @@ final class DefaultStoryRepository implements StoryRepository {
           description: _toRemoteField(input.description),
         ),
       );
+    } on StoryRemoteException catch (exception) {
+      throw StoryApplicationException(_mapFailure(exception));
+    }
+  }
+
+  @override
+  Future<UserStory> uploadStoryCover({
+    required String storyId,
+    required PreparedPhotoUpload photo,
+  }) async {
+    if (storyId.trim().isEmpty) {
+      throw ArgumentError('storyId must not be blank');
+    }
+
+    try {
+      return await _storyRemoteDataSource.uploadCover(storyId, photo);
+    } on StoryRemoteException catch (exception) {
+      throw StoryApplicationException(_mapFailure(exception));
+    }
+  }
+
+  @override
+  Future<UserStory> removeStoryCover({
+    required String storyId,
+  }) async {
+    if (storyId.trim().isEmpty) {
+      throw ArgumentError('storyId must not be blank');
+    }
+
+    try {
+      return await _storyRemoteDataSource.removeCover(storyId);
     } on StoryRemoteException catch (exception) {
       throw StoryApplicationException(_mapFailure(exception));
     }

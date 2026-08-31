@@ -46,9 +46,17 @@ class RateLimitPolicyTest {
                 "POST",
                 "/api/v1/memories/memory-1/media"
         );
+        RateLimitRule storyCoverRule = ruleFor(
+                "PUT",
+                "/api/v1/stories/story-1/cover"
+        );
 
         assertThat(rule.category()).isEqualTo(RateLimitCategory.MEDIA_UPLOAD);
         assertThat(rule.identity())
+                .isEqualTo(RateLimitIdentity.AUTHENTICATED_USER);
+        assertThat(storyCoverRule.category())
+                .isEqualTo(RateLimitCategory.MEDIA_UPLOAD);
+        assertThat(storyCoverRule.identity())
                 .isEqualTo(RateLimitIdentity.AUTHENTICATED_USER);
     }
 
@@ -108,6 +116,9 @@ class RateLimitPolicyTest {
         assertThat(ruleFor("DELETE", "/api/v1/me").category())
                 .isEqualTo(RateLimitCategory.NORMAL_MUTATION);
         assertThat(ruleFor("DELETE", "/api/v1/me/avatar").category())
+                .isEqualTo(RateLimitCategory.NORMAL_MUTATION);
+        assertThat(ruleFor("DELETE", "/api/v1/stories/story-1/cover")
+                .category())
                 .isEqualTo(RateLimitCategory.NORMAL_MUTATION);
         assertThat(ruleFor("PATCH", "/api/v1/me/display-name").category())
                 .isEqualTo(RateLimitCategory.NORMAL_MUTATION);

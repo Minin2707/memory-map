@@ -3,16 +3,25 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/application/media_application_exception.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
+import 'package:memory_map/features/media/domain/media_failure.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
+import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/story/application/story_application_exception.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/domain/story.dart';
 import 'package:memory_map/features/story/domain/story_failure.dart';
+import 'package:memory_map/features/story/domain/story_photo_preview.dart';
 import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/update_story_input.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
+import 'package:memory_map/features/story/presentation/edit_story_route.dart';
 import 'package:memory_map/features/story/presentation/edit_story_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+import '../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('EditStoryScreen rendering', () {
@@ -23,6 +32,9 @@ void main() {
 
       expect(find.text('Edit story'), findsOneWidget);
       expect(find.text('Story details'), findsOneWidget);
+      expect(find.text('Cover'), findsOneWidget);
+      expect(find.text('No cover photo'), findsOneWidget);
+      expect(find.text('Choose cover'), findsOneWidget);
       expect(find.text('Story title'), findsOneWidget);
       expect(find.text('Description'), findsOneWidget);
       expect(find.text('optional'), findsOneWidget);
@@ -54,6 +66,7 @@ void main() {
 
       expect(find.text('Редактирование истории'), findsOneWidget);
       expect(find.text('Детали истории'), findsOneWidget);
+      expect(find.text('Обложка'), findsOneWidget);
       expect(find.text('Название истории'), findsOneWidget);
       expect(find.text('Описание'), findsOneWidget);
       expect(find.text('Сохранить изменения'), findsOneWidget);
@@ -75,6 +88,553 @@ void main() {
         ),
         '',
       );
+    });
+  });
+
+  group('EditStoryScreen cover rendering', () {
+    testWidgets('shouldRenderNoCoverPlaceholderAndChooseAction', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(tester, FakeStoryRepository(), userStory: ownerStory);
+
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.no-photo')),
+        findsOneWidget,
+      );
+      expect(find.text('Choose cover'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldRenderAutomaticFallbackWithoutRemoveAction', (
+      WidgetTester tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository();
+      await pumpScreen(
+        tester,
+        FakeStoryRepository(),
+        userStory: userStory(previewPhoto: automaticPreview),
+        mediaRepository: mediaRepository,
+      );
+
+      final image = tester.widget<AuthenticatedMediaPathImage>(
+        find.byKey(
+          ValueKey(
+            'edit-story.cover-image.${automaticPreview.displayPath}',
+          ),
+        ),
+      );
+      expect(image.thumbnailPath, automaticPreview.displayPath);
+      expect(image.representation, AuthenticatedMediaRepresentation.display);
+      expect(mediaRepository.receivedBinaryPaths, <String>[
+        automaticPreview.displayPath,
+      ]);
+      expect(find.text('Change cover'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldRenderExplicitCoverWithRemoveAction', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository(),
+        userStory: userStory(previewPhoto: explicitCoverPreview),
+        mediaRepository: media_fixtures.FakeMediaRepository(),
+      );
+
+      expect(
+        find.byKey(
+          ValueKey(
+            'edit-story.cover-image.${explicitCoverPreview.displayPath}',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Change cover'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('EditStoryScreen cover mutations', () {
+    testWidgets('shouldQuietlyReturnWhenGallerySelectionIsCancelled', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository();
+      final gateway = media_fixtures.FakePhotoSelectionGateway()
+        ..selectedPhotoResult = null;
+      final preprocessor = media_fixtures.FakePhotoPreprocessor();
+      await pumpScreen(
+        tester,
+        repository,
+        userStory: ownerStory,
+        photoSelectionGateway: gateway,
+        photoPreprocessor: preprocessor,
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+      );
+
+      expect(gateway.selectPhotoCalls, 1);
+      expect(preprocessor.processCalls, 0);
+      expect(repository.uploadCoverCalls, 0);
+      expect(find.textContaining('Something went wrong'), findsNothing);
+    });
+
+    testWidgets('shouldUploadPreparedPhotoAndRefreshAuthoritativeCover', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: automaticPreview)
+        ..uploadCoverResult = userStory(previewPhoto: explicitCoverPreview);
+      final gateway = media_fixtures.FakePhotoSelectionGateway();
+      final preprocessor = media_fixtures.FakePhotoPreprocessor()
+        ..result = media_fixtures.preparedPhotoUpload(bytes: <int>[7, 8, 9]);
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: automaticPreview),
+        photoSelectionGateway: gateway,
+        photoPreprocessor: preprocessor,
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+      );
+
+      expect(gateway.selectPhotoCalls, 1);
+      expect(preprocessor.processCalls, 1);
+      expect(repository.uploadCoverCalls, 1);
+      expect(repository.receivedUploadCoverStoryId, defaultStoryId);
+      expect(repository.receivedUploadCoverPhoto?.bytes, <int>[7, 8, 9]);
+      expect(
+        find.byKey(
+          ValueKey(
+            'edit-story.cover-image.${explicitCoverPreview.displayPath}',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        findsOneWidget,
+      );
+      expect(find.text('Cover updated'), findsOneWidget);
+      expect(
+        find.text('Cover changes are saved automatically.'),
+        findsOneWidget,
+      );
+      expect(
+        buttonOnPressed(
+          tester,
+          find.byKey(const ValueKey('edit-story.save-action')),
+        ),
+        isNull,
+      );
+    });
+
+    testWidgets('shouldRemoveExplicitCoverAndShowAutomaticFallback', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: explicitCoverPreview)
+        ..removeCoverResult = userStory(previewPhoto: automaticPreview);
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: explicitCoverPreview),
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+      );
+
+      expect(repository.removeCoverCalls, 1);
+      expect(repository.receivedRemoveCoverStoryId, defaultStoryId);
+      expect(
+        find.byKey(
+          ValueKey(
+            'edit-story.cover-image.${automaticPreview.displayPath}',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        findsNothing,
+      );
+      expect(find.text('Cover removed'), findsOneWidget);
+      expect(
+        find.text('Cover changes are saved automatically.'),
+        findsOneWidget,
+      );
+      expect(
+        buttonOnPressed(
+          tester,
+          find.byKey(const ValueKey('edit-story.save-action')),
+        ),
+        isNull,
+      );
+    });
+
+    testWidgets('shouldRemoveExplicitCoverAndShowNoCoverState', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: explicitCoverPreview)
+        ..removeCoverResult = userStory();
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: explicitCoverPreview),
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.no-photo')),
+        findsOneWidget,
+      );
+      expect(find.text('Choose cover'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        findsNothing,
+      );
+      expect(find.text('Cover removed'), findsOneWidget);
+      expect(
+        find.text('Cover changes are saved automatically.'),
+        findsOneWidget,
+      );
+      expect(
+        buttonOnPressed(
+          tester,
+          find.byKey(const ValueKey('edit-story.save-action')),
+        ),
+        isNull,
+      );
+    });
+
+    testWidgets('shouldDisableCoverActionsWhileUploadIsPending', (
+      WidgetTester tester,
+    ) async {
+      final completer = Completer<UserStory>();
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: explicitCoverPreview)
+        ..uploadCoverCompleter = completer;
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: explicitCoverPreview),
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+        settle: false,
+      );
+      await tester.pump();
+      await tester.pump();
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+        settle: false,
+      );
+
+      expect(find.text('Updating cover...'), findsOneWidget);
+      expect(
+        buttonOnPressed(
+          tester,
+          find.byKey(const ValueKey('edit-story.cover.choose-action')),
+        ),
+        isNull,
+      );
+      expect(
+        buttonOnPressed(
+          tester,
+          find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        ),
+        isNull,
+      );
+      expect(repository.uploadCoverCalls, 1);
+
+      completer.complete(userStory(previewPhoto: explicitCoverPreviewV2));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('shouldDisableCoverActionsWhileRemoveIsPending', (
+      WidgetTester tester,
+    ) async {
+      final completer = Completer<UserStory>();
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: explicitCoverPreview)
+        ..removeCoverCompleter = completer;
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: explicitCoverPreview),
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        settle: false,
+      );
+      await tester.pump();
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        settle: false,
+      );
+
+      expect(find.text('Removing cover...'), findsOneWidget);
+      expect(
+        buttonOnPressed(
+          tester,
+          find.byKey(const ValueKey('edit-story.cover.choose-action')),
+        ),
+        isNull,
+      );
+      expect(
+        buttonOnPressed(
+          tester,
+          find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        ),
+        isNull,
+      );
+      expect(repository.removeCoverCalls, 1);
+
+      completer.complete(userStory(previewPhoto: automaticPreview));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('shouldKeepPreviewAndShowUploadFailure', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: automaticPreview)
+        ..uploadCoverFailure = const StoryApplicationException(
+          StoryNetworkUnavailable(),
+        );
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: automaticPreview),
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+      );
+
+      expect(
+        find.byKey(
+          ValueKey(
+            'edit-story.cover-image.${automaticPreview.displayPath}',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('No network connection. Check your connection and try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('Cover updated'), findsNothing);
+      expect(
+        find.text('Cover changes are saved automatically.'),
+        findsNothing,
+      );
+      expect(find.textContaining('StoryApplicationException'), findsNothing);
+    });
+
+    testWidgets('shouldKeepPreviewAndShowRemoveFailure', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: explicitCoverPreview)
+        ..removeCoverFailure = const StoryApplicationException(
+          StoryNetworkUnavailable(),
+        );
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: explicitCoverPreview),
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+      );
+
+      expect(
+        find.byKey(
+          ValueKey(
+            'edit-story.cover-image.${explicitCoverPreview.displayPath}',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('edit-story.cover.remove-action')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('No network connection. Check your connection and try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('Cover removed'), findsNothing);
+      expect(
+        find.text('Cover changes are saved automatically.'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shouldKeepMetadataSaveEnabledAfterCoverSuccessWhenDirty', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: automaticPreview)
+        ..uploadCoverResult = userStory(previewPhoto: explicitCoverPreview);
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: automaticPreview),
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-story.title-field')),
+        'Updated story',
+      );
+      await tester.pump();
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+      );
+
+      expect(find.text('Cover updated'), findsOneWidget);
+      expect(
+        find.text('Cover changes are saved automatically.'),
+        findsNothing,
+      );
+      expect(
+        buttonOnPressed(
+          tester,
+          find.byKey(const ValueKey('edit-story.save-action')),
+        ),
+        isNotNull,
+      );
+    });
+
+    testWidgets('shouldClearPreviousCoverFeedbackBeforeNextFailedMutation', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository()
+        ..storyResult = userStory(previewPhoto: automaticPreview)
+        ..uploadCoverResult = userStory(previewPhoto: explicitCoverPreview);
+      await pumpRoute(
+        tester,
+        repository,
+        initialUserStory: userStory(previewPhoto: automaticPreview),
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+      );
+
+      expect(find.text('Cover updated'), findsOneWidget);
+      expect(
+        find.text('Cover changes are saved automatically.'),
+        findsOneWidget,
+      );
+
+      repository.uploadCoverFailure = const StoryApplicationException(
+        StoryNetworkUnavailable(),
+      );
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+      );
+
+      expect(find.text('Cover updated'), findsNothing);
+      expect(
+        find.text('Cover changes are saved automatically.'),
+        findsNothing,
+      );
+      expect(
+        find.text('No network connection. Check your connection and try again.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shouldShowPreprocessingFailureWithoutUpload', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository();
+      final preprocessor = media_fixtures.FakePhotoPreprocessor()
+        ..failure = const MediaApplicationException(
+          MediaPreprocessingFailure(),
+        );
+      await pumpScreen(
+        tester,
+        repository,
+        userStory: ownerStory,
+        photoPreprocessor: preprocessor,
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+      );
+
+      expect(preprocessor.processCalls, 1);
+      expect(repository.uploadCoverCalls, 0);
+      expect(
+        find.text('Could not prepare this photo. Choose another image.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('MediaApplicationException'), findsNothing);
+    });
+
+    testWidgets('shouldShowSelectionFailureWithoutPreprocessOrUpload', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeStoryRepository();
+      final gateway = media_fixtures.FakePhotoSelectionGateway()
+        ..failure = const MediaApplicationException(MediaUnavailable());
+      final preprocessor = media_fixtures.FakePhotoPreprocessor();
+      await pumpScreen(
+        tester,
+        repository,
+        userStory: ownerStory,
+        photoSelectionGateway: gateway,
+        photoPreprocessor: preprocessor,
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('edit-story.cover.choose-action')),
+      );
+
+      expect(gateway.selectPhotoCalls, 1);
+      expect(preprocessor.processCalls, 0);
+      expect(repository.uploadCoverCalls, 0);
+      expect(find.text('Photos are unavailable.'), findsOneWidget);
+      expect(find.textContaining('MediaApplicationException'), findsNothing);
     });
   });
 
@@ -552,6 +1112,17 @@ Future<void> pressButton(
   }
 }
 
+VoidCallback? buttonOnPressed(WidgetTester tester, Finder finder) {
+  final widget = tester.widget<Widget>(finder);
+  return switch (widget) {
+    FilledButton(:final onPressed) => onPressed,
+    OutlinedButton(:final onPressed) => onPressed,
+    IconButton(:final onPressed) => onPressed,
+    TextButton(:final onPressed) => onPressed,
+    _ => throw StateError('Unsupported button widget: $widget'),
+  };
+}
+
 String textFieldValue(WidgetTester tester, Finder finder) {
   return tester.widget<TextFormField>(finder).controller?.text ?? '';
 }
@@ -564,11 +1135,24 @@ Future<void> pumpScreen(
   ValueChanged<UserStory>? onUpdated,
   VoidCallback? onCancel,
   TextScaler textScaler = TextScaler.noScaling,
+  media_fixtures.FakeMediaRepository? mediaRepository,
+  media_fixtures.FakePhotoSelectionGateway? photoSelectionGateway,
+  media_fixtures.FakePhotoPreprocessor? photoPreprocessor,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         storyRepositoryProvider.overrideWithValue(repository),
+        mediaRepositoryProvider.overrideWithValue(
+          mediaRepository ?? media_fixtures.FakeMediaRepository(),
+        ),
+        photoSelectionGatewayProvider.overrideWithValue(
+          photoSelectionGateway ??
+              media_fixtures.FakePhotoSelectionGateway(),
+        ),
+        photoPreprocessorProvider.overrideWithValue(
+          photoPreprocessor ?? media_fixtures.FakePhotoPreprocessor(),
+        ),
       ],
       child: MaterialApp(
         locale: locale,
@@ -582,6 +1166,55 @@ Future<void> pumpScreen(
         },
         home: EditStoryScreen(
           userStory: userStory,
+          onUpdated: onUpdated,
+          onCancel: onCancel,
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> pumpRoute(
+  WidgetTester tester,
+  FakeStoryRepository repository, {
+  required UserStory initialUserStory,
+  Locale locale = const Locale('en'),
+  ValueChanged<UserStory>? onUpdated,
+  VoidCallback? onCancel,
+  TextScaler textScaler = TextScaler.noScaling,
+  media_fixtures.FakeMediaRepository? mediaRepository,
+  media_fixtures.FakePhotoSelectionGateway? photoSelectionGateway,
+  media_fixtures.FakePhotoPreprocessor? photoPreprocessor,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        storyRepositoryProvider.overrideWithValue(repository),
+        mediaRepositoryProvider.overrideWithValue(
+          mediaRepository ?? media_fixtures.FakeMediaRepository(),
+        ),
+        photoSelectionGatewayProvider.overrideWithValue(
+          photoSelectionGateway ??
+              media_fixtures.FakePhotoSelectionGateway(),
+        ),
+        photoPreprocessorProvider.overrideWithValue(
+          photoPreprocessor ?? media_fixtures.FakePhotoPreprocessor(),
+        ),
+      ],
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: EditStoryRoute(
+          storyId: initialUserStory.story.id,
+          initialUserStory: initialUserStory,
           onUpdated: onUpdated,
           onCancel: onCancel,
         ),
@@ -605,6 +1238,7 @@ UserStory userStory({
   String title = 'Our story',
   String? description = 'Together since 2021',
   StoryRole role = StoryRole.owner,
+  StoryPhotoPreview? previewPhoto,
 }) {
   return UserStory(
     story: Story(
@@ -615,6 +1249,7 @@ UserStory userStory({
       updatedAt: DateTime.utc(2026, 1, 2),
     ),
     role: role,
+    previewPhoto: previewPhoto,
   );
 }
 
@@ -624,16 +1259,45 @@ final UserStory updatedOwnerStory = userStory(
   description: 'Updated description',
 );
 
+const String defaultStoryId = 'story-1';
+
+final StoryPhotoPreview automaticPreview = StoryPhotoPreview(
+  thumbnailPath: '/api/v1/media/media-a/thumbnail',
+  displayPath: '/api/v1/media/media-a/display',
+);
+
+final StoryPhotoPreview explicitCoverPreview = StoryPhotoPreview(
+  thumbnailPath: '/api/v1/stories/story-1/cover/thumbnail/111',
+  displayPath: '/api/v1/stories/story-1/cover/display/111',
+);
+
+final StoryPhotoPreview explicitCoverPreviewV2 = StoryPhotoPreview(
+  thumbnailPath: '/api/v1/stories/story-1/cover/thumbnail/222',
+  displayPath: '/api/v1/stories/story-1/cover/display/222',
+);
+
 final class FakeStoryRepository implements StoryRepository {
   int createCalls = 0;
   int getStoriesCalls = 0;
   int getStoryCalls = 0;
   int updateStoryCalls = 0;
+  int uploadCoverCalls = 0;
+  int removeCoverCalls = 0;
 
   UpdateStoryInput? receivedInput;
+  String? receivedUploadCoverStoryId;
+  PreparedPhotoUpload? receivedUploadCoverPhoto;
+  String? receivedRemoveCoverStoryId;
+  UserStory storyResult = ownerStory;
   UserStory updateStoryResult = updatedOwnerStory;
+  UserStory uploadCoverResult = userStory(previewPhoto: explicitCoverPreview);
+  UserStory removeCoverResult = userStory(previewPhoto: automaticPreview);
   Object? updateStoryFailure;
+  Object? uploadCoverFailure;
+  Object? removeCoverFailure;
   Completer<UserStory>? updateStoryCompleter;
+  Completer<UserStory>? uploadCoverCompleter;
+  Completer<UserStory>? removeCoverCompleter;
 
   @override
   Future<Story> createStory({
@@ -647,7 +1311,7 @@ final class FakeStoryRepository implements StoryRepository {
   @override
   Future<UserStory> getStory(String storyId) async {
     getStoryCalls += 1;
-    throw UnimplementedError();
+    return storyResult;
   }
 
   @override
@@ -673,6 +1337,52 @@ final class FakeStoryRepository implements StoryRepository {
     }
 
     return updateStoryResult;
+  }
+
+  @override
+  Future<UserStory> uploadStoryCover({
+    required String storyId,
+    required PreparedPhotoUpload photo,
+  }) async {
+    uploadCoverCalls += 1;
+    receivedUploadCoverStoryId = storyId;
+    receivedUploadCoverPhoto = photo;
+
+    final completer = uploadCoverCompleter;
+    if (completer != null) {
+      uploadCoverCompleter = null;
+      return completer.future;
+    }
+
+    final failure = uploadCoverFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    storyResult = uploadCoverResult;
+    return uploadCoverResult;
+  }
+
+  @override
+  Future<UserStory> removeStoryCover({
+    required String storyId,
+  }) async {
+    removeCoverCalls += 1;
+    receivedRemoveCoverStoryId = storyId;
+
+    final completer = removeCoverCompleter;
+    if (completer != null) {
+      removeCoverCompleter = null;
+      return completer.future;
+    }
+
+    final failure = removeCoverFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    storyResult = removeCoverResult;
+    return removeCoverResult;
   }
 }
 

@@ -72,6 +72,30 @@ public class JdbcAccountDeletionRepository
             ORDER BY m.story_id ASC, m.created_at ASC, mf.created_at ASC, mf.id ASC
             """;
 
+    private static final String FIND_STORY_COVER_STORAGE_KEYS_BY_STORY_IDS_SQL =
+            """
+            SELECT storage_key
+            FROM (
+                SELECT
+                    id AS story_id,
+                    cover_thumbnail_storage_key AS storage_key,
+                    0 AS storage_key_order
+                FROM stories
+                WHERE id IN (:storyIds)
+
+                UNION ALL
+
+                SELECT
+                    id AS story_id,
+                    cover_display_storage_key AS storage_key,
+                    1 AS storage_key_order
+                FROM stories
+                WHERE id IN (:storyIds)
+            ) story_cover_storage_keys
+            WHERE storage_key IS NOT NULL
+            ORDER BY story_id ASC, storage_key_order ASC
+            """;
+
     private static final String TRANSFER_STORY_OWNER_SQL = """
             UPDATE stories
             SET owner_id = :newOwnerId,
@@ -179,6 +203,20 @@ public class JdbcAccountDeletionRepository
         return jdbcClient.sql(FIND_MEDIA_STORAGE_KEYS_BY_STORY_IDS_SQL)
                 .param("storyIds", storyIds)
                 .query(this::mapMediaStorageKeys)
+                .list();
+    }
+
+    @Override
+    public List<String> findStoryCoverStorageKeysByStoryIds(
+            Collection<UUID> storyIds
+    ) {
+        if (storyIds.isEmpty()) {
+            return List.of();
+        }
+
+        return jdbcClient.sql(FIND_STORY_COVER_STORAGE_KEYS_BY_STORY_IDS_SQL)
+                .param("storyIds", storyIds)
+                .query(String.class)
                 .list();
     }
 

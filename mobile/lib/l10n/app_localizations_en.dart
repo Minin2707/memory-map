@@ -291,6 +291,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createStoryCreatingButton => 'Creating story...';
 
   @override
+  String get createStoryCoverRemoveSelectionAction => 'Remove selected cover';
+
+  @override
+  String get createStoryCoverUploading => 'Uploading cover...';
+
+  @override
+  String get createStoryCoverPartialTitle => 'Story created';
+
+  @override
+  String get createStoryCoverPartialMessage =>
+      'Story was created, but cover could not be uploaded.';
+
+  @override
+  String get createStoryCoverRetryAction => 'Retry cover upload';
+
+  @override
+  String get createStoryCoverContinueAction => 'Continue without cover';
+
+  @override
   String get storyDetailsPageTitle => 'Story';
 
   @override
@@ -603,15 +622,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get storyTimelineRefreshAction => 'Refresh timeline';
-
-  @override
-  String get storyTimelineTabTimeline => 'Timeline';
-
-  @override
-  String get storyTimelineTabMap => 'Map';
-
-  @override
-  String get storyTimelineTabStats => 'Stats';
 
   @override
   String get storyTimelineCreate => 'Add memory';
@@ -979,6 +989,46 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get editStoryHeroSubtitle =>
       'Update the name and note shown to story participants';
+
+  @override
+  String get editStoryCoverLabel => 'Cover';
+
+  @override
+  String get editStoryCoverNoPhoto => 'No cover photo';
+
+  @override
+  String get editStoryCoverPhotoLabel => 'Story cover photo';
+
+  @override
+  String get editStoryCoverChooseAction => 'Choose cover';
+
+  @override
+  String get editStoryCoverChangeAction => 'Change cover';
+
+  @override
+  String get editStoryCoverRemoveAction => 'Remove cover';
+
+  @override
+  String get editStoryCoverSelecting => 'Choosing photo...';
+
+  @override
+  String get editStoryCoverPreparing => 'Preparing photo...';
+
+  @override
+  String get editStoryCoverUploading => 'Updating cover...';
+
+  @override
+  String get editStoryCoverRemoving => 'Removing cover...';
+
+  @override
+  String get editStoryCoverUpdatedFeedback => 'Cover updated';
+
+  @override
+  String get editStoryCoverRemovedFeedback => 'Cover removed';
+
+  @override
+  String get editStoryCoverAutosaveHint =>
+      'Cover changes are saved automatically.';
 
   @override
   String get editStoryTitleLabel => 'Story title';

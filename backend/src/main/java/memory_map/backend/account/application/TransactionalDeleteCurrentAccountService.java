@@ -186,14 +186,23 @@ public class TransactionalDeleteCurrentAccountService
     private List<StorageKey> storageKeysForDeletedStories(
             Collection<UUID> deletedStoryIds
     ) {
-        return accountDeletionRepository
-                .findMediaStorageKeysByStoryIds(deletedStoryIds)
+        List<StorageKey> storageKeys = new ArrayList<>(
+                accountDeletionRepository
+                        .findMediaStorageKeysByStoryIds(deletedStoryIds)
+                        .stream()
+                        .flatMap(keys -> List.of(
+                                new StorageKey(keys.thumbnailStorageKey()),
+                                new StorageKey(keys.displayStorageKey())
+                        ).stream())
+                        .toList()
+        );
+        storageKeys.addAll(accountDeletionRepository
+                .findStoryCoverStorageKeysByStoryIds(deletedStoryIds)
                 .stream()
-                .flatMap(keys -> List.of(
-                        new StorageKey(keys.thumbnailStorageKey()),
-                        new StorageKey(keys.displayStorageKey())
-                ).stream())
-                .toList();
+                .map(StorageKey::new)
+                .toList());
+
+        return storageKeys;
     }
 
     private void transferOwnedStories(

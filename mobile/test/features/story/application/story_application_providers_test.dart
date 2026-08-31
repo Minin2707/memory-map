@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/data/remote/create_story_remote_request.dart';
 import 'package:memory_map/features/story/data/remote/dio_story_remote_data_source.dart';
@@ -54,6 +55,21 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
     String storyId,
     UpdateStoryRemoteRequest request,
   ) {
+    totalCalls += 1;
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> uploadCover(
+    String storyId,
+    PreparedPhotoUpload photo,
+  ) {
+    totalCalls += 1;
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<UserStory> removeCover(String storyId) {
     totalCalls += 1;
     throw UnimplementedError();
   }

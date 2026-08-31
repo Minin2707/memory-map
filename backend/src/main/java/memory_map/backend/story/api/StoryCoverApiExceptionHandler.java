@@ -1,12 +1,16 @@
 package memory_map.backend.story.api;
 
 import memory_map.backend.media.storage.StorageException;
+import memory_map.backend.media.image.ImageProcessingException;
+import memory_map.backend.media.image.InvalidImageException;
 import memory_map.backend.story.application.StoryNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.net.URI;
 
@@ -28,13 +32,31 @@ public class StoryCoverApiExceptionHandler {
         return problemDetail;
     }
 
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ExceptionHandler({
+            InvalidStoryCoverRequestException.class,
+            InvalidImageException.class,
+            MethodArgumentTypeMismatchException.class,
+            MissingServletRequestPartException.class,
+            HttpMediaTypeNotSupportedException.class
+    })
     public ProblemDetail handleInvalidStoryCoverRequest() {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 "Invalid story cover request"
         );
         problemDetail.setTitle("Bad Request");
+        problemDetail.setInstance(STORY_COVER_INSTANCE);
+
+        return problemDetail;
+    }
+
+    @ExceptionHandler(ImageProcessingException.class)
+    public ProblemDetail handleStoryCoverProcessingFailure() {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Story cover upload failed"
+        );
+        problemDetail.setTitle("Internal Server Error");
         problemDetail.setInstance(STORY_COVER_INSTANCE);
 
         return problemDetail;

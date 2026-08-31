@@ -24,10 +24,16 @@ class EditStoryRoute extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detailsValue = ref.watch(storyDetailsProvider(storyId));
+    final detailsState = detailsValue.asData?.value;
+    final loadedStory = detailsState?.userStory;
     final initial = initialUserStory;
-    if (initial != null && initial.story.id == storyId) {
+    final fallbackStory = initial != null && initial.story.id == storyId
+        ? initial
+        : null;
+    final userStory = loadedStory ?? fallbackStory;
+    if (userStory != null) {
       return EditStoryScreen(
-        userStory: initial,
+        userStory: userStory,
         onCancel: onCancel,
         onUpdated: onUpdated,
       );
@@ -50,7 +56,6 @@ class EditStoryRoute extends ConsumerWidget {
       );
     }
 
-    final detailsState = detailsValue.asData?.value;
     if (detailsState == null) {
       return const _EditStoryRouteScaffold(child: _LoadingView());
     }
@@ -69,16 +74,7 @@ class EditStoryRoute extends ConsumerWidget {
       );
     }
 
-    final userStory = detailsState.userStory;
-    if (userStory == null) {
-      return const _EditStoryRouteScaffold(child: _LoadingView());
-    }
-
-    return EditStoryScreen(
-      userStory: userStory,
-      onCancel: onCancel,
-      onUpdated: onUpdated,
-    );
+    return const _EditStoryRouteScaffold(child: _LoadingView());
   }
 }
 
