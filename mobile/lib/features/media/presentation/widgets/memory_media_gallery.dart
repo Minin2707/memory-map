@@ -13,6 +13,28 @@ import 'package:memory_map/features/media/presentation/media_failure_message.dar
 import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+Future<void> showMemoryMediaDisplayViewer({
+  required BuildContext context,
+  required List<Media> photos,
+  required int initialIndex,
+  required bool canDeletePhoto,
+}) {
+  if (photos.isEmpty || initialIndex < 0 || initialIndex >= photos.length) {
+    return Future<void>.value();
+  }
+
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      return _DisplayDialog(
+        photos: List<Media>.unmodifiable(photos),
+        initialIndex: initialIndex,
+        canDeletePhoto: canDeletePhoto,
+      );
+    },
+  );
+}
+
 class MemoryMediaGallery extends ConsumerWidget {
   const MemoryMediaGallery({
     required this.memoryId,
@@ -199,9 +221,9 @@ class _MediaContent extends ConsumerWidget {
                   mainAxisSpacing: 10,
                 ),
                 itemBuilder: (context, index) {
-                  final media = photos[index];
                   return _ThumbnailTile(
-                    media: media,
+                    photos: photos,
+                    index: index,
                     canDeletePhoto: canDeletePhoto,
                   );
                 },
@@ -215,16 +237,19 @@ class _MediaContent extends ConsumerWidget {
 
 class _ThumbnailTile extends StatelessWidget {
   const _ThumbnailTile({
-    required this.media,
+    required this.photos,
+    required this.index,
     required this.canDeletePhoto,
   });
 
-  final Media media;
+  final List<Media> photos;
+  final int index;
   final bool canDeletePhoto;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final media = photos[index];
 
     return Material(
       color: const Color(0xFFF3F5F8),
@@ -233,14 +258,11 @@ class _ThumbnailTile extends StatelessWidget {
       child: InkWell(
         key: ValueKey('memory-media.thumbnail.${media.id}'),
         onTap: () {
-          showDialog<void>(
+          showMemoryMediaDisplayViewer(
             context: context,
-            builder: (context) {
-              return _DisplayDialog(
-                media: media,
-                canDeletePhoto: canDeletePhoto,
-              );
-            },
+            photos: photos,
+            initialIndex: index,
+            canDeletePhoto: canDeletePhoto,
           );
         },
         child: Semantics(
@@ -261,11 +283,13 @@ class _ThumbnailTile extends StatelessWidget {
 
 class _DisplayDialog extends ConsumerStatefulWidget {
   const _DisplayDialog({
-    required this.media,
+    required this.photos,
+    required this.initialIndex,
     required this.canDeletePhoto,
   });
 
-  final Media media;
+  final List<Media> photos;
+  final int initialIndex;
   final bool canDeletePhoto;
 
   @override
@@ -273,9 +297,39 @@ class _DisplayDialog extends ConsumerStatefulWidget {
 }
 
 class _DisplayDialogState extends ConsumerState<_DisplayDialog> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  Media get _currentMedia => widget.photos[_currentIndex];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex =
+        widget.initialIndex.clamp(0, widget.photos.length - 1).toInt();
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void didUpdateWidget(_DisplayDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.photos.length != widget.photos.length &&
+        _currentIndex >= widget.photos.length) {
+      _currentIndex = widget.photos.length - 1;
+      _pageController.jumpToPage(_currentIndex);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final deleteValue = ref.watch(deleteMediaProvider(widget.media.id));
+    final media = _currentMedia;
+    final deleteValue = ref.watch(deleteMediaProvider(media.id));
     final deleteState = deleteValue.asData?.value ?? const DeleteMediaState();
     final isDeleting = deleteState.isDeleting;
     final failureMessage = _deleteFailureMessage(
@@ -300,27 +354,51 @@ class _DisplayDialogState extends ConsumerState<_DisplayDialog> {
                       logicalSize: constraints.biggest,
                       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                     );
-                    return Center(
-                      child: InteractiveViewer(
-                        minScale: 1,
-                        maxScale: 4,
-                        child: SizedBox(
-                          width: constraints.maxWidth,
-                          height: constraints.maxHeight,
-                          child: AuthenticatedMediaImage(
-                            key: const ValueKey('memory-media.display-image'),
-                            media: widget.media,
-                            representation:
-                                AuthenticatedMediaRepresentation.display,
-                            fit: BoxFit.contain,
-                            cacheWidth: decodeSize.cacheWidth,
-                            cacheHeight: decodeSize.cacheHeight,
-                            placeholder: const _DisplayPlaceholder(),
-                            errorBuilder: (_) =>
-                                const _DisplayErrorPlaceholder(),
+                    return PageView.builder(
+                      key: const ValueKey('memory-media.display-page-view'),
+                      controller: _pageController,
+                      itemCount: widget.photos.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        final photo = widget.photos[index];
+                        final image = AuthenticatedMediaImage(
+                          key: ValueKey(
+                            'memory-media.display-image.${photo.id}',
                           ),
-                        ),
-                      ),
+                          media: photo,
+                          representation:
+                              AuthenticatedMediaRepresentation.display,
+                          fit: BoxFit.contain,
+                          cacheWidth: decodeSize.cacheWidth,
+                          cacheHeight: decodeSize.cacheHeight,
+                          placeholder: const _DisplayPlaceholder(),
+                          errorBuilder: (_) =>
+                              const _DisplayErrorPlaceholder(),
+                        );
+
+                        return Center(
+                          child: InteractiveViewer(
+                            minScale: 1,
+                            maxScale: 4,
+                            child: SizedBox(
+                              width: constraints.maxWidth,
+                              height: constraints.maxHeight,
+                              child: index == _currentIndex
+                                  ? KeyedSubtree(
+                                      key: const ValueKey(
+                                        'memory-media.display-image',
+                                      ),
+                                      child: image,
+                                    )
+                                  : image,
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -401,7 +479,8 @@ class _DisplayDialogState extends ConsumerState<_DisplayDialog> {
   }
 
   Future<void> _confirmDeleteMedia() async {
-    if (_isDeleting(ref.read(deleteMediaProvider(widget.media.id)))) {
+    final media = _currentMedia;
+    if (_isDeleting(ref.read(deleteMediaProvider(media.id)))) {
       return;
     }
 
@@ -440,17 +519,17 @@ class _DisplayDialogState extends ConsumerState<_DisplayDialog> {
 
     if (!mounted ||
         confirmed != true ||
-        _isDeleting(ref.read(deleteMediaProvider(widget.media.id)))) {
+        _isDeleting(ref.read(deleteMediaProvider(media.id)))) {
       return;
     }
 
-    final provider = deleteMediaProvider(widget.media.id);
+    final provider = deleteMediaProvider(media.id);
     final notifier = ref.read(provider.notifier);
     if (ref.read(provider).hasError) {
       notifier.reset();
     }
 
-    final success = await notifier.deleteMedia(widget.media);
+    final success = await notifier.deleteMedia(media);
     if (!mounted || !success) {
       return;
     }

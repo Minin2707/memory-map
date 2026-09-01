@@ -412,6 +412,134 @@ void main() {
       expect(find.text('2 / 2'), findsOneWidget);
     });
 
+    testWidgets('shouldOpenFullscreenViewerFromFirstThumbnail', (
+      tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..mediaResult = <Media>[
+          media_fixtures.media(id: 'photo-a', memoryId: defaultMemoryId),
+          media_fixtures.media(id: 'photo-b', memoryId: defaultMemoryId),
+        ];
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+      );
+      await ensureVisible(
+        tester,
+        find.byKey(const ValueKey('memory-media.thumbnail.photo-a')),
+      );
+      final displayCallsBeforeTap = mediaRepository.getDisplayCalls;
+      final thumbnailCallsBeforeTap = mediaRepository.getThumbnailCalls;
+      mediaRepository.receivedBinaryMedia.clear();
+
+      await tester.tap(
+        find.byKey(const ValueKey('memory-media.thumbnail.photo-a')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('memory-media.display-page-view')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('memory-media.display-image')),
+          matching: find.byKey(
+            const ValueKey('memory-media.display-image.photo-a'),
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        mediaRepository.getDisplayCalls,
+        greaterThan(displayCallsBeforeTap),
+      );
+      expect(mediaRepository.getThumbnailCalls, thumbnailCallsBeforeTap);
+      expect(
+        mediaRepository.receivedBinaryMedia.contains(
+          media_fixtures.media(id: 'photo-a', memoryId: defaultMemoryId),
+        ),
+        isTrue,
+      );
+    });
+
+    testWidgets('shouldOpenFullscreenViewerFromSecondThumbnail', (
+      tester,
+    ) async {
+      final mediaRepository = media_fixtures.FakeMediaRepository()
+        ..mediaResult = <Media>[
+          media_fixtures.media(id: 'photo-a', memoryId: defaultMemoryId),
+          media_fixtures.media(id: 'photo-b', memoryId: defaultMemoryId),
+        ];
+
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+        mediaRepository: mediaRepository,
+      );
+      await ensureVisible(
+        tester,
+        find.byKey(const ValueKey('memory-media.thumbnail.photo-b')),
+      );
+      final displayCallsBeforeTap = mediaRepository.getDisplayCalls;
+      final thumbnailCallsBeforeTap = mediaRepository.getThumbnailCalls;
+      mediaRepository.receivedBinaryMedia.clear();
+
+      await tester.tap(
+        find.byKey(const ValueKey('memory-media.thumbnail.photo-b')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('memory-media.display-page-view')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('memory-media.display-image')),
+          matching: find.byKey(
+            const ValueKey('memory-media.display-image.photo-b'),
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        mediaRepository.getDisplayCalls,
+        greaterThan(displayCallsBeforeTap),
+      );
+      expect(mediaRepository.getThumbnailCalls, thumbnailCallsBeforeTap);
+      expect(
+        mediaRepository.receivedBinaryMedia.contains(
+          media_fixtures.media(id: 'photo-b', memoryId: defaultMemoryId),
+        ),
+        isTrue,
+      );
+    });
+
+    testWidgets('shouldKeepNoPhotoStateWithoutFullscreenViewer', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeMemoryRepository()..memoryResult = memoryA,
+      );
+      await ensureVisible(
+        tester,
+        find.byKey(const ValueKey('memory-details.photos-section')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('memory-media.display-page-view')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('memory-media.display-image')),
+        findsNothing,
+      );
+    });
+
     testWidgets('shouldPreserveUploadActionWhenCapabilityAllowsIt', (
       tester,
     ) async {

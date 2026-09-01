@@ -20,6 +20,7 @@ import 'package:memory_map/features/media/application/upload_photo_state.dart';
 import 'package:memory_map/features/media/domain/media.dart';
 import 'package:memory_map/features/media/presentation/media_failure_message.dart';
 import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
+import 'package:memory_map/features/media/presentation/widgets/memory_media_gallery.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 const double _memoryDetailsSectionGap = 14;
@@ -338,6 +339,7 @@ class _MemoryDetailsScreenState extends ConsumerState<MemoryDetailsScreen> {
             mediaValue: mediaValue,
             selectedIndex: _heroPhotoIndex,
             canUploadPhoto: widget.canUploadPhoto && !isDeleting,
+            canDeletePhoto: widget.canDeletePhoto && !isDeleting,
             onPhotoSelected: _showHeroPhotoAt,
           ),
         ),
@@ -1062,6 +1064,7 @@ class _MemoryPhotosStripSection extends ConsumerWidget {
     required this.mediaValue,
     required this.selectedIndex,
     required this.canUploadPhoto,
+    required this.canDeletePhoto,
     required this.onPhotoSelected,
   });
 
@@ -1070,6 +1073,7 @@ class _MemoryPhotosStripSection extends ConsumerWidget {
   final AsyncValue<MemoryMediaState> mediaValue;
   final int selectedIndex;
   final bool canUploadPhoto;
+  final bool canDeletePhoto;
   final ValueChanged<int> onPhotoSelected;
 
   @override
@@ -1163,6 +1167,7 @@ class _MemoryPhotosStripSection extends ConsumerWidget {
               photos: photos,
               mediaValue: mediaValue,
               selectedIndex: selectedIndex,
+              canDeletePhoto: canDeletePhoto,
               onPhotoSelected: onPhotoSelected,
             ),
         ],
@@ -1181,6 +1186,7 @@ class _MemoryPhotosStripContent extends ConsumerWidget {
     required this.photos,
     required this.mediaValue,
     required this.selectedIndex,
+    required this.canDeletePhoto,
     required this.onPhotoSelected,
   });
 
@@ -1188,6 +1194,7 @@ class _MemoryPhotosStripContent extends ConsumerWidget {
   final List<Media> photos;
   final AsyncValue<MemoryMediaState> mediaValue;
   final int selectedIndex;
+  final bool canDeletePhoto;
   final ValueChanged<int> onPhotoSelected;
 
   @override
@@ -1259,6 +1266,12 @@ class _MemoryPhotosStripContent extends ConsumerWidget {
                     isSelected: index == selectedIndex,
                     onTap: () {
                       onPhotoSelected(index);
+                      showMemoryMediaDisplayViewer(
+                        context: context,
+                        photos: photos,
+                        initialIndex: index,
+                        canDeletePhoto: canDeletePhoto,
+                      );
                     },
                   ),
                 ],
