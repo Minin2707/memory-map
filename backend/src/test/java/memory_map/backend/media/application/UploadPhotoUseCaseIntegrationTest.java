@@ -21,6 +21,7 @@ import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
@@ -561,7 +562,8 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
                 ImageProcessor imageProcessor,
                 MediaStorageKeyFactory storageKeyFactory,
                 StorageService storageService,
-                TransactionRollbackCoordinator rollbackCoordinator
+                TransactionRollbackCoordinator rollbackCoordinator,
+                NotificationPublisher notificationPublisher
         ) {
             return new CoordinatedUploadPhotoService(
                     memoryRepository,
@@ -571,7 +573,8 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
                     imageProcessor,
                     storageKeyFactory,
                     storageService,
-                    rollbackCoordinator
+                    rollbackCoordinator,
+                    notificationPublisher
             );
         }
 

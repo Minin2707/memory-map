@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memory_map/features/auth/presentation/auth_user_avatar.dart';
+import 'package:memory_map/features/notification/application/unread_notification_count_notifier.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/stories_state.dart';
 import 'package:memory_map/features/story/presentation/story_failure_message.dart';
@@ -14,6 +15,7 @@ class StoriesScreen extends ConsumerWidget {
     required this.displayName,
     this.avatarUrl,
     this.onCreateStory,
+    this.onNotificationsSelected,
     this.onProfileSelected,
     this.onStorySelected,
     super.key,
@@ -22,6 +24,7 @@ class StoriesScreen extends ConsumerWidget {
   final String displayName;
   final String? avatarUrl;
   final VoidCallback? onCreateStory;
+  final VoidCallback? onNotificationsSelected;
   final VoidCallback? onProfileSelected;
   final ValueChanged<String>? onStorySelected;
 
@@ -29,6 +32,9 @@ class StoriesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final storiesValue = ref.watch(storiesNotifierProvider);
+    final unreadNotificationCount = ref
+        .watch(unreadNotificationCountProvider)
+        .maybeWhen(data: (value) => value, orElse: () => 0);
     final effectiveDisplayName = displayName.trim().isEmpty
         ? l10n.fallbackDisplayName
         : displayName.trim();
@@ -54,6 +60,8 @@ class StoriesScreen extends ConsumerWidget {
                     displayName: greetingName,
                     avatarDisplayName: effectiveDisplayName,
                     avatarUrl: avatarUrl,
+                    unreadNotificationCount: unreadNotificationCount,
+                    onNotificationsSelected: onNotificationsSelected,
                     onProfileSelected: onProfileSelected,
                   ),
                 ),
@@ -222,12 +230,16 @@ class _StoriesHeader extends StatelessWidget {
     required this.displayName,
     required this.avatarDisplayName,
     required this.avatarUrl,
+    required this.unreadNotificationCount,
+    required this.onNotificationsSelected,
     required this.onProfileSelected,
   });
 
   final String displayName;
   final String avatarDisplayName;
   final String? avatarUrl;
+  final int unreadNotificationCount;
+  final VoidCallback? onNotificationsSelected;
   final VoidCallback? onProfileSelected;
 
   @override
@@ -269,21 +281,43 @@ class _StoriesHeader extends StatelessWidget {
       children: [
         SizedBox.square(
           dimension: 44,
-          child: IconButton.filledTonal(
-            key: const ValueKey('stories.notification.action'),
-            onPressed: () {},
-            tooltip: l10n.storiesNotificationUnavailableLabel,
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-              size: 21,
-            ),
-            style: IconButton.styleFrom(
-              foregroundColor: const Color(0xFF1F2937),
-              backgroundColor: Colors.white,
-              shadowColor: const Color(0x140F172A),
-              elevation: 1,
-              padding: EdgeInsets.zero,
-            ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: IconButton.filledTonal(
+                  key: const ValueKey('stories.notification.action'),
+                  onPressed: onNotificationsSelected,
+                  tooltip: l10n.storiesOpenNotificationsLabel,
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    size: 21,
+                  ),
+                  style: IconButton.styleFrom(
+                    foregroundColor: const Color(0xFF1F2937),
+                    backgroundColor: Colors.white,
+                    shadowColor: const Color(0x140F172A),
+                    elevation: 1,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              if (unreadNotificationCount > 0)
+                const Positioned(
+                  key: ValueKey('stories.notification.badge'),
+                  right: 6,
+                  top: 6,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color(0xFFFF5D72),
+                        shape: BoxShape.circle,
+                      ),
+                      child: SizedBox.square(dimension: 9),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(width: 8),

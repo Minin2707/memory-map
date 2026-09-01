@@ -14,6 +14,7 @@ import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,11 @@ class MediaApplicationConfigurationTest {
                             AuthorizedMediaDownloadRepository.class,
                             FakeAuthorizedMediaDownloadRepository::new
                     )
-                    .withBean(ImageProcessor.class, FakeImageProcessor::new);
+                    .withBean(ImageProcessor.class, FakeImageProcessor::new)
+                    .withBean(
+                            NotificationPublisher.class,
+                            FakeNotificationPublisher::new
+                    );
 
     @Test
     void shouldRegisterInfrastructureIndependentMediaBeans() {
@@ -232,6 +237,33 @@ class MediaApplicationConfigurationTest {
         @Override
         public ProcessedPhoto process(ImageProcessingInput input) {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static final class FakeNotificationPublisher
+            implements NotificationPublisher {
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                java.time.Instant createdAt
+        ) {
+        }
+
+        @Override
+        public void memoryCreated(
+                Memory memory,
+                java.time.Instant createdAt
+        ) {
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                java.time.Instant createdAt
+        ) {
         }
     }
 

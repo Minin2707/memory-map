@@ -12,6 +12,7 @@ import memory_map.backend.media.storage.StorageObjectWrite;
 import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
     private final MediaStorageKeyFactory storageKeyFactory;
     private final StorageService storageService;
     private final TransactionRollbackCoordinator rollbackCoordinator;
+    private final NotificationPublisher notificationPublisher;
 
     public CoordinatedUploadPhotoService(
             MemoryRepository memoryRepository,
@@ -38,7 +40,8 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
             ImageProcessor imageProcessor,
             MediaStorageKeyFactory storageKeyFactory,
             StorageService storageService,
-            TransactionRollbackCoordinator rollbackCoordinator
+            TransactionRollbackCoordinator rollbackCoordinator,
+            NotificationPublisher notificationPublisher
     ) {
         this.memoryRepository = Objects.requireNonNull(
                 memoryRepository,
@@ -71,6 +74,10 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
         this.rollbackCoordinator = Objects.requireNonNull(
                 rollbackCoordinator,
                 "rollbackCoordinator must not be null"
+        );
+        this.notificationPublisher = Objects.requireNonNull(
+                notificationPublisher,
+                "notificationPublisher must not be null"
         );
     }
 
@@ -137,6 +144,11 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
         );
 
         mediaFileRepository.save(mediaFile);
+        notificationPublisher.photosAdded(
+                memory,
+                requesterUserId,
+                command.currentTime()
+        );
 
         return mediaFile;
     }

@@ -3,6 +3,8 @@ package memory_map.backend.story.api;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
 import memory_map.backend.auth.security.SecurityConfiguration;
+import memory_map.backend.story.application.DownloadStoryParticipantAvatarUseCase;
+import memory_map.backend.story.application.DownloadedStoryParticipantAvatar;
 import memory_map.backend.story.application.GetStoryParticipantsUseCase;
 import memory_map.backend.story.application.LastStoryOwnerCannotLeaveException;
 import memory_map.backend.story.application.LeaveStoryCommand;
@@ -29,7 +31,9 @@ import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
+import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -37,10 +41,13 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(StoryParticipantController.class)
@@ -57,6 +64,10 @@ class StoryParticipantControllerTest {
 
     @Autowired
     private FakeGetStoryParticipantsUseCase getStoryParticipantsUseCase;
+
+    @Autowired
+    private FakeDownloadStoryParticipantAvatarUseCase
+            downloadStoryParticipantAvatarUseCase;
 
     @Autowired
     private FakeLeaveStoryUseCase leaveStoryUseCase;
@@ -88,6 +99,7 @@ class StoryParticipantControllerTest {
     @BeforeEach
     void resetFakes() {
         getStoryParticipantsUseCase.reset();
+        downloadStoryParticipantAvatarUseCase.reset();
         leaveStoryUseCase.reset();
         removeStoryParticipantUseCase.reset();
         currentAuthenticatedUserProvider.reset();
@@ -204,6 +216,64 @@ class StoryParticipantControllerTest {
         assertThat(currentAuthenticatedUserProvider.callCount())
                 .isEqualTo(1);
         assertThat(getStoryParticipantsUseCase.callCount()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldDownloadParticipantAvatarWithPrivateHeaders() throws Exception {
+
+        MvcResult result = mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}/participants/"
+                                + "{participantUserId}/avatar/{version}",
+                        STORY_ID,
+                        SECOND_USER_ID,
+                        "1768039200000"
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + VALID_ACCESS_TOKEN
+                        ))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isOk())
+                .andExpect(content().bytes(new byte[] {1, 2, 3}))
+                .andExpect(content().contentTypeCompatibleWith("image/jpeg"))
+                .andExpect(header().string(
+                        HttpHeaders.CACHE_CONTROL,
+                        "private, no-store"
+                ));
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(downloadStoryParticipantAvatarUseCase.callCount())
+                .isEqualTo(1);
+        assertThat(downloadStoryParticipantAvatarUseCase
+                .receivedAuthenticatedUser())
+                .isEqualTo(new AuthenticatedUser(USER_ID));
+        assertThat(downloadStoryParticipantAvatarUseCase.receivedStoryId())
+                .isEqualTo(STORY_ID);
+        assertThat(downloadStoryParticipantAvatarUseCase
+                .receivedParticipantUserId())
+                .isEqualTo(SECOND_USER_ID);
+    }
+
+    @Test
+    void shouldRejectParticipantAvatarRequestWithoutBearerToken()
+            throws Exception {
+
+        mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}/participants/"
+                                + "{participantUserId}/avatar/{version}",
+                        STORY_ID,
+                        SECOND_USER_ID,
+                        "1768039200000"
+                ))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+        assertThat(downloadStoryParticipantAvatarUseCase.callCount())
+                .isZero();
     }
 
     @Test
@@ -767,6 +837,7 @@ class StoryParticipantControllerTest {
 
         assertThatThrownBy(() -> new StoryParticipantController(
                 null,
+                downloadStoryParticipantAvatarUseCase,
                 leaveStoryUseCase,
                 removeStoryParticipantUseCase,
                 currentAuthenticatedUserProvider
@@ -776,10 +847,28 @@ class StoryParticipantControllerTest {
     }
 
     @Test
+    void shouldRejectNullDownloadStoryParticipantAvatarUseCaseDependency() {
+
+        assertThatThrownBy(() -> new StoryParticipantController(
+                getStoryParticipantsUseCase,
+                null,
+                leaveStoryUseCase,
+                removeStoryParticipantUseCase,
+                currentAuthenticatedUserProvider
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage(
+                        "downloadStoryParticipantAvatarUseCase "
+                                + "must not be null"
+                );
+    }
+
+    @Test
     void shouldRejectNullLeaveStoryUseCaseDependency() {
 
         assertThatThrownBy(() -> new StoryParticipantController(
                 getStoryParticipantsUseCase,
+                downloadStoryParticipantAvatarUseCase,
                 null,
                 removeStoryParticipantUseCase,
                 currentAuthenticatedUserProvider
@@ -793,6 +882,7 @@ class StoryParticipantControllerTest {
 
         assertThatThrownBy(() -> new StoryParticipantController(
                 getStoryParticipantsUseCase,
+                downloadStoryParticipantAvatarUseCase,
                 leaveStoryUseCase,
                 null,
                 currentAuthenticatedUserProvider
@@ -806,6 +896,7 @@ class StoryParticipantControllerTest {
 
         assertThatThrownBy(() -> new StoryParticipantController(
                 getStoryParticipantsUseCase,
+                downloadStoryParticipantAvatarUseCase,
                 leaveStoryUseCase,
                 removeStoryParticipantUseCase,
                 null
@@ -822,6 +913,12 @@ class StoryParticipantControllerTest {
         @Bean
         FakeGetStoryParticipantsUseCase getStoryParticipantsUseCase() {
             return new FakeGetStoryParticipantsUseCase();
+        }
+
+        @Bean
+        FakeDownloadStoryParticipantAvatarUseCase
+        downloadStoryParticipantAvatarUseCase() {
+            return new FakeDownloadStoryParticipantAvatarUseCase();
         }
 
         @Bean
@@ -913,6 +1010,56 @@ class StoryParticipantControllerTest {
             exception = null;
             receivedAuthenticatedUser = null;
             receivedStoryId = null;
+            callCount = 0;
+        }
+    }
+
+    static final class FakeDownloadStoryParticipantAvatarUseCase
+            implements DownloadStoryParticipantAvatarUseCase {
+
+        private AuthenticatedUser receivedAuthenticatedUser;
+        private UUID receivedStoryId;
+        private UUID receivedParticipantUserId;
+        private int callCount;
+
+        @Override
+        public DownloadedStoryParticipantAvatar downloadAvatar(
+                AuthenticatedUser authenticatedUser,
+                UUID storyId,
+                UUID participantUserId
+        ) {
+            receivedAuthenticatedUser = authenticatedUser;
+            receivedStoryId = storyId;
+            receivedParticipantUserId = participantUserId;
+            callCount++;
+
+            return new DownloadedStoryParticipantAvatar(
+                    new ByteArrayInputStream(new byte[] {1, 2, 3}),
+                    3L,
+                    "image/jpeg"
+            );
+        }
+
+        private AuthenticatedUser receivedAuthenticatedUser() {
+            return receivedAuthenticatedUser;
+        }
+
+        private UUID receivedStoryId() {
+            return receivedStoryId;
+        }
+
+        private UUID receivedParticipantUserId() {
+            return receivedParticipantUserId;
+        }
+
+        private int callCount() {
+            return callCount;
+        }
+
+        private void reset() {
+            receivedAuthenticatedUser = null;
+            receivedStoryId = null;
+            receivedParticipantUserId = null;
             callCount = 0;
         }
     }

@@ -2,6 +2,7 @@ package memory_map.backend.memory.application;
 
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -15,10 +16,12 @@ public class TransactionalCreateMemoryService implements CreateMemoryUseCase {
 
     private final StoryParticipantRepository storyParticipantRepository;
     private final MemoryRepository memoryRepository;
+    private final NotificationPublisher notificationPublisher;
 
     public TransactionalCreateMemoryService(
             StoryParticipantRepository storyParticipantRepository,
-            MemoryRepository memoryRepository
+            MemoryRepository memoryRepository,
+            NotificationPublisher notificationPublisher
     ) {
         this.storyParticipantRepository = Objects.requireNonNull(
                 storyParticipantRepository,
@@ -27,6 +30,10 @@ public class TransactionalCreateMemoryService implements CreateMemoryUseCase {
         this.memoryRepository = Objects.requireNonNull(
                 memoryRepository,
                 "memoryRepository must not be null"
+        );
+        this.notificationPublisher = Objects.requireNonNull(
+                notificationPublisher,
+                "notificationPublisher must not be null"
         );
     }
 
@@ -47,6 +54,7 @@ public class TransactionalCreateMemoryService implements CreateMemoryUseCase {
 
         Memory memory = memory(command, userId);
         memoryRepository.save(memory);
+        notificationPublisher.memoryCreated(memory, command.currentTime());
 
         return memory;
     }

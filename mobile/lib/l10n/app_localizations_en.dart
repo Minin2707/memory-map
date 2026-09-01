@@ -212,6 +212,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Notifications are not available yet';
 
   @override
+  String get storiesOpenNotificationsLabel => 'Open notifications';
+
+  @override
   String storiesAvatarLabel(String displayName) {
     return '$displayName\'s avatar';
   }
@@ -1342,6 +1345,85 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playbackMemoryPhotoLabel => 'Memory photo';
+
+  @override
+  String get notificationsTitle => 'Notifications';
+
+  @override
+  String get notificationsBackLabel => 'Back to stories';
+
+  @override
+  String get notificationsMarkAllReadAction => 'Mark all read';
+
+  @override
+  String get notificationsRetryAction => 'Try again';
+
+  @override
+  String get notificationsEmptyTitle => 'No notifications yet';
+
+  @override
+  String get notificationsEmptyBody =>
+      'Story updates will appear here when something new happens.';
+
+  @override
+  String get notificationsLoadFailureTitle => 'Could not load notifications';
+
+  @override
+  String get notificationsMutationFailure =>
+      'Notification could not be updated. Please try again.';
+
+  @override
+  String get notificationsReferenceUnavailable =>
+      'This story item is no longer available';
+
+  @override
+  String notificationParticipantJoined(String actor) {
+    return '$actor joined a story';
+  }
+
+  @override
+  String notificationMemoryCreated(String actor) {
+    return '$actor added a memory';
+  }
+
+  @override
+  String notificationMemoryCreatedWithTitle(String actor, String memoryTitle) {
+    return '$actor added $memoryTitle';
+  }
+
+  @override
+  String notificationPhotosAdded(String actor) {
+    return '$actor added photos';
+  }
+
+  @override
+  String notificationPhotosAddedWithTitle(String actor, String memoryTitle) {
+    return '$actor added photos to $memoryTitle';
+  }
+
+  @override
+  String get notificationFailureUnauthorized =>
+      'Your session needs attention. Please sign in again.';
+
+  @override
+  String get notificationFailureNotFound =>
+      'This notification is no longer available.';
+
+  @override
+  String get notificationFailureNetwork =>
+      'No network connection. Check your connection and try again.';
+
+  @override
+  String get notificationFailureTimeout =>
+      'The request timed out. Please try again.';
+
+  @override
+  String get notificationFailureServer =>
+      'Notifications are temporarily unavailable. Please try again later.';
+
+  @override
+  String get notificationFailureUnknown =>
+      'Something went wrong. Please try again.';
 
   @override
   String storiesOpenProfileLabel(String displayName) {

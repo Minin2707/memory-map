@@ -3,6 +3,8 @@ package memory_map.backend.invite.application;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.invite.repository.InviteRepository;
+import memory_map.backend.memory.domain.Memory;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
@@ -74,13 +76,22 @@ class TransactionalAcceptInviteServiceTest {
                 .isEqualTo(INVITE_ID);
         assertThat(context.inviteRepository().receivedUsedAt())
                 .isEqualTo(CURRENT_TIME);
+        assertThat(context.notificationPublisher().participantJoinedCallCount())
+                .isEqualTo(1);
+        assertThat(context.notificationPublisher().receivedStoryId())
+                .isEqualTo(STORY_ID);
+        assertThat(context.notificationPublisher().receivedActorUserId())
+                .isEqualTo(USER_ID);
+        assertThat(context.notificationPublisher().receivedCreatedAt())
+                .isEqualTo(CURRENT_TIME);
         assertThat(context.calls()).containsExactly(
                 "hash token",
                 "find Invite for update",
                 "find Story",
                 "exists StoryParticipant",
                 "save StoryParticipant",
-                "mark Invite used"
+                "mark Invite used",
+                "publish PARTICIPANT_JOINED"
         );
     }
 
@@ -108,6 +119,8 @@ class TransactionalAcceptInviteServiceTest {
         assertThat(context.storyParticipantRepository().saveCallCount())
                 .isZero();
         assertThat(context.inviteRepository().markUsedCallCount()).isZero();
+        assertThat(context.notificationPublisher().participantJoinedCallCount())
+                .isZero();
     }
 
     @Test
@@ -221,6 +234,8 @@ class TransactionalAcceptInviteServiceTest {
                 .isEqualTo(1);
         assertThat(context.inviteRepository().markUsedCallCount())
                 .isEqualTo(1);
+        assertThat(context.notificationPublisher().participantJoinedCallCount())
+                .isZero();
     }
 
     @Test
@@ -232,7 +247,8 @@ class TransactionalAcceptInviteServiceTest {
                 null,
                 context.tokenHasher(),
                 context.storyRepository(),
-                context.storyParticipantRepository()
+                context.storyParticipantRepository(),
+                context.notificationPublisher()
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("inviteRepository must not be null");
@@ -247,7 +263,8 @@ class TransactionalAcceptInviteServiceTest {
                 context.inviteRepository(),
                 null,
                 context.storyRepository(),
-                context.storyParticipantRepository()
+                context.storyParticipantRepository(),
+                context.notificationPublisher()
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("inviteTokenHasher must not be null");
@@ -262,7 +279,8 @@ class TransactionalAcceptInviteServiceTest {
                 context.inviteRepository(),
                 context.tokenHasher(),
                 null,
-                context.storyParticipantRepository()
+                context.storyParticipantRepository(),
+                context.notificationPublisher()
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("storyRepository must not be null");
@@ -277,10 +295,27 @@ class TransactionalAcceptInviteServiceTest {
                 context.inviteRepository(),
                 context.tokenHasher(),
                 context.storyRepository(),
-                null
+                null,
+                context.notificationPublisher()
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("storyParticipantRepository must not be null");
+    }
+
+    @Test
+    void shouldRejectNullNotificationPublisherDependency() {
+
+        TestContext context = testContext();
+
+        assertThatThrownBy(() -> new TransactionalAcceptInviteService(
+                context.inviteRepository(),
+                context.tokenHasher(),
+                context.storyRepository(),
+                context.storyParticipantRepository(),
+                null
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("notificationPublisher must not be null");
     }
 
     @Test
@@ -396,18 +431,22 @@ class TransactionalAcceptInviteServiceTest {
                 new FakeStoryRepository(calls);
         FakeStoryParticipantRepository storyParticipantRepository =
                 new FakeStoryParticipantRepository(calls);
+        FakeNotificationPublisher notificationPublisher =
+                new FakeNotificationPublisher(calls);
 
         return new TestContext(
                 new TransactionalAcceptInviteService(
                         inviteRepository,
                         tokenHasher,
                         storyRepository,
-                        storyParticipantRepository
+                        storyParticipantRepository,
+                        notificationPublisher
                 ),
                 inviteRepository,
                 tokenHasher,
                 storyRepository,
                 storyParticipantRepository,
+                notificationPublisher,
                 calls
         );
     }
@@ -468,6 +507,8 @@ class TransactionalAcceptInviteServiceTest {
             FakeStoryRepository storyRepository,
 
             FakeStoryParticipantRepository storyParticipantRepository,
+
+            FakeNotificationPublisher notificationPublisher,
 
             List<String> calls
 
@@ -783,6 +824,63 @@ class TransactionalAcceptInviteServiceTest {
 
         private void failOnSave(RuntimeException failure) {
             saveFailure = failure;
+        }
+    }
+
+    private static final class FakeNotificationPublisher
+            implements NotificationPublisher {
+
+        private final List<String> calls;
+        private UUID receivedStoryId;
+        private UUID receivedActorUserId;
+        private Instant receivedCreatedAt;
+        private int participantJoinedCallCount;
+
+        private FakeNotificationPublisher(List<String> calls) {
+            this.calls = calls;
+        }
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+            calls.add("publish PARTICIPANT_JOINED");
+            participantJoinedCallCount++;
+            receivedStoryId = storyId;
+            receivedActorUserId = actorUserId;
+            receivedCreatedAt = createdAt;
+        }
+
+        @Override
+        public void memoryCreated(Memory memory, Instant createdAt) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        private UUID receivedStoryId() {
+            return receivedStoryId;
+        }
+
+        private UUID receivedActorUserId() {
+            return receivedActorUserId;
+        }
+
+        private Instant receivedCreatedAt() {
+            return receivedCreatedAt;
+        }
+
+        private int participantJoinedCallCount() {
+            return participantJoinedCallCount;
         }
     }
 

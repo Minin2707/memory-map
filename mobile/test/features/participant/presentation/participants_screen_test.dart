@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/media/application/media_application_providers.dart';
+import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/participant/application/participant_application_exception.dart';
 import 'package:memory_map/features/participant/application/participant_application_providers.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
@@ -14,6 +16,8 @@ import 'package:memory_map/features/participant/domain/story_participant_reposit
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+import '../../media/media_test_fixtures.dart' as media_fixtures;
 
 void main() {
   group('ParticipantsScreen rendering', () {
@@ -79,7 +83,40 @@ void main() {
 
       expect(networkAvatar.foregroundImage, isA<NetworkImage>());
       expect(fallbackAvatar.foregroundImage, isNull);
-      expect((fallbackAvatar.child! as Text).data, 'A');
+      expect(
+        find.descendant(
+          of: find.byType(CircleAvatar).at(3),
+          matching: find.text('A'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shouldRenderCustomAvatarThroughAuthenticatedBackendPath', (
+      tester,
+    ) async {
+      const avatarPath =
+          '/api/v1/stories/story-id/participants/owner-user-id/avatar/1';
+      final mediaRepository = media_fixtures.FakeMediaRepository();
+
+      await pumpScreen(
+        tester,
+        FakeStoryParticipantRepository()
+          ..participantsResult = <StoryParticipant>[
+            StoryParticipant(
+              userId: 'owner-user-id',
+              displayName: 'Anna',
+              avatarUrl: avatarPath,
+              role: StoryRole.owner,
+              joinedAt: DateTime.utc(2026, 8, 9, 10),
+            ),
+          ],
+        mediaRepository: mediaRepository,
+      );
+
+      expect(find.byType(AuthenticatedMediaPathImage), findsOneWidget);
+      expect(mediaRepository.getDisplayByPathCalls, 1);
+      expect(mediaRepository.receivedBinaryPaths, contains(avatarPath));
     });
 
     testWidgets('shouldMarkCurrentUserByExactUserId', (tester) async {
@@ -779,10 +816,13 @@ Future<ProviderContainer> pumpScreen(
   ValueChanged<StoryParticipant>? onParticipantRemoved,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
+  media_fixtures.FakeMediaRepository? mediaRepository,
 }) async {
   final container = ProviderContainer(
     overrides: [
       storyParticipantRepositoryProvider.overrideWithValue(repository),
+      if (mediaRepository != null)
+        mediaRepositoryProvider.overrideWithValue(mediaRepository),
     ],
   );
   addTearDown(container.dispose);

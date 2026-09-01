@@ -1,6 +1,7 @@
 package memory_map.backend.invite.application;
 
 import memory_map.backend.invite.repository.InviteRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.story.repository.UserStoryRepository;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -55,13 +56,15 @@ public class InviteApplicationConfiguration {
             InviteRepository inviteRepository,
             InviteTokenHasher inviteTokenHasher,
             StoryRepository storyRepository,
-            StoryParticipantRepository storyParticipantRepository
+            StoryParticipantRepository storyParticipantRepository,
+            NotificationPublisher notificationPublisher
     ) {
         return new TransactionalAcceptInviteService(
                 inviteRepository,
                 inviteTokenHasher,
                 storyRepository,
-                storyParticipantRepository
+                storyParticipantRepository,
+                notificationPublisher
         );
     }
 }

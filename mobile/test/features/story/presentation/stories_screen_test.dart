@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
+import 'package:memory_map/features/notification/application/notification_application_providers.dart';
+import 'package:memory_map/features/notification/domain/notification_item.dart';
+import 'package:memory_map/features/notification/domain/notification_repository.dart';
 import 'package:memory_map/features/story/application/story_application_exception.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/domain/story.dart';
@@ -114,16 +117,46 @@ void main() {
       expect(profileCalls, 1);
     });
 
-    testWidgets('shouldRenderVisibleNoOpNotificationAction', (
+    testWidgets('shouldCallNotificationCallbackFromBell', (
+      WidgetTester tester,
+    ) async {
+      var notificationCalls = 0;
+      await pumpScreen(
+        tester,
+        FakeStoryRepository(),
+        onNotificationsSelected: () {
+          notificationCalls += 1;
+        },
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('stories.notification.action')),
+      );
+      await tester.pump();
+
+      expect(notificationCalls, 1);
+    });
+
+    testWidgets('shouldRenderUnreadNotificationBadge', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository(),
+        notificationRepository: FakeNotificationRepository()..unreadCount = 2,
+      );
+
+      expect(find.byKey(const ValueKey('stories.notification.badge')),
+          findsOneWidget);
+    });
+
+    testWidgets('shouldHideNotificationBadgeWhenUnreadCountIsZero', (
       WidgetTester tester,
     ) async {
       await pumpScreen(tester, FakeStoryRepository());
 
-      final button = tester.widget<IconButton>(
-        find.byKey(const ValueKey('stories.notification.action')),
-      );
-
-      expect(button.onPressed, isNotNull);
+      expect(find.byKey(const ValueKey('stories.notification.badge')),
+          findsNothing);
     });
   });
 
@@ -462,9 +495,11 @@ Future<void> pumpScreen(
   String displayName = 'Anna',
   String? avatarUrl,
   VoidCallback? onCreateStory,
+  VoidCallback? onNotificationsSelected,
   VoidCallback? onProfileSelected,
   ValueChanged<String>? onStorySelected,
   media_fixtures.FakeMediaRepository? mediaRepository,
+  FakeNotificationRepository? notificationRepository,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
 }) async {
@@ -472,6 +507,9 @@ Future<void> pumpScreen(
     ProviderScope(
       overrides: [
         storyRepositoryProvider.overrideWithValue(repository),
+        notificationRepositoryProvider.overrideWithValue(
+          notificationRepository ?? FakeNotificationRepository(),
+        ),
         mediaRepositoryProvider.overrideWithValue(
           mediaRepository ?? media_fixtures.FakeMediaRepository(),
         ),
@@ -490,6 +528,7 @@ Future<void> pumpScreen(
           displayName: displayName,
           avatarUrl: avatarUrl,
           onCreateStory: onCreateStory,
+          onNotificationsSelected: onNotificationsSelected,
           onProfileSelected: onProfileSelected,
           onStorySelected: onStorySelected,
         ),
@@ -637,6 +676,26 @@ final class FakeStoryRepository implements StoryRepository {
   }) async {
     throw UnimplementedError();
   }
+}
+
+final class FakeNotificationRepository implements NotificationRepository {
+  int unreadCount = 0;
+
+  @override
+  Future<List<NotificationItem>> getNotifications({int limit = 50}) async {
+    return <NotificationItem>[];
+  }
+
+  @override
+  Future<int> getUnreadCount() async {
+    return unreadCount;
+  }
+
+  @override
+  Future<void> markAllRead() async {}
+
+  @override
+  Future<void> markRead(String notificationId) async {}
 }
 
 final class UnexpectedStoryException implements Exception {

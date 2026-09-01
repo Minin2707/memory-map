@@ -11,6 +11,7 @@ import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryReadRepository;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,10 @@ class MemoryApplicationConfigurationTest {
                     .withBean(
                             TransactionCommitCoordinator.class,
                             FakeTransactionCommitCoordinator::new
+                    )
+                    .withBean(
+                            NotificationPublisher.class,
+                            FakeNotificationPublisher::new
                     );
 
     @Test
@@ -253,6 +258,33 @@ class MemoryApplicationConfigurationTest {
 
         @Override
         public void onCommit(Runnable action) {
+        }
+    }
+
+    private static final class FakeNotificationPublisher
+            implements NotificationPublisher {
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                java.time.Instant createdAt
+        ) {
+        }
+
+        @Override
+        public void memoryCreated(
+                Memory memory,
+                java.time.Instant createdAt
+        ) {
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                java.time.Instant createdAt
+        ) {
         }
     }
 

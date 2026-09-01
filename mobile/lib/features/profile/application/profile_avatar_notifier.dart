@@ -7,6 +7,7 @@ import 'package:memory_map/features/auth/domain/auth_user.dart';
 import 'package:memory_map/features/media/application/media_application_exception.dart';
 import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/media/domain/media_failure.dart';
+import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/profile/application/account_avatar_exception.dart';
 import 'package:memory_map/features/profile/application/profile_application_providers.dart';
 import 'package:memory_map/features/profile/application/profile_avatar_state.dart';
@@ -57,6 +58,7 @@ final class ProfileAvatarNotifier extends AsyncNotifier<ProfileAvatarState> {
         return false;
       }
       _publishUpdatedSession(updatedSession);
+      _refreshAvatarConsumers();
 
       if (ref.mounted) {
         state = const AsyncData(ProfileAvatarState());
@@ -106,6 +108,7 @@ final class ProfileAvatarNotifier extends AsyncNotifier<ProfileAvatarState> {
         return false;
       }
       _publishUpdatedSession(updatedSession);
+      _refreshAvatarConsumers();
 
       if (ref.mounted) {
         state = const AsyncData(ProfileAvatarState());
@@ -144,6 +147,10 @@ final class ProfileAvatarNotifier extends AsyncNotifier<ProfileAvatarState> {
     if (ref.exists(authNotifierProvider)) {
       ref.read(authNotifierProvider.notifier).replaceCurrentSession(session);
     }
+  }
+
+  void _refreshAvatarConsumers() {
+    ref.invalidate(storyParticipantsProvider);
   }
 
   AccountAvatarFailure _mapPreprocessingFailure(MediaFailure failure) {

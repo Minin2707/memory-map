@@ -51,6 +51,9 @@ import 'package:memory_map/features/music/domain/music_repository.dart';
 import 'package:memory_map/features/music/domain/music_track.dart';
 import 'package:memory_map/features/music/domain/story_soundtrack.dart';
 import 'package:memory_map/features/music/domain/story_soundtrack_repository.dart';
+import 'package:memory_map/features/notification/application/notification_application_providers.dart';
+import 'package:memory_map/features/notification/domain/notification_item.dart';
+import 'package:memory_map/features/notification/domain/notification_repository.dart';
 import 'package:memory_map/features/participant/application/participant_application_exception.dart';
 import 'package:memory_map/features/participant/application/participant_application_providers.dart';
 import 'package:memory_map/features/participant/domain/leave_story_input.dart';
@@ -318,6 +321,31 @@ void main() {
       await tapButton(
         tester,
         find.byKey(const ValueKey('profile.back-action')),
+      );
+
+      expect(find.text('Your stories'), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenNotificationsFromStoriesBellAndBack', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('stories.notification.action')),
+      );
+
+      expect(
+        routerLocation(tester.element(find.text('Notifications'))),
+        notificationsRoute,
+      );
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('notifications.back-action')),
       );
 
       expect(find.text('Your stories'), findsOneWidget);
@@ -3288,6 +3316,7 @@ Future<ProviderContainer> pumpApp(
   FakeMemoryRepository? memoryRepository,
   FakeMusicRepository? musicRepository,
   FakeStorySoundtrackRepository? soundtrackRepository,
+  FakeNotificationRepository? notificationRepository,
   media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
   PlaybackMapBuilder? storyPlaybackMapBuilder,
@@ -3301,6 +3330,7 @@ Future<ProviderContainer> pumpApp(
     memoryRepository: memoryRepository,
     musicRepository: musicRepository,
     soundtrackRepository: soundtrackRepository,
+    notificationRepository: notificationRepository,
     mediaRepository: mediaRepository,
     storyMapBuilder: storyMapBuilder,
     storyPlaybackMapBuilder: storyPlaybackMapBuilder,
@@ -3327,6 +3357,7 @@ ProviderContainer createContainer(
   FakeMemoryRepository? memoryRepository,
   FakeMusicRepository? musicRepository,
   FakeStorySoundtrackRepository? soundtrackRepository,
+  FakeNotificationRepository? notificationRepository,
   media_fixtures.FakeMediaRepository? mediaRepository,
   StoryMapBuilder? storyMapBuilder,
   PlaybackMapBuilder? storyPlaybackMapBuilder,
@@ -3355,6 +3386,9 @@ ProviderContainer createContainer(
       ),
       storySoundtrackRepositoryProvider.overrideWithValue(
         soundtrackRepository ?? FakeStorySoundtrackRepository(),
+      ),
+      notificationRepositoryProvider.overrideWithValue(
+        notificationRepository ?? FakeNotificationRepository(),
       ),
       mediaRepositoryProvider.overrideWithValue(
         mediaRepository ??
@@ -3676,6 +3710,27 @@ final class FakeInviteRepository implements InviteRepository {
 
     return acceptResult;
   }
+}
+
+final class FakeNotificationRepository implements NotificationRepository {
+  int unreadCount = 0;
+  List<NotificationItem> notificationsResult = <NotificationItem>[];
+
+  @override
+  Future<List<NotificationItem>> getNotifications({int limit = 50}) async {
+    return notificationsResult;
+  }
+
+  @override
+  Future<int> getUnreadCount() async {
+    return unreadCount;
+  }
+
+  @override
+  Future<void> markAllRead() async {}
+
+  @override
+  Future<void> markRead(String notificationId) async {}
 }
 
 final class FakeStoryParticipantRepository

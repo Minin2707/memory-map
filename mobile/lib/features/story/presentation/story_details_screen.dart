@@ -1010,9 +1010,6 @@ class _ParticipantPreviewItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final avatarUrl = participant.avatarUrl?.trim();
-    final foregroundImage = avatarUrl == null || avatarUrl.isEmpty
-        ? null
-        : NetworkImage(avatarUrl);
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final itemWidth = textScale <= 1.15 ? 78.0 : 116.0;
 
@@ -1023,25 +1020,7 @@ class _ParticipantPreviewItem extends StatelessWidget {
           Semantics(
             label: l10n.participantsAvatarLabel(participant.displayName),
             image: true,
-            child: CircleAvatar(
-              key: const ValueKey('story-details.participants.avatar'),
-              radius: 32,
-              foregroundImage: foregroundImage,
-              onForegroundImageError:
-                  foregroundImage == null ? null : (_, __) {},
-              backgroundColor: const Color(0xFFFFE6EA),
-              child: Text(
-                _participantInitials(participant.displayName),
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: const TextStyle(
-                  color: Color(0xFFFF5D72),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              ),
-            ),
+            child: _avatar(avatarUrl),
           ),
           const SizedBox(height: 10),
           Text(
@@ -1067,6 +1046,85 @@ class _ParticipantPreviewItem extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _avatar(String? avatarUrl) {
+    final fallback = _ParticipantPreviewAvatarFallback(
+      displayName: participant.displayName,
+    );
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return fallback;
+    }
+
+    final uri = Uri.tryParse(avatarUrl);
+    if (uri != null && uri.hasScheme && uri.hasAuthority) {
+      return CircleAvatar(
+        key: const ValueKey('story-details.participants.avatar'),
+        radius: 32,
+        foregroundImage: NetworkImage(avatarUrl),
+        onForegroundImageError: (_, __) {},
+        backgroundColor: const Color(0xFFFFE6EA),
+        child: _ParticipantPreviewInitials(
+          displayName: participant.displayName,
+        ),
+      );
+    }
+
+    return ClipOval(
+      child: SizedBox.square(
+        dimension: 64,
+        child: AuthenticatedMediaPathImage(
+          thumbnailPath: avatarUrl,
+          representation: AuthenticatedMediaRepresentation.display,
+          fit: BoxFit.cover,
+          cacheWidth: 128,
+          cacheHeight: 128,
+          placeholder: fallback,
+          errorBuilder: (_) => fallback,
+        ),
+      ),
+    );
+  }
+}
+
+class _ParticipantPreviewAvatarFallback extends StatelessWidget {
+  const _ParticipantPreviewAvatarFallback({
+    required this.displayName,
+  });
+
+  final String displayName;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      key: const ValueKey('story-details.participants.avatar'),
+      radius: 32,
+      backgroundColor: const Color(0xFFFFE6EA),
+      child: _ParticipantPreviewInitials(displayName: displayName),
+    );
+  }
+}
+
+class _ParticipantPreviewInitials extends StatelessWidget {
+  const _ParticipantPreviewInitials({
+    required this.displayName,
+  });
+
+  final String displayName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      _participantInitials(displayName),
+      maxLines: 1,
+      overflow: TextOverflow.clip,
+      style: const TextStyle(
+        color: Color(0xFFFF5D72),
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0,
       ),
     );
   }

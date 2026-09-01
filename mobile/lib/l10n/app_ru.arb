@@ -90,6 +90,7 @@
   "storyThumbnailLabel": "Фото истории",
   "storyThumbnailUnavailableLabel": "Фото истории недоступно",
   "storiesNotificationUnavailableLabel": "Уведомления пока недоступны",
+  "storiesOpenNotificationsLabel": "Открыть уведомления",
   "storiesAvatarLabel": "Аватар пользователя {displayName}",
   "@storiesAvatarLabel": {
     "description": "Accessibility label for the Stories screen avatar",
@@ -518,6 +519,67 @@
   "playbackNoPhotoTitle": "Без фото",
   "playbackPhotoUnavailable": "Фото недоступно",
   "playbackMemoryPhotoLabel": "Фото воспоминания",
+  "notificationsTitle": "Уведомления",
+  "notificationsBackLabel": "Вернуться к историям",
+  "notificationsMarkAllReadAction": "Прочитать все",
+  "notificationsRetryAction": "Попробовать снова",
+  "notificationsEmptyTitle": "Уведомлений пока нет",
+  "notificationsEmptyBody": "Здесь появятся обновления историй, когда случится что-то новое.",
+  "notificationsLoadFailureTitle": "Не удалось загрузить уведомления",
+  "notificationsMutationFailure": "Не удалось обновить уведомление. Попробуйте снова.",
+  "notificationsReferenceUnavailable": "Этот элемент истории больше недоступен",
+  "notificationParticipantJoined": "{actor} присоединился к истории",
+  "@notificationParticipantJoined": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationMemoryCreated": "{actor} добавил воспоминание",
+  "@notificationMemoryCreated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationMemoryCreatedWithTitle": "{actor} добавил «{memoryTitle}»",
+  "@notificationMemoryCreatedWithTitle": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "memoryTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationPhotosAdded": "{actor} добавил фото",
+  "@notificationPhotosAdded": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationPhotosAddedWithTitle": "{actor} добавил фото к «{memoryTitle}»",
+  "@notificationPhotosAddedWithTitle": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "memoryTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationFailureUnauthorized": "Сеанс требует внимания. Войдите снова.",
+  "notificationFailureNotFound": "Это уведомление больше недоступно.",
+  "notificationFailureNetwork": "Нет подключения к сети. Проверьте соединение и попробуйте снова.",
+  "notificationFailureTimeout": "Время запроса истекло. Попробуйте снова.",
+  "notificationFailureServer": "Уведомления временно недоступны. Попробуйте позже.",
+  "notificationFailureUnknown": "Что-то пошло не так. Попробуйте ещё раз.",
   "storiesOpenProfileLabel": "Открыть профиль пользователя {displayName}",
   "@storiesOpenProfileLabel": {
     "placeholders": {

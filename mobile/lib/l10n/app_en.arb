@@ -90,6 +90,7 @@
   "storyThumbnailLabel": "Story photo",
   "storyThumbnailUnavailableLabel": "Story photo unavailable",
   "storiesNotificationUnavailableLabel": "Notifications are not available yet",
+  "storiesOpenNotificationsLabel": "Open notifications",
   "storiesAvatarLabel": "{displayName}'s avatar",
   "@storiesAvatarLabel": {
     "description": "Accessibility label for the Stories screen avatar",
@@ -518,6 +519,67 @@
   "playbackNoPhotoTitle": "No photo",
   "playbackPhotoUnavailable": "Photo unavailable",
   "playbackMemoryPhotoLabel": "Memory photo",
+  "notificationsTitle": "Notifications",
+  "notificationsBackLabel": "Back to stories",
+  "notificationsMarkAllReadAction": "Mark all read",
+  "notificationsRetryAction": "Try again",
+  "notificationsEmptyTitle": "No notifications yet",
+  "notificationsEmptyBody": "Story updates will appear here when something new happens.",
+  "notificationsLoadFailureTitle": "Could not load notifications",
+  "notificationsMutationFailure": "Notification could not be updated. Please try again.",
+  "notificationsReferenceUnavailable": "This story item is no longer available",
+  "notificationParticipantJoined": "{actor} joined a story",
+  "@notificationParticipantJoined": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationMemoryCreated": "{actor} added a memory",
+  "@notificationMemoryCreated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationMemoryCreatedWithTitle": "{actor} added {memoryTitle}",
+  "@notificationMemoryCreatedWithTitle": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "memoryTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationPhotosAdded": "{actor} added photos",
+  "@notificationPhotosAdded": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationPhotosAddedWithTitle": "{actor} added photos to {memoryTitle}",
+  "@notificationPhotosAddedWithTitle": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "memoryTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationFailureUnauthorized": "Your session needs attention. Please sign in again.",
+  "notificationFailureNotFound": "This notification is no longer available.",
+  "notificationFailureNetwork": "No network connection. Check your connection and try again.",
+  "notificationFailureTimeout": "The request timed out. Please try again.",
+  "notificationFailureServer": "Notifications are temporarily unavailable. Please try again later.",
+  "notificationFailureUnknown": "Something went wrong. Please try again.",
   "storiesOpenProfileLabel": "Open {displayName}'s profile",
   "@storiesOpenProfileLabel": {
     "placeholders": {

@@ -428,6 +428,12 @@ abstract class AppLocalizations {
   /// **'Notifications are not available yet'**
   String get storiesNotificationUnavailableLabel;
 
+  /// No description provided for @storiesOpenNotificationsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Open notifications'**
+  String get storiesOpenNotificationsLabel;
+
   /// Accessibility label for the Stories screen avatar
   ///
   /// In en, this message translates to:
@@ -2455,6 +2461,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Memory photo'**
   String get playbackMemoryPhotoLabel;
+
+  /// No description provided for @notificationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notificationsTitle;
+
+  /// No description provided for @notificationsBackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to stories'**
+  String get notificationsBackLabel;
+
+  /// No description provided for @notificationsMarkAllReadAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get notificationsMarkAllReadAction;
+
+  /// No description provided for @notificationsRetryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get notificationsRetryAction;
+
+  /// No description provided for @notificationsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet'**
+  String get notificationsEmptyTitle;
+
+  /// No description provided for @notificationsEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Story updates will appear here when something new happens.'**
+  String get notificationsEmptyBody;
+
+  /// No description provided for @notificationsLoadFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load notifications'**
+  String get notificationsLoadFailureTitle;
+
+  /// No description provided for @notificationsMutationFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification could not be updated. Please try again.'**
+  String get notificationsMutationFailure;
+
+  /// No description provided for @notificationsReferenceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This story item is no longer available'**
+  String get notificationsReferenceUnavailable;
+
+  /// No description provided for @notificationParticipantJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} joined a story'**
+  String notificationParticipantJoined(String actor);
+
+  /// No description provided for @notificationMemoryCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} added a memory'**
+  String notificationMemoryCreated(String actor);
+
+  /// No description provided for @notificationMemoryCreatedWithTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} added {memoryTitle}'**
+  String notificationMemoryCreatedWithTitle(String actor, String memoryTitle);
+
+  /// No description provided for @notificationPhotosAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} added photos'**
+  String notificationPhotosAdded(String actor);
+
+  /// No description provided for @notificationPhotosAddedWithTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} added photos to {memoryTitle}'**
+  String notificationPhotosAddedWithTitle(String actor, String memoryTitle);
+
+  /// No description provided for @notificationFailureUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session needs attention. Please sign in again.'**
+  String get notificationFailureUnauthorized;
+
+  /// No description provided for @notificationFailureNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'This notification is no longer available.'**
+  String get notificationFailureNotFound;
+
+  /// No description provided for @notificationFailureNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection. Check your connection and try again.'**
+  String get notificationFailureNetwork;
+
+  /// No description provided for @notificationFailureTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Please try again.'**
+  String get notificationFailureTimeout;
+
+  /// No description provided for @notificationFailureServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are temporarily unavailable. Please try again later.'**
+  String get notificationFailureServer;
+
+  /// No description provided for @notificationFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get notificationFailureUnknown;
 
   /// No description provided for @storiesOpenProfileLabel.
   ///

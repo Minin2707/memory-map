@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/media/application/media_application_providers.dart';
 import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
+import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/memory/application/memory_application_providers.dart';
 import 'package:memory_map/features/memory/domain/create_memory_input.dart';
 import 'package:memory_map/features/memory/domain/delete_memory_input.dart';
@@ -199,8 +200,50 @@ void main() {
       expect(avatars, hasLength(2));
       expect(avatars.first.foregroundImage, isA<NetworkImage>());
       expect(avatars.last.foregroundImage, isNull);
-      expect((avatars.last.child! as Text).data, 'AL');
+      expect(
+        find.descendant(
+          of: find
+              .byKey(const ValueKey('story-details.participants.avatar'))
+              .last,
+          matching: find.text('AL'),
+        ),
+        findsOneWidget,
+      );
     });
+
+    testWidgets(
+      'shouldRenderParticipantsSummaryCustomAvatarThroughAuthenticatedPath',
+      (WidgetTester tester) async {
+        const avatarPath =
+            '/api/v1/stories/story-owner/participants/anna-user-id/avatar/1';
+        final participantRepository = FakeStoryParticipantRepository()
+          ..participantsResult = <StoryParticipant>[
+            participant(
+              userId: 'anna-user-id',
+              displayName: 'Anna',
+              avatarUrl: avatarPath,
+              role: StoryRole.owner,
+            ),
+          ];
+        final mediaRepository = media_fixtures.FakeMediaRepository();
+
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = ownerStory,
+          participantRepository: participantRepository,
+          mediaRepository: mediaRepository,
+        );
+
+        await scrollDownUntilFound(
+          tester,
+          find.byKey(const ValueKey('story-details.participants-summary')),
+        );
+
+        expect(find.byType(AuthenticatedMediaPathImage), findsWidgets);
+        expect(mediaRepository.getDisplayByPathCalls, 1);
+        expect(mediaRepository.receivedBinaryPaths, contains(avatarPath));
+      },
+    );
 
     testWidgets('shouldRenderNoMusicSoundtrackSummaryForOwner', (
       WidgetTester tester,

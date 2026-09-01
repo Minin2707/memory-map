@@ -16,7 +16,15 @@ public class JdbcStoryParticipantViewRepository
             SELECT
                 target.user_id,
                 u.display_name,
-                u.avatar_url,
+                CASE
+                    WHEN u.custom_avatar_storage_key IS NOT NULL THEN
+                        '/api/v1/stories/' || target.story_id ||
+                        '/participants/' || target.user_id ||
+                        '/avatar/' ||
+                        FLOOR(EXTRACT(EPOCH FROM u.custom_avatar_updated_at)
+                                * 1000)::BIGINT
+                    ELSE u.avatar_url
+                END AS avatar_url,
                 target.role,
                 target.joined_at
             FROM story_participants target

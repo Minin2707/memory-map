@@ -8,9 +8,13 @@ import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.story.repository.StoryParticipantViewRepository;
 import memory_map.backend.story.repository.UserStoryRepository;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
+import memory_map.backend.user.repository.UserRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.Objects;
 
 @Configuration
 public class StoryApplicationConfiguration {
@@ -124,6 +128,37 @@ public class StoryApplicationConfiguration {
             StoryParticipantViewRepository repository
     ) {
         return new DefaultGetStoryParticipantsService(repository);
+    }
+
+    @Bean
+    public DownloadStoryParticipantAvatarUseCase
+    downloadStoryParticipantAvatarUseCase(
+            UserRepository userRepository,
+            StoryParticipantRepository storyParticipantRepository,
+            ObjectProvider<StorageService> storageServiceProvider
+    ) {
+        StorageService storageService = storageServiceProvider.getIfAvailable();
+        if (storageService == null) {
+            return (authenticatedUser, storyId, participantUserId) -> {
+                Objects.requireNonNull(
+                        authenticatedUser,
+                        "authenticatedUser must not be null"
+                );
+                Objects.requireNonNull(storyId, "storyId must not be null");
+                Objects.requireNonNull(
+                        participantUserId,
+                        "participantUserId must not be null"
+                );
+                throw new StoryNotFoundException();
+            };
+        }
+
+        return new DefaultDownloadStoryParticipantAvatarService(
+                userRepository,
+                storyParticipantRepository,
+                storageService,
+                new StoryAccessPolicy()
+        );
     }
 
     @Bean

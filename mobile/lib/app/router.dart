@@ -28,6 +28,7 @@ import 'package:memory_map/features/memory/presentation/story_map_route.dart';
 import 'package:memory_map/features/memory/presentation/story_memories_route.dart';
 import 'package:memory_map/features/memory/presentation/story_timeline_route.dart';
 import 'package:memory_map/features/music/presentation/soundtrack_selection_screen.dart';
+import 'package:memory_map/features/notification/presentation/notifications_screen.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
 import 'package:memory_map/features/playback/presentation/story_playback_route.dart';
@@ -48,6 +49,7 @@ const authRestoreErrorRoute = '/auth/restore-error';
 const authUnexpectedErrorRoute = '/auth/unexpected-error';
 const homeRoute = '/home';
 const storiesRoute = '/stories';
+const notificationsRoute = '/notifications';
 const createStoryRoute = '/stories/create';
 const storyDetailsRoute = '/stories/:storyId';
 const editStoryRoute = '/stories/:storyId/edit';
@@ -73,6 +75,7 @@ const profileAboutRoute = '/profile/about';
 const acceptInviteRoute = '/invite/:token';
 
 const storiesRouteName = 'stories';
+const notificationsRouteName = 'notifications';
 const createStoryRouteName = 'createStory';
 const storyDetailsRouteName = 'storyDetails';
 const editStoryRouteName = 'editStory';
@@ -255,6 +258,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             onCreateStory: () {
               context.pushNamed(createStoryRouteName);
             },
+            onNotificationsSelected: () {
+              context.goNamed(notificationsRouteName);
+            },
             onProfileSelected: () {
               context.goNamed(profileRouteName);
             },
@@ -262,6 +268,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               context.pushNamed(
                 storyDetailsRouteName,
                 pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: notificationsRouteName,
+        path: notificationsRoute,
+        builder: (BuildContext context, GoRouterState state) {
+          return NotificationsScreen(
+            onBack: () {
+              _popOrGoToStories(context);
+            },
+            onParticipantsSelected: (storyId) {
+              context.pushNamed(
+                storyParticipantsRouteName,
+                pathParameters: {_storyIdPathParameter: storyId},
+              );
+            },
+            onMemorySelected: (storyId, memoryId) {
+              context.pushNamed(
+                memoryDetailsRouteName,
+                pathParameters: {_memoryIdPathParameter: memoryId},
+                extra: _MemoryDetailsOrigin.details,
+                queryParameters: {
+                  _memoryDetailsOriginQueryParameter:
+                      _memoryDetailsDetailsOrigin,
+                },
               );
             },
           );
@@ -899,6 +933,7 @@ bool _hasAuthenticatedSession(AsyncValue<AuthState> authState) {
 
 bool _isAuthenticatedRoute(String path) {
   return path == storiesRoute ||
+      path == notificationsRoute ||
       path.startsWith('$storiesRoute/') ||
       path == memoryLocationPickerRoute ||
       path == profileRoute ||

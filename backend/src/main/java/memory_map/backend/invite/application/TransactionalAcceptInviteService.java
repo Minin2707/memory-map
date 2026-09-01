@@ -2,6 +2,7 @@ package memory_map.backend.invite.application;
 
 import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.invite.repository.InviteRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
@@ -19,12 +20,14 @@ public class TransactionalAcceptInviteService implements AcceptInviteUseCase {
     private final InviteTokenHasher inviteTokenHasher;
     private final StoryRepository storyRepository;
     private final StoryParticipantRepository storyParticipantRepository;
+    private final NotificationPublisher notificationPublisher;
 
     public TransactionalAcceptInviteService(
             InviteRepository inviteRepository,
             InviteTokenHasher inviteTokenHasher,
             StoryRepository storyRepository,
-            StoryParticipantRepository storyParticipantRepository
+            StoryParticipantRepository storyParticipantRepository,
+            NotificationPublisher notificationPublisher
     ) {
         this.inviteRepository = Objects.requireNonNull(
                 inviteRepository,
@@ -41,6 +44,10 @@ public class TransactionalAcceptInviteService implements AcceptInviteUseCase {
         this.storyParticipantRepository = Objects.requireNonNull(
                 storyParticipantRepository,
                 "storyParticipantRepository must not be null"
+        );
+        this.notificationPublisher = Objects.requireNonNull(
+                notificationPublisher,
+                "notificationPublisher must not be null"
         );
     }
 
@@ -78,6 +85,12 @@ public class TransactionalAcceptInviteService implements AcceptInviteUseCase {
         ) {
             throw new InviteAcceptanceUnavailableException();
         }
+
+        notificationPublisher.participantJoined(
+                invite.storyId(),
+                userId,
+                command.currentTime()
+        );
 
         return new UserStory(story, StoryRole.CO_OWNER);
     }

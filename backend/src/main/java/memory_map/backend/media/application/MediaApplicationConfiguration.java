@@ -7,6 +7,7 @@ import memory_map.backend.media.storage.DeterministicMediaStorageKeyFactory;
 import memory_map.backend.media.storage.MediaStorageKeyFactory;
 import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -84,7 +85,8 @@ public class MediaApplicationConfiguration {
             ImageProcessor imageProcessor,
             MediaStorageKeyFactory storageKeyFactory,
             StorageService storageService,
-            TransactionRollbackCoordinator rollbackCoordinator
+            TransactionRollbackCoordinator rollbackCoordinator,
+            NotificationPublisher notificationPublisher
     ) {
         return new CoordinatedUploadPhotoService(
                 memoryRepository,
@@ -94,7 +96,8 @@ public class MediaApplicationConfiguration {
                 imageProcessor,
                 storageKeyFactory,
                 storageService,
-                rollbackCoordinator
+                rollbackCoordinator,
+                notificationPublisher
         );
     }
 

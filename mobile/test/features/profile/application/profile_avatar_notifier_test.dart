@@ -15,10 +15,17 @@ import 'package:memory_map/features/media/domain/photo_preprocessor.dart';
 import 'package:memory_map/features/media/domain/photo_selection_gateway.dart';
 import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/media/domain/selected_photo.dart';
+import 'package:memory_map/features/participant/application/participant_application_providers.dart';
+import 'package:memory_map/features/participant/application/participants_notifier.dart';
+import 'package:memory_map/features/participant/domain/leave_story_input.dart';
+import 'package:memory_map/features/participant/domain/remove_story_participant_input.dart';
+import 'package:memory_map/features/participant/domain/story_participant.dart';
+import 'package:memory_map/features/participant/domain/story_participant_repository.dart';
 import 'package:memory_map/features/profile/application/profile_application_providers.dart';
 import 'package:memory_map/features/profile/application/profile_avatar_notifier.dart';
 import 'package:memory_map/features/profile/domain/account_avatar_failure.dart';
 import 'package:memory_map/features/profile/domain/account_repository.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
 
 void main() {
   group('ProfileAvatarNotifier', () {
@@ -53,6 +60,24 @@ void main() {
           isTrue);
       expect(context.sessionStore.session?.user.avatarUrl,
           '/api/v1/me/avatar/1');
+    });
+
+    test('shouldInvalidateLoadedParticipantsAfterAvatarUpload', () async {
+      final context = TestContext()
+        ..photoSelectionGateway.selectedPhoto = selectedPhoto();
+      context.sessionStore.setSession(session);
+      final container = context.createContainer();
+      addTearDown(container.dispose);
+      await container.read(profileAvatarProvider.future);
+      await container.read(storyParticipantsProvider(storyId).future);
+
+      final result = await container
+          .read(profileAvatarProvider.notifier)
+          .chooseAndUploadAvatar(session);
+      await container.read(storyParticipantsProvider(storyId).future);
+
+      expect(result, isTrue);
+      expect(context.participantRepository.getCalls, 2);
     });
 
     test('shouldBlockDuplicateUploadWhilePending', () async {
@@ -124,6 +149,23 @@ void main() {
       expect(context.sessionStore.session?.user.hasCustomAvatar, isFalse);
       expect(context.sessionStore.session?.user.avatarUrl,
           'https://example.com/avatar.png');
+    });
+
+    test('shouldInvalidateLoadedParticipantsAfterAvatarRemoval', () async {
+      final context = TestContext();
+      context.sessionStore.setSession(customSession);
+      final container = context.createContainer();
+      addTearDown(container.dispose);
+      await container.read(profileAvatarProvider.future);
+      await container.read(storyParticipantsProvider(storyId).future);
+
+      final result = await container
+          .read(profileAvatarProvider.notifier)
+          .removeAvatar(customSession);
+      await container.read(storyParticipantsProvider(storyId).future);
+
+      expect(result, isTrue);
+      expect(context.participantRepository.getCalls, 2);
     });
 
     test('shouldDropLateAvatarRemoveAfterLogout', () async {
@@ -207,6 +249,7 @@ final class TestContext {
   final sessionStore = FakeAuthSessionStore();
   final photoSelectionGateway = FakePhotoSelectionGateway();
   final photoPreprocessor = FakePhotoPreprocessor();
+  final participantRepository = FakeStoryParticipantRepository();
 
   ProviderContainer createContainer() {
     return ProviderContainer(
@@ -216,6 +259,8 @@ final class TestContext {
         authSessionStoreProvider.overrideWithValue(sessionStore),
         photoSelectionGatewayProvider.overrideWithValue(photoSelectionGateway),
         photoPreprocessorProvider.overrideWithValue(photoPreprocessor),
+        storyParticipantRepositoryProvider
+            .overrideWithValue(participantRepository),
       ],
     );
   }
@@ -323,6 +368,35 @@ final class FakePhotoPreprocessor implements PhotoPreprocessor {
   }
 }
 
+final class FakeStoryParticipantRepository
+    implements StoryParticipantRepository {
+  int getCalls = 0;
+
+  @override
+  Future<List<StoryParticipant>> getParticipants(String storyId) async {
+    getCalls += 1;
+    return <StoryParticipant>[
+      StoryParticipant(
+        userId: 'user-id',
+        displayName: 'Ada Lovelace',
+        avatarUrl: 'https://example.com/avatar.png',
+        role: StoryRole.owner,
+        joinedAt: DateTime.utc(2026, 1, 10),
+      ),
+    ];
+  }
+
+  @override
+  Future<void> leaveStory(LeaveStoryInput input) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> removeParticipant(RemoveStoryParticipantInput input) {
+    throw UnimplementedError();
+  }
+}
+
 SelectedPhoto selectedPhoto() {
   return SelectedPhoto(
     readBytes: () async => Uint8List.fromList(<int>[9, 8, 7]),
@@ -370,3 +444,5 @@ final AuthSession otherSession = AuthSession(
     refreshToken: 'other-refresh-token',
   ),
 );
+
+const String storyId = 'story-id';

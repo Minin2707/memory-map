@@ -214,6 +214,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Уведомления пока недоступны';
 
   @override
+  String get storiesOpenNotificationsLabel => 'Открыть уведомления';
+
+  @override
   String storiesAvatarLabel(String displayName) {
     return 'Аватар пользователя $displayName';
   }
@@ -1362,6 +1365,86 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playbackMemoryPhotoLabel => 'Фото воспоминания';
+
+  @override
+  String get notificationsTitle => 'Уведомления';
+
+  @override
+  String get notificationsBackLabel => 'Вернуться к историям';
+
+  @override
+  String get notificationsMarkAllReadAction => 'Прочитать все';
+
+  @override
+  String get notificationsRetryAction => 'Попробовать снова';
+
+  @override
+  String get notificationsEmptyTitle => 'Уведомлений пока нет';
+
+  @override
+  String get notificationsEmptyBody =>
+      'Здесь появятся обновления историй, когда случится что-то новое.';
+
+  @override
+  String get notificationsLoadFailureTitle =>
+      'Не удалось загрузить уведомления';
+
+  @override
+  String get notificationsMutationFailure =>
+      'Не удалось обновить уведомление. Попробуйте снова.';
+
+  @override
+  String get notificationsReferenceUnavailable =>
+      'Этот элемент истории больше недоступен';
+
+  @override
+  String notificationParticipantJoined(String actor) {
+    return '$actor присоединился к истории';
+  }
+
+  @override
+  String notificationMemoryCreated(String actor) {
+    return '$actor добавил воспоминание';
+  }
+
+  @override
+  String notificationMemoryCreatedWithTitle(String actor, String memoryTitle) {
+    return '$actor добавил «$memoryTitle»';
+  }
+
+  @override
+  String notificationPhotosAdded(String actor) {
+    return '$actor добавил фото';
+  }
+
+  @override
+  String notificationPhotosAddedWithTitle(String actor, String memoryTitle) {
+    return '$actor добавил фото к «$memoryTitle»';
+  }
+
+  @override
+  String get notificationFailureUnauthorized =>
+      'Сеанс требует внимания. Войдите снова.';
+
+  @override
+  String get notificationFailureNotFound =>
+      'Это уведомление больше недоступно.';
+
+  @override
+  String get notificationFailureNetwork =>
+      'Нет подключения к сети. Проверьте соединение и попробуйте снова.';
+
+  @override
+  String get notificationFailureTimeout =>
+      'Время запроса истекло. Попробуйте снова.';
+
+  @override
+  String get notificationFailureServer =>
+      'Уведомления временно недоступны. Попробуйте позже.';
+
+  @override
+  String get notificationFailureUnknown =>
+      'Что-то пошло не так. Попробуйте ещё раз.';
 
   @override
   String storiesOpenProfileLabel(String displayName) {

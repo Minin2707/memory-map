@@ -2,6 +2,8 @@ package memory_map.backend.invite.application;
 
 import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.invite.repository.InviteRepository;
+import memory_map.backend.memory.domain.Memory;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
@@ -46,6 +48,10 @@ class InviteApplicationConfigurationTest {
                     .withBean(
                             StoryParticipantRepository.class,
                             FakeStoryParticipantRepository::new
+                    )
+                    .withBean(
+                            NotificationPublisher.class,
+                            FakeNotificationPublisher::new
                     );
 
     @Test
@@ -136,6 +142,10 @@ class InviteApplicationConfigurationTest {
                 .withBean(
                         StoryParticipantRepository.class,
                         FakeStoryParticipantRepository::new
+                )
+                .withBean(
+                        NotificationPublisher.class,
+                        FakeNotificationPublisher::new
                 )
                 .run(context -> assertThat(context).hasFailed());
     }
@@ -261,6 +271,30 @@ class InviteApplicationConfigurationTest {
 
         @Override
         public void delete(UUID storyId, UUID userId) {
+        }
+    }
+
+    private static final class FakeNotificationPublisher
+            implements NotificationPublisher {
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+        }
+
+        @Override
+        public void memoryCreated(Memory memory, Instant createdAt) {
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
         }
     }
 }

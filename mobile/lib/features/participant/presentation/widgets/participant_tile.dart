@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/participant/domain/story_participant.dart';
 import 'package:memory_map/features/story/presentation/widgets/story_role_badge.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
@@ -147,29 +148,83 @@ class _ParticipantAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final avatarUrl = participant.avatarUrl?.trim();
-    final foregroundImage = avatarUrl == null || avatarUrl.isEmpty
-        ? null
-        : NetworkImage(avatarUrl);
+    final fallback = _ParticipantAvatarFallback(participant: participant);
 
     return Semantics(
       label: l10n.participantsAvatarLabel(participant.displayName),
       image: true,
-      child: CircleAvatar(
+      child: _avatar(avatarUrl, fallback),
+    );
+  }
+
+  Widget _avatar(String? avatarUrl, Widget fallback) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return fallback;
+    }
+
+    final uri = Uri.tryParse(avatarUrl);
+    if (uri != null && uri.hasScheme && uri.hasAuthority) {
+      return CircleAvatar(
         radius: 32,
-        foregroundImage: foregroundImage,
-        onForegroundImageError: foregroundImage == null ? null : (_, __) {},
+        foregroundImage: NetworkImage(avatarUrl),
+        onForegroundImageError: (_, __) {},
         backgroundColor: const Color(0xFFFFE6EA),
-        child: Text(
-          _initials(participant.displayName),
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: const TextStyle(
-            color: Color(0xFFFF5D72),
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
-          ),
+        child: _ParticipantInitials(participant: participant),
+      );
+    }
+
+    return ClipOval(
+      child: SizedBox.square(
+        dimension: 64,
+        child: AuthenticatedMediaPathImage(
+          thumbnailPath: avatarUrl,
+          representation: AuthenticatedMediaRepresentation.display,
+          fit: BoxFit.cover,
+          cacheWidth: 128,
+          cacheHeight: 128,
+          placeholder: fallback,
+          errorBuilder: (_) => fallback,
         ),
+      ),
+    );
+  }
+}
+
+class _ParticipantAvatarFallback extends StatelessWidget {
+  const _ParticipantAvatarFallback({
+    required this.participant,
+  });
+
+  final StoryParticipant participant;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 32,
+      backgroundColor: const Color(0xFFFFE6EA),
+      child: _ParticipantInitials(participant: participant),
+    );
+  }
+}
+
+class _ParticipantInitials extends StatelessWidget {
+  const _ParticipantInitials({
+    required this.participant,
+  });
+
+  final StoryParticipant participant;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      _initials(participant.displayName),
+      maxLines: 1,
+      overflow: TextOverflow.clip,
+      style: const TextStyle(
+        color: Color(0xFFFF5D72),
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0,
       ),
     );
   }
@@ -185,6 +240,10 @@ class _ParticipantAvatar extends StatelessWidget {
       return '?';
     }
 
-    return words.take(2).map((word) => word.substring(0, 1)).join().toUpperCase();
+    return words
+        .take(2)
+        .map((word) => word.substring(0, 1))
+        .join()
+        .toUpperCase();
   }
 }

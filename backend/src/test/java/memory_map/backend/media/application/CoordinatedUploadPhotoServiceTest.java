@@ -20,6 +20,7 @@ import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -85,6 +86,8 @@ class CoordinatedUploadPhotoServiceTest {
             new FakeStorageService(events);
     private final FakeRollbackCoordinator rollbackCoordinator =
             new FakeRollbackCoordinator(events);
+    private final FakeNotificationPublisher notificationPublisher =
+            new FakeNotificationPublisher(events);
     private final CoordinatedUploadPhotoService service =
             new CoordinatedUploadPhotoService(
                     memoryRepository,
@@ -94,7 +97,8 @@ class CoordinatedUploadPhotoServiceTest {
                     imageProcessor,
                     storageKeyFactory,
                     storageService,
-                    rollbackCoordinator
+                    rollbackCoordinator,
+                    notificationPublisher
             );
 
     @Test
@@ -117,6 +121,13 @@ class CoordinatedUploadPhotoServiceTest {
         assertStoredObject(displayKey(), DISPLAY_BYTES);
         assertStoredObject(thumbnailKey(), THUMBNAIL_BYTES);
         assertThat(rollbackCoordinator.actions).hasSize(1);
+        assertThat(notificationPublisher.photosAddedCallCount).isEqualTo(1);
+        assertThat(notificationPublisher.receivedMemory)
+                .isEqualTo(memory(AUTHOR_ID));
+        assertThat(notificationPublisher.receivedActorUserId)
+                .isEqualTo(USER_ID);
+        assertThat(notificationPublisher.receivedCreatedAt)
+                .isEqualTo(CURRENT_TIME);
         assertThat(events).containsExactly(
                 "memory.findByIdForUpdate",
                 "participant.find",
@@ -125,7 +136,8 @@ class CoordinatedUploadPhotoServiceTest {
                 "storage.store:display",
                 "storage.store:thumbnail",
                 "rollback.register",
-                "media.save"
+                "media.save",
+                "publish PHOTOS_ADDED"
         );
     }
 
@@ -323,6 +335,7 @@ class CoordinatedUploadPhotoServiceTest {
                 "storage.store:thumbnail",
                 "rollback.register",
                 "media.save",
+                "publish PHOTOS_ADDED",
                 "storage.delete:thumbnail",
                 "storage.delete:display"
         );
@@ -339,6 +352,7 @@ class CoordinatedUploadPhotoServiceTest {
                 .isSameAs(failure);
 
         assertThat(rollbackCoordinator.actions).hasSize(1);
+        assertThat(notificationPublisher.photosAddedCallCount).isZero();
         rollbackCoordinator.runFirstAction();
         assertThat(storageService.deletedKeys)
                 .containsExactly(thumbnailKey(), displayKey());
@@ -401,7 +415,8 @@ class CoordinatedUploadPhotoServiceTest {
                 imageProcessor,
                 storageKeyFactory,
                 storageService,
-                rollbackCoordinator
+                rollbackCoordinator,
+                notificationPublisher
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("memoryRepository must not be null");
 
@@ -413,7 +428,8 @@ class CoordinatedUploadPhotoServiceTest {
                 imageProcessor,
                 storageKeyFactory,
                 storageService,
-                rollbackCoordinator
+                rollbackCoordinator,
+                notificationPublisher
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storyParticipantRepository must not be null");
 
@@ -425,7 +441,8 @@ class CoordinatedUploadPhotoServiceTest {
                 imageProcessor,
                 storageKeyFactory,
                 storageService,
-                rollbackCoordinator
+                rollbackCoordinator,
+                notificationPublisher
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("mediaFileRepository must not be null");
 
@@ -437,7 +454,8 @@ class CoordinatedUploadPhotoServiceTest {
                 imageProcessor,
                 storageKeyFactory,
                 storageService,
-                rollbackCoordinator
+                rollbackCoordinator,
+                notificationPublisher
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("authorizationPolicy must not be null");
 
@@ -449,7 +467,8 @@ class CoordinatedUploadPhotoServiceTest {
                 null,
                 storageKeyFactory,
                 storageService,
-                rollbackCoordinator
+                rollbackCoordinator,
+                notificationPublisher
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("imageProcessor must not be null");
 
@@ -461,7 +480,8 @@ class CoordinatedUploadPhotoServiceTest {
                 imageProcessor,
                 null,
                 storageService,
-                rollbackCoordinator
+                rollbackCoordinator,
+                notificationPublisher
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storageKeyFactory must not be null");
 
@@ -473,7 +493,8 @@ class CoordinatedUploadPhotoServiceTest {
                 imageProcessor,
                 storageKeyFactory,
                 null,
-                rollbackCoordinator
+                rollbackCoordinator,
+                notificationPublisher
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storageService must not be null");
 
@@ -485,9 +506,23 @@ class CoordinatedUploadPhotoServiceTest {
                 imageProcessor,
                 storageKeyFactory,
                 storageService,
-                null
+                null,
+                notificationPublisher
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("rollbackCoordinator must not be null");
+
+        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
+                memoryRepository,
+                storyParticipantRepository,
+                mediaFileRepository,
+                authorizationPolicy,
+                imageProcessor,
+                storageKeyFactory,
+                storageService,
+                rollbackCoordinator,
+                null
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("notificationPublisher must not be null");
     }
 
     @Test
@@ -520,6 +555,7 @@ class CoordinatedUploadPhotoServiceTest {
         assertThat(storageService.storedObjects).isEmpty();
         assertThat(mediaFileRepository.savedMediaFile).isNull();
         assertThat(rollbackCoordinator.actions).isEmpty();
+        assertThat(notificationPublisher.photosAddedCallCount).isZero();
     }
 
     private void assertStoredObject(StorageKey key, byte[] expectedContent) {
@@ -864,6 +900,47 @@ class CoordinatedUploadPhotoServiceTest {
 
         private void runFirstAction() {
             actions.get(0).run();
+        }
+    }
+
+    private static final class FakeNotificationPublisher
+            implements NotificationPublisher {
+
+        private final List<String> events;
+        private Memory receivedMemory;
+        private UUID receivedActorUserId;
+        private Instant receivedCreatedAt;
+        private int photosAddedCallCount;
+
+        private FakeNotificationPublisher(List<String> events) {
+            this.events = events;
+        }
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void memoryCreated(Memory memory, Instant createdAt) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+            events.add("publish PHOTOS_ADDED");
+            photosAddedCallCount++;
+            receivedMemory = memory;
+            receivedActorUserId = actorUserId;
+            receivedCreatedAt = createdAt;
         }
     }
 }

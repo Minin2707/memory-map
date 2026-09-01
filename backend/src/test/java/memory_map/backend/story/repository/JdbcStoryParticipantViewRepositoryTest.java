@@ -131,6 +131,144 @@ class JdbcStoryParticipantViewRepositoryTest extends IntegrationTest {
     }
 
     @Test
+    void shouldUseCustomAvatarPathBeforeGoogleAvatar() {
+
+        User owner = saveUser(
+                OWNER_ID,
+                "owner-google-subject",
+                "Owner User",
+                "https://example.com/owner.png"
+        );
+        User viewer = saveUser(
+                USER_ID,
+                "viewer-google-subject",
+                "Viewer User",
+                "https://example.com/viewer.png"
+        );
+        Instant customAvatarUpdatedAt = BASE_TIME.plusSeconds(5);
+        userRepository.updateCustomAvatar(
+                viewer.id(),
+                "users/%s/avatar/custom".formatted(viewer.id()),
+                customAvatarUpdatedAt
+        );
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                viewer.id(),
+                StoryRole.VIEWER,
+                BASE_TIME.plusSeconds(1)
+        );
+
+        List<StoryParticipantView> participants =
+                repository.findByStoryIdAndRequesterUserId(
+                        story.id(),
+                        owner.id()
+                );
+
+        assertThat(participants.get(1).avatarUrl())
+                .isEqualTo(participantAvatarPath(
+                        story.id(),
+                        viewer.id(),
+                        customAvatarUpdatedAt
+                ));
+    }
+
+    @Test
+    void shouldUseNewestCustomAvatarVersionAfterReplacement() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User viewer = saveUser(
+                USER_ID,
+                "viewer-google-subject",
+                "Viewer User",
+                "https://example.com/viewer.png"
+        );
+        userRepository.updateCustomAvatar(
+                viewer.id(),
+                "users/%s/avatar/old".formatted(viewer.id()),
+                BASE_TIME.plusSeconds(5)
+        );
+        Instant newestAvatarUpdatedAt = BASE_TIME.plusSeconds(10);
+        userRepository.updateCustomAvatar(
+                viewer.id(),
+                "users/%s/avatar/new".formatted(viewer.id()),
+                newestAvatarUpdatedAt
+        );
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                viewer.id(),
+                StoryRole.VIEWER,
+                BASE_TIME.plusSeconds(1)
+        );
+
+        List<StoryParticipantView> participants =
+                repository.findByStoryIdAndRequesterUserId(
+                        story.id(),
+                        owner.id()
+                );
+
+        assertThat(participants.get(1).avatarUrl())
+                .isEqualTo(participantAvatarPath(
+                        story.id(),
+                        viewer.id(),
+                        newestAvatarUpdatedAt
+                ));
+    }
+
+    @Test
+    void shouldFallbackToGoogleAvatarAfterCustomAvatarRemoval() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User viewer = saveUser(
+                USER_ID,
+                "viewer-google-subject",
+                "Viewer User",
+                "https://example.com/viewer.png"
+        );
+        userRepository.updateCustomAvatar(
+                viewer.id(),
+                "users/%s/avatar/custom".formatted(viewer.id()),
+                BASE_TIME.plusSeconds(5)
+        );
+        userRepository.clearCustomAvatar(viewer.id(), BASE_TIME.plusSeconds(10));
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(
+                story.id(),
+                owner.id(),
+                StoryRole.OWNER,
+                BASE_TIME
+        );
+        saveParticipant(
+                story.id(),
+                viewer.id(),
+                StoryRole.VIEWER,
+                BASE_TIME.plusSeconds(1)
+        );
+
+        List<StoryParticipantView> participants =
+                repository.findByStoryIdAndRequesterUserId(
+                        story.id(),
+                        owner.id()
+                );
+
+        assertThat(participants.get(1).avatarUrl())
+                .isEqualTo("https://example.com/viewer.png");
+    }
+
+    @Test
     void shouldOrderParticipantsByJoinedAtAndUserId() {
 
         User owner = saveUser(OWNER_ID, "owner-google-subject");
@@ -477,6 +615,18 @@ class JdbcStoryParticipantViewRepositoryTest extends IntegrationTest {
                 user.avatarUrl(),
                 role,
                 joinedAt
+        );
+    }
+
+    private static String participantAvatarPath(
+            UUID storyId,
+            UUID userId,
+            Instant updatedAt
+    ) {
+        return "/api/v1/stories/%s/participants/%s/avatar/%d".formatted(
+                storyId,
+                userId,
+                updatedAt.toEpochMilli()
         );
     }
 

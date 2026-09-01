@@ -3,6 +3,7 @@ package memory_map.backend.memory.application;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -55,9 +56,16 @@ class TransactionalCreateMemoryServiceTest {
         assertThat(context.storyParticipantRepository().receivedUserId())
                 .isEqualTo(USER_ID);
         assertThat(context.memoryRepository().saveCallCount()).isEqualTo(1);
+        assertThat(context.notificationPublisher().memoryCreatedCallCount())
+                .isEqualTo(1);
+        assertThat(context.notificationPublisher().receivedMemory())
+                .isEqualTo(result);
+        assertThat(context.notificationPublisher().receivedCreatedAt())
+                .isEqualTo(CURRENT_TIME);
         assertThat(context.calls()).containsExactly(
                 "find StoryParticipant",
-                "save Memory"
+                "save Memory",
+                "publish MEMORY_CREATED"
         );
     }
 
@@ -86,6 +94,8 @@ class TransactionalCreateMemoryServiceTest {
         assertMemoryUnavailable(() -> context.service().createMemory(command()));
 
         assertThat(context.memoryRepository().saveCallCount()).isZero();
+        assertThat(context.notificationPublisher().memoryCreatedCallCount())
+                .isZero();
         assertThat(context.calls()).containsExactly("find StoryParticipant");
     }
 
@@ -101,6 +111,8 @@ class TransactionalCreateMemoryServiceTest {
         assertThat(context.storyParticipantRepository().receivedUserId())
                 .isEqualTo(USER_ID);
         assertThat(context.memoryRepository().saveCallCount()).isZero();
+        assertThat(context.notificationPublisher().memoryCreatedCallCount())
+                .isZero();
         assertThat(context.calls()).containsExactly("find StoryParticipant");
     }
 
@@ -192,7 +204,8 @@ class TransactionalCreateMemoryServiceTest {
 
         assertThatThrownBy(() -> new TransactionalCreateMemoryService(
                 null,
-                context.memoryRepository()
+                context.memoryRepository(),
+                context.notificationPublisher()
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("storyParticipantRepository must not be null");
@@ -205,10 +218,25 @@ class TransactionalCreateMemoryServiceTest {
 
         assertThatThrownBy(() -> new TransactionalCreateMemoryService(
                 context.storyParticipantRepository(),
-                null
+                null,
+                context.notificationPublisher()
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("memoryRepository must not be null");
+    }
+
+    @Test
+    void shouldRejectNullNotificationPublisherDependency() {
+
+        TestContext context = testContext(participant(StoryRole.OWNER));
+
+        assertThatThrownBy(() -> new TransactionalCreateMemoryService(
+                context.storyParticipantRepository(),
+                context.memoryRepository(),
+                null
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("notificationPublisher must not be null");
     }
 
     @Test
@@ -264,14 +292,18 @@ class TransactionalCreateMemoryServiceTest {
                 new FakeStoryParticipantRepository(calls, participant);
         FakeMemoryRepository memoryRepository =
                 new FakeMemoryRepository(calls);
+        FakeNotificationPublisher notificationPublisher =
+                new FakeNotificationPublisher(calls);
 
         return new TestContext(
                 new TransactionalCreateMemoryService(
                         storyParticipantRepository,
-                        memoryRepository
+                        memoryRepository,
+                        notificationPublisher
                 ),
                 storyParticipantRepository,
                 memoryRepository,
+                notificationPublisher,
                 calls
         );
     }
@@ -348,6 +380,8 @@ class TransactionalCreateMemoryServiceTest {
             FakeStoryParticipantRepository storyParticipantRepository,
 
             FakeMemoryRepository memoryRepository,
+
+            FakeNotificationPublisher notificationPublisher,
 
             List<String> calls
 
@@ -497,6 +531,57 @@ class TransactionalCreateMemoryServiceTest {
 
         private void failOnSave(RuntimeException failure) {
             this.failure = failure;
+        }
+    }
+
+    private static final class FakeNotificationPublisher
+            implements NotificationPublisher {
+
+        private final List<String> calls;
+        private Memory receivedMemory;
+        private Instant receivedCreatedAt;
+        private int memoryCreatedCallCount;
+
+        private FakeNotificationPublisher(List<String> calls) {
+            this.calls = calls;
+        }
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void memoryCreated(Memory memory, Instant createdAt) {
+            calls.add("publish MEMORY_CREATED");
+            memoryCreatedCallCount++;
+            receivedMemory = memory;
+            receivedCreatedAt = createdAt;
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        private Memory receivedMemory() {
+            return receivedMemory;
+        }
+
+        private Instant receivedCreatedAt() {
+            return receivedCreatedAt;
+        }
+
+        private int memoryCreatedCallCount() {
+            return memoryCreatedCallCount;
         }
     }
 
