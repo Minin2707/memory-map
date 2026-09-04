@@ -5,6 +5,7 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.JdbcMemoryRepository;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
@@ -42,6 +43,9 @@ class CreateMemoryUseCaseIntegrationTest extends IntegrationTest {
 
     @Autowired
     private RollbackTestingMemoryRepository rollbackTestingMemoryRepository;
+
+    @Autowired
+    private TestNotificationPublisher notificationPublisher;
 
     @Autowired
     private UserRepository userRepository;
@@ -83,6 +87,7 @@ class CreateMemoryUseCaseIntegrationTest extends IntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         rollbackTestingMemoryRepository.reset();
+        notificationPublisher.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
@@ -323,6 +328,27 @@ class CreateMemoryUseCaseIntegrationTest extends IntegrationTest {
         assertThat(memoryCount()).isZero();
     }
 
+    @Test
+    void shouldRollbackMemoryInsertWhenNotificationPublishingFails() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        RuntimeException failure = new RuntimeException(
+                "memory notification failed"
+        );
+        notificationPublisher.failMemoryCreated(failure);
+
+        assertThatThrownBy(() -> createMemoryUseCase.createMemory(command(
+                owner.id(),
+                story.id(),
+                MEMORY_ID
+        ))).isSameAs(failure);
+
+        assertThat(memoryRepository.findById(MEMORY_ID)).isEmpty();
+        assertThat(memoryCount()).isZero();
+    }
+
     private void assertDeniedRoleCreatesNoMemory(StoryRole role) {
         User owner = saveUser(OWNER_ID, "owner-google-subject");
         User user = saveUser(USER_ID, "current-google-subject");
@@ -469,6 +495,14 @@ class CreateMemoryUseCaseIntegrationTest extends IntegrationTest {
         ) {
             return new RollbackTestingMemoryRepository(delegate, jdbcClient);
         }
+
+        @Bean
+        @Primary
+        TestNotificationPublisher testNotificationPublisher(
+                JdbcClient jdbcClient
+        ) {
+            return new TestNotificationPublisher(jdbcClient);
+        }
     }
 
     static final class RollbackTestingMemoryRepository
@@ -528,6 +562,61 @@ class CreateMemoryUseCaseIntegrationTest extends IntegrationTest {
 
         private void reset() {
             failure = null;
+        }
+
+        private int memoryCountInCurrentTransaction(UUID memoryId) {
+            return jdbcClient.sql("""
+                    SELECT COUNT(*)
+                    FROM memories
+                    WHERE id = :id
+                    """)
+                    .param("id", memoryId)
+                    .query(Integer.class)
+                    .single();
+        }
+    }
+
+    static final class TestNotificationPublisher
+            implements NotificationPublisher {
+
+        private final JdbcClient jdbcClient;
+        private RuntimeException memoryCreatedFailure;
+
+        private TestNotificationPublisher(JdbcClient jdbcClient) {
+            this.jdbcClient = jdbcClient;
+        }
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+        }
+
+        @Override
+        public void memoryCreated(Memory memory, Instant createdAt) {
+            if (memoryCreatedFailure != null) {
+                assertThat(memoryCountInCurrentTransaction(memory.id()))
+                        .isEqualTo(1);
+                throw memoryCreatedFailure;
+            }
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+        }
+
+        private void failMemoryCreated(RuntimeException failure) {
+            memoryCreatedFailure = failure;
+        }
+
+        private void reset() {
+            memoryCreatedFailure = null;
         }
 
         private int memoryCountInCurrentTransaction(UUID memoryId) {

@@ -5,6 +5,8 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.invite.repository.InviteRepository;
 import memory_map.backend.invite.repository.JdbcInviteRepository;
+import memory_map.backend.memory.domain.Memory;
+import memory_map.backend.notification.application.NotificationPublisher;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.JdbcStoryRepository;
@@ -68,6 +70,9 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
             failingStoryParticipantRepository;
 
     @Autowired
+    private TestNotificationPublisher notificationPublisher;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -106,6 +111,7 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
         blockingInviteRepository.reset();
         hidingStoryRepository.reset();
         failingStoryParticipantRepository.reset();
+        notificationPublisher.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
@@ -372,6 +378,41 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void shouldRollbackInviteAcceptanceWhenNotificationPublishingFails() {
+
+        User owner = saveUser(OWNER_ID);
+        User invitedUser = saveUser(USER_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveInvite(
+                INVITE_ID,
+                story.id(),
+                owner.id(),
+                RAW_INVITE_TOKEN,
+                EXPIRES_AT,
+                null
+        );
+        RuntimeException failure = new RuntimeException(
+                "participant notification failed"
+        );
+        notificationPublisher.failParticipantJoined(failure);
+
+        assertThatThrownBy(() -> acceptInviteUseCase.acceptInvite(command(
+                invitedUser.id(),
+                RAW_INVITE_TOKEN,
+                CURRENT_TIME
+        ))).isSameAs(failure);
+
+        assertThat(storyParticipantRepository.find(
+                story.id(),
+                invitedUser.id()
+        )).isEmpty();
+        assertThat(participantCount()).isZero();
+        assertThat(inviteRepository.findById(INVITE_ID)
+                .orElseThrow()
+                .usedAt()).isNull();
+    }
+
+    @Test
     void shouldSerializeConcurrentInviteAcceptance() throws Exception {
 
         User owner = saveUser(OWNER_ID);
@@ -581,6 +622,14 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
                 JdbcStoryParticipantRepository delegate
         ) {
             return new FailingStoryParticipantRepository(delegate);
+        }
+
+        @Bean
+        @Primary
+        TestNotificationPublisher testNotificationPublisher(
+                JdbcClient jdbcClient
+        ) {
+            return new TestNotificationPublisher(jdbcClient);
         }
     }
 
@@ -793,6 +842,82 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
 
         private void reset() {
             failure = null;
+        }
+    }
+
+    static final class TestNotificationPublisher
+            implements NotificationPublisher {
+
+        private final JdbcClient jdbcClient;
+        private RuntimeException participantJoinedFailure;
+
+        private TestNotificationPublisher(JdbcClient jdbcClient) {
+            this.jdbcClient = jdbcClient;
+        }
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+            if (participantJoinedFailure != null) {
+                assertThat(participantCountInCurrentTransaction(
+                        storyId,
+                        actorUserId
+                )).isEqualTo(1);
+                assertThat(inviteUsedCountInCurrentTransaction())
+                        .isEqualTo(1);
+                throw participantJoinedFailure;
+            }
+        }
+
+        @Override
+        public void memoryCreated(Memory memory, Instant createdAt) {
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+        }
+
+        private void failParticipantJoined(RuntimeException failure) {
+            participantJoinedFailure = failure;
+        }
+
+        private void reset() {
+            participantJoinedFailure = null;
+        }
+
+        private int participantCountInCurrentTransaction(
+                UUID storyId,
+                UUID userId
+        ) {
+            return jdbcClient.sql("""
+                    SELECT COUNT(*)
+                    FROM story_participants
+                    WHERE story_id = :storyId
+                      AND user_id = :userId
+                    """)
+                    .param("storyId", storyId)
+                    .param("userId", userId)
+                    .query(Integer.class)
+                    .single();
+        }
+
+        private int inviteUsedCountInCurrentTransaction() {
+            return jdbcClient.sql("""
+                    SELECT COUNT(*)
+                    FROM invites
+                    WHERE id = :inviteId
+                      AND used_at IS NOT NULL
+                    """)
+                    .param("inviteId", INVITE_ID)
+                    .query(Integer.class)
+                    .single();
         }
     }
 

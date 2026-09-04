@@ -72,6 +72,9 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
     private TestStorageService storageService;
 
     @Autowired
+    private TestNotificationPublisher notificationPublisher;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -124,6 +127,7 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
         mediaFileRepository.reset();
         imageProcessor.reset();
         storageService.reset();
+        notificationPublisher.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
@@ -345,6 +349,29 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
         )))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("media save failed after insert");
+
+        assertThat(mediaFileRepository.findById(MEDIA_ID)).isEmpty();
+        assertThat(storageService.objects).isEmpty();
+        assertThat(storageService.deletedKeys)
+                .containsExactly(thumbnailKey(MEDIA_ID), displayKey(MEDIA_ID));
+    }
+
+    @Test
+    void shouldRollbackMetadataAndCleanupStorageWhenNotificationPublishingFails() {
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        Memory memory = saveMemory(MEMORY_ID, story.id(), owner.id());
+        RuntimeException failure = new RuntimeException(
+                "photo notification failed"
+        );
+        notificationPublisher.failPhotosAdded(failure);
+
+        assertThatThrownBy(() -> uploadPhotoUseCase.uploadPhoto(command(
+                owner.id(),
+                memory.id(),
+                MEDIA_ID
+        ))).isSameAs(failure);
 
         assertThat(mediaFileRepository.findById(MEDIA_ID)).isEmpty();
         assertThat(storageService.objects).isEmpty();
@@ -614,6 +641,15 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
         TestStorageService testStorageService() {
             return new TestStorageService();
         }
+
+        @Bean
+        @Primary
+        TestNotificationPublisher testNotificationPublisher(
+                JdbcClient jdbcClient,
+                TestStorageService storageService
+        ) {
+            return new TestNotificationPublisher(jdbcClient, storageService);
+        }
     }
 
     static final class TestMediaFileRepository
@@ -740,6 +776,70 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
             objects.clear();
             deletedKeys.clear();
             storeFailures.clear();
+        }
+    }
+
+    static final class TestNotificationPublisher
+            implements NotificationPublisher {
+
+        private final JdbcClient jdbcClient;
+        private final TestStorageService storageService;
+        private RuntimeException photosAddedFailure;
+
+        private TestNotificationPublisher(
+                JdbcClient jdbcClient,
+                TestStorageService storageService
+        ) {
+            this.jdbcClient = jdbcClient;
+            this.storageService = storageService;
+        }
+
+        @Override
+        public void participantJoined(
+                UUID storyId,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+        }
+
+        @Override
+        public void memoryCreated(Memory memory, Instant createdAt) {
+        }
+
+        @Override
+        public void photosAdded(
+                Memory memory,
+                UUID actorUserId,
+                Instant createdAt
+        ) {
+            if (photosAddedFailure != null) {
+                assertThat(mediaCountInCurrentTransaction()).isEqualTo(1);
+                assertThat(storageService.objects)
+                        .containsOnlyKeys(
+                                displayKey(MEDIA_ID),
+                                thumbnailKey(MEDIA_ID)
+                        );
+                throw photosAddedFailure;
+            }
+        }
+
+        private void failPhotosAdded(RuntimeException failure) {
+            photosAddedFailure = failure;
+        }
+
+        private void reset() {
+            photosAddedFailure = null;
+        }
+
+        private int mediaCountInCurrentTransaction() {
+            return jdbcClient.sql("""
+                    SELECT COUNT(*)
+                    FROM media_files
+                    WHERE id = :id
+                    """)
+                    .param("id", MEDIA_ID)
+                    .query(Integer.class)
+                    .single();
         }
     }
 }
