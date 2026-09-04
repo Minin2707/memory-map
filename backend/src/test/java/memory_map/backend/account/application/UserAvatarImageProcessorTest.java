@@ -126,16 +126,18 @@ class UserAvatarImageProcessorTest {
     }
 
     @Test
-    void shouldPreserveProcessedPhotoMimeType() throws Exception {
+    void shouldReportJpegContentTypeForJpegEncodedAvatar() throws Exception {
         FakeImageProcessor imageProcessor = new FakeImageProcessor();
         imageProcessor.result = processedPhoto(
                 squareSourceBytes(64),
-                "image/normalized"
+                "image/png"
         );
 
         ProcessedUserAvatar avatar = service(imageProcessor).process(INPUT);
 
-        assertThat(avatar.contentType()).isEqualTo("image/normalized");
+        assertThat(avatar.contentType()).isEqualTo("image/jpeg");
+        assertThat(avatar.content()[0] & 0xFF).isEqualTo(0xFF);
+        assertThat(avatar.content()[1] & 0xFF).isEqualTo(0xD8);
         assertThat(decode(avatar.content())).isNotNull();
     }
 

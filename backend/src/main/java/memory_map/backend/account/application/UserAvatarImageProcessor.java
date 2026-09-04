@@ -25,6 +25,7 @@ public final class UserAvatarImageProcessor {
     static final int AVATAR_SIZE = 512;
 
     private static final String JPEG_FORMAT = "JPEG";
+    private static final String JPEG_CONTENT_TYPE = "image/jpeg";
     private static final float JPEG_QUALITY = 0.85f;
 
     private final ImageProcessor imageProcessor;
@@ -52,7 +53,7 @@ public final class UserAvatarImageProcessor {
 
             return new ProcessedUserAvatar(
                     encodeJpeg(resized),
-                    processedPhoto.mimeType()
+                    JPEG_CONTENT_TYPE
             );
         } catch (InvalidImageException | ImageProcessingException exception) {
             throw new InvalidUserAvatarException(exception);

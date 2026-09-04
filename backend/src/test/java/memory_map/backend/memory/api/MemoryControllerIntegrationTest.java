@@ -595,8 +595,46 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
         assertRoleCanPatchMemory(StoryRole.CO_OWNER, false);
         cleanDatabase();
         assertRoleCanPatchMemory(StoryRole.EDITOR, true);
-        cleanDatabase();
-        assertRoleCanPatchMemory(StoryRole.VIEWER, true);
+    }
+
+    @Test
+    void shouldReturnSafeNotFoundWhenViewerAuthorPatchesMemory()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User viewerAuthor = saveUser(USER_ID);
+        Story story = saveStory(STORY_ID, owner.id(), "Private Story");
+        saveParticipant(story.id(), viewerAuthor.id(), StoryRole.VIEWER);
+        Memory memory = saveMemory(defaultMemory(
+                story.id(),
+                viewerAuthor.id()
+        ));
+
+        JsonNode deniedResponse = patchMemory(
+                validAccessToken(viewerAuthor.id()),
+                memory.id(),
+                """
+                {
+                  "title": "Updated memory"
+                }
+                """,
+                404
+        );
+        JsonNode missingResponse = patchMemory(
+                validAccessToken(viewerAuthor.id()),
+                UUID.randomUUID(),
+                """
+                {
+                  "title": "Updated memory"
+                }
+                """,
+                404
+        );
+
+        assertMemoryUpdateUnavailableBodyIsSafe(deniedResponse);
+        assertMemoryUpdateUnavailableBodyIsSafe(missingResponse);
+        assertSamePublicProblem(deniedResponse, missingResponse);
+        assertMemoryUnchanged(memory);
     }
 
     @Test
@@ -971,8 +1009,36 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
         assertRoleCanDeleteMemory(StoryRole.CO_OWNER, false);
         cleanDatabase();
         assertRoleCanDeleteMemory(StoryRole.EDITOR, true);
-        cleanDatabase();
-        assertRoleCanDeleteMemory(StoryRole.VIEWER, true);
+    }
+
+    @Test
+    void shouldReturnSafeNotFoundWhenViewerAuthorDeletesMemory()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User viewerAuthor = saveUser(USER_ID);
+        Story story = saveStory(STORY_ID, owner.id(), "Private Story");
+        saveParticipant(story.id(), viewerAuthor.id(), StoryRole.VIEWER);
+        Memory memory = saveMemory(defaultMemory(
+                story.id(),
+                viewerAuthor.id()
+        ));
+
+        JsonNode deniedResponse = deleteMemory(
+                validAccessToken(viewerAuthor.id()),
+                memory.id(),
+                404
+        );
+        JsonNode missingResponse = deleteMemory(
+                validAccessToken(viewerAuthor.id()),
+                UUID.randomUUID(),
+                404
+        );
+
+        assertMemoryDeletionUnavailableBodyIsSafe(deniedResponse);
+        assertMemoryDeletionUnavailableBodyIsSafe(missingResponse);
+        assertSamePublicProblem(deniedResponse, missingResponse);
+        assertMemoryUnchanged(memory);
     }
 
     @Test

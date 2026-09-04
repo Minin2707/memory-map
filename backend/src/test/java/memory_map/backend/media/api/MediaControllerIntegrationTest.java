@@ -198,14 +198,14 @@ class MediaControllerIntegrationTest extends IntegrationTest {
     @ParameterizedTest
     @EnumSource(
             value = StoryRole.class,
-            names = {"OWNER", "CO_OWNER", "EDITOR", "VIEWER"}
+            names = {"OWNER", "CO_OWNER", "EDITOR"}
     )
     void shouldRespectAllowedRoleMatrix(StoryRole role) throws Exception {
         User owner = saveUser(OWNER_ID);
         User requester = role == StoryRole.OWNER
                 ? owner
                 : saveUser(USER_ID);
-        User author = role == StoryRole.EDITOR || role == StoryRole.VIEWER
+        User author = role == StoryRole.EDITOR
                 ? requester
                 : saveUser(AUTHOR_ID);
         Story story = saveStory(STORY_ID, owner.id());
@@ -224,6 +224,41 @@ class MediaControllerIntegrationTest extends IntegrationTest {
                 UUID.fromString(response.at("/id").asText())
         )).isPresent();
         assertThat(storageService.objects).hasSize(2);
+    }
+
+    @Test
+    void shouldReturnSafeNotFoundWhenViewerAuthorUploadsPhoto()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User viewerAuthor = saveUser(USER_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), viewerAuthor.id(), StoryRole.VIEWER);
+        Memory memory = saveMemory(
+                MEMORY_ID,
+                story.id(),
+                viewerAuthor.id()
+        );
+
+        JsonNode denied = uploadPhoto(
+                validAccessToken(viewerAuthor.id()),
+                memory.id(),
+                pngBytes(),
+                "image/png",
+                404
+        );
+        JsonNode missing = uploadPhoto(
+                validAccessToken(viewerAuthor.id()),
+                UUID.randomUUID(),
+                pngBytes(),
+                "image/png",
+                404
+        );
+
+        assertPhotoUnavailableBodyIsSafe(denied);
+        assertPhotoUnavailableBodyIsSafe(missing);
+        assertSamePublicProblem(denied, missing);
+        assertNoMediaStorageOrRows();
     }
 
     @ParameterizedTest
