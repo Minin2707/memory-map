@@ -44,16 +44,21 @@ class TransactionalAcceptInviteServiceTest {
     private static final Instant EXPIRES_AT =
             Instant.parse("2026-02-09T10:00:00.123456Z");
 
-    @Test
-    void shouldAcceptInvite() {
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {
+            "CO_OWNER",
+            "EDITOR",
+            "VIEWER"
+    })
+    void shouldAcceptInviteWithPersistedRole(StoryRole inviteRole) {
 
-        TestContext context = testContext();
+        TestContext context = testContext(invite(inviteRole));
 
         UserStory result = context.service().acceptInvite(command());
 
         assertThat(result).isEqualTo(new UserStory(
                 story(),
-                StoryRole.CO_OWNER
+                inviteRole
         ));
         assertThat(context.tokenHasher().receivedRawToken())
                 .isEqualTo(RAW_INVITE_TOKEN);
@@ -69,7 +74,7 @@ class TransactionalAcceptInviteServiceTest {
                 .isEqualTo(new StoryParticipant(
                         STORY_ID,
                         USER_ID,
-                        StoryRole.CO_OWNER,
+                        inviteRole,
                         CURRENT_TIME
                 ));
         assertThat(context.inviteRepository().receivedMarkUsedInviteId())
@@ -96,14 +101,14 @@ class TransactionalAcceptInviteServiceTest {
     }
 
     @Test
-    void shouldReturnUserStoryWithCoOwnerRole() {
+    void shouldReturnUserStoryWithInviteRole() {
 
-        UserStory result = testContext()
+        UserStory result = testContext(invite(StoryRole.VIEWER))
                 .service()
                 .acceptInvite(command());
 
         assertThat(result.story()).isEqualTo(story());
-        assertThat(result.role()).isEqualTo(StoryRole.CO_OWNER);
+        assertThat(result.role()).isEqualTo(StoryRole.VIEWER);
     }
 
     @Test
@@ -460,16 +465,29 @@ class TransactionalAcceptInviteServiceTest {
     }
 
     private static Invite invite() {
-        return invite(EXPIRES_AT, null);
+        return invite(StoryRole.CO_OWNER);
+    }
+
+    private static Invite invite(StoryRole role) {
+        return invite(role, EXPIRES_AT, null);
     }
 
     private static Invite invite(
             Instant expiresAt,
             Instant usedAt
     ) {
+        return invite(StoryRole.CO_OWNER, expiresAt, usedAt);
+    }
+
+    private static Invite invite(
+            StoryRole role,
+            Instant expiresAt,
+            Instant usedAt
+    ) {
         return new Invite(
                 INVITE_ID,
                 STORY_ID,
+                role,
                 TOKEN_HASH,
                 OWNER_ID,
                 CREATED_AT,

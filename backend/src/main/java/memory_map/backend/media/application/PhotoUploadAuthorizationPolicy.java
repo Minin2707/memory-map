@@ -44,6 +44,7 @@ public final class PhotoUploadAuthorizationPolicy {
 
         return role == StoryRole.OWNER
                 || role == StoryRole.CO_OWNER
-                || memory.createdBy().equals(requesterUserId);
+                || (role == StoryRole.EDITOR
+                        && memory.createdBy().equals(requesterUserId));
     }
 }

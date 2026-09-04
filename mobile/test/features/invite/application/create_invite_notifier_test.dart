@@ -39,14 +39,17 @@ void main() {
 
       final result = await container
           .read(createInviteProvider.notifier)
-          .createInvite(' story-id ');
+          .createInvite(' story-id ', StoryRole.coOwner);
 
       expect(result, inviteFixture);
       expect(repository.createCalls, 1);
       expect(repository.acceptCalls, 0);
       expect(
         repository.receivedCreateInput,
-        CreateInviteInput(storyId: ' story-id '),
+        CreateInviteInput(
+          storyId: ' story-id ',
+          targetRole: StoryRole.coOwner,
+        ),
       );
       expect(readState(container).isCreating, isFalse);
       expect(readState(container).createdInvite, inviteFixture);
@@ -63,7 +66,7 @@ void main() {
 
       final create = container
           .read(createInviteProvider.notifier)
-          .createInvite('story-id');
+          .createInvite('story-id', StoryRole.editor);
       await pumpEventQueue();
 
       expect(readState(container).isCreating, isTrue);
@@ -84,9 +87,12 @@ void main() {
       await container.read(createInviteProvider.future);
       final notifier = container.read(createInviteProvider.notifier);
 
-      final firstCreate = notifier.createInvite('story-id');
+      final firstCreate = notifier.createInvite('story-id', StoryRole.editor);
       await pumpEventQueue();
-      final secondResult = await notifier.createInvite('story-id');
+      final secondResult = await notifier.createInvite(
+        'story-id',
+        StoryRole.viewer,
+      );
 
       expect(secondResult, isNull);
       expect(repository.createCalls, 1);
@@ -103,9 +109,9 @@ void main() {
       addTearDown(container.dispose);
       await container.read(createInviteProvider.future);
       final notifier = container.read(createInviteProvider.notifier);
-      await notifier.createInvite('story-id');
+      await notifier.createInvite('story-id', StoryRole.editor);
 
-      final result = await notifier.createInvite('   ');
+      final result = await notifier.createInvite('   ', StoryRole.editor);
 
       expect(result, isNull);
       expect(repository.createCalls, 1);
@@ -132,10 +138,13 @@ void main() {
         addTearDown(container.dispose);
         await container.read(createInviteProvider.future);
         final notifier = container.read(createInviteProvider.notifier);
-        await notifier.createInvite('story-id');
+        await notifier.createInvite('story-id', StoryRole.editor);
 
         repository.createFailure = InviteApplicationException(failure);
-        final result = await notifier.createInvite('story-id-2');
+        final result = await notifier.createInvite(
+          'story-id-2',
+          StoryRole.viewer,
+        );
 
         expect(result, isNull);
         expect(readState(container).isCreating, isFalse);
@@ -153,7 +162,7 @@ void main() {
 
       final result = await container
           .read(createInviteProvider.notifier)
-          .createInvite('story-id');
+          .createInvite('story-id', StoryRole.editor);
 
       final value = container.read(createInviteProvider);
       expect(result, isNull);
@@ -168,10 +177,10 @@ void main() {
       addTearDown(container.dispose);
       await container.read(createInviteProvider.future);
       final notifier = container.read(createInviteProvider.notifier);
-      await notifier.createInvite('story-id');
+      await notifier.createInvite('story-id', StoryRole.editor);
 
       repository.createCompleter = completer;
-      final create = notifier.createInvite('story-id-2');
+      final create = notifier.createInvite('story-id-2', StoryRole.viewer);
       await pumpEventQueue();
 
       expect(readState(container).createdInvite, isNull);
@@ -189,7 +198,7 @@ void main() {
       addTearDown(container.dispose);
       await container.read(createInviteProvider.future);
       final notifier = container.read(createInviteProvider.notifier);
-      await notifier.createInvite('story-id');
+      await notifier.createInvite('story-id', StoryRole.editor);
 
       notifier.reset();
 

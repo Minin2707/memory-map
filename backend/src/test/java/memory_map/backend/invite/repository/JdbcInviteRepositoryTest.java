@@ -1,13 +1,17 @@
 package memory_map.backend.invite.repository;
 
 import memory_map.backend.IntegrationTest;
+import memory_map.backend.common.database.DatabaseTimestamps;
 import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
+import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.user.domain.User;
 import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
@@ -100,6 +104,7 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
                 UUID.randomUUID(),
                 storyId,
                 tokenHash,
+                StoryRole.CO_OWNER,
                 createdBy,
                 BASE_TIME,
                 EXPIRES_AT,
@@ -116,9 +121,32 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
             Instant expiresAt,
             Instant usedAt
     ) {
+        return createInvite(
+                id,
+                storyId,
+                tokenHash,
+                StoryRole.CO_OWNER,
+                createdBy,
+                createdAt,
+                expiresAt,
+                usedAt
+        );
+    }
+
+    private Invite createInvite(
+            UUID id,
+            UUID storyId,
+            String tokenHash,
+            StoryRole role,
+            UUID createdBy,
+            Instant createdAt,
+            Instant expiresAt,
+            Instant usedAt
+    ) {
         return new Invite(
                 id,
                 storyId,
+                role,
                 tokenHash,
                 createdBy,
                 createdAt,
@@ -155,6 +183,7 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
     ) {
         assertThat(actual.id()).isEqualTo(expected.id());
         assertThat(actual.storyId()).isEqualTo(expected.storyId());
+        assertThat(actual.role()).isEqualTo(expected.role());
         assertThat(actual.tokenHash()).isEqualTo(expected.tokenHash());
         assertThat(actual.createdBy()).isEqualTo(expected.createdBy());
         assertThat(actual.createdAt()).isEqualTo(expected.createdAt());
@@ -179,6 +208,33 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertInviteMatches(loaded, invite);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {
+            "CO_OWNER",
+            "EDITOR",
+            "VIEWER"
+    })
+    void shouldRoundTripInviteRole(StoryRole role) {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+        Invite invite = createInvite(
+                UUID.randomUUID(),
+                story.id(),
+                "hash-invite-" + role.name(),
+                role,
+                user.id(),
+                BASE_TIME,
+                EXPIRES_AT,
+                null
+        );
+
+        repository.save(invite);
+
+        assertThat(repository.findById(invite.id()))
+                .contains(invite);
     }
 
     @Test
@@ -471,6 +527,7 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
                         invite.id(),
                         invite.storyId(),
                         invite.tokenHash(),
+                        invite.role(),
                         invite.createdBy(),
                         invite.createdAt(),
                         invite.expiresAt(),
@@ -544,6 +601,7 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
 
         assertThat(first).isTrue();
         assertThat(second).isFalse();
+        assertThat(loaded.role()).isEqualTo(invite.role());
         assertThat(loaded.usedAt()).isEqualTo(firstUsedAt);
     }
 
@@ -633,6 +691,7 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
                 .orElseThrow();
 
         assertThat(marked).isTrue();
+        assertThat(loaded.role()).isEqualTo(invite.role());
         assertThat(loaded.usedAt()).isNull();
     }
 
@@ -674,6 +733,7 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
                 inviteId,
                 story.id(),
                 "hash-invite-001",
+                StoryRole.CO_OWNER,
                 user.id(),
                 BASE_TIME,
                 EXPIRES_AT,
@@ -683,6 +743,7 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
                 inviteId,
                 story.id(),
                 "hash-invite-002",
+                StoryRole.CO_OWNER,
                 user.id(),
                 BASE_TIME,
                 EXPIRES_AT,
@@ -715,6 +776,51 @@ class JdbcInviteRepositoryTest extends IntegrationTest {
 
         assertThatThrownBy(() -> repository.save(second))
                 .isInstanceOf(DuplicateKeyException.class);
+    }
+
+    @Test
+    void shouldRejectOwnerInviteRoleAtDatabaseBoundary() {
+
+        User user = saveUser("google-subject-123");
+        Story story = saveStory(user);
+
+        assertThatThrownBy(() -> jdbcClient.sql("""
+                        INSERT INTO invites (
+                            id,
+                            story_id,
+                            role,
+                            token_hash,
+                            created_by,
+                            created_at,
+                            expires_at,
+                            used_at
+                        )
+                        VALUES (
+                            :id,
+                            :storyId,
+                            :role,
+                            :tokenHash,
+                            :createdBy,
+                            :createdAt,
+                            :expiresAt,
+                            NULL
+                        )
+                        """)
+                .param("id", UUID.randomUUID())
+                .param("storyId", story.id())
+                .param("role", StoryRole.OWNER.name())
+                .param("tokenHash", "hash-owner-role")
+                .param("createdBy", user.id())
+                .param(
+                        "createdAt",
+                        DatabaseTimestamps.toOffsetDateTime(BASE_TIME)
+                )
+                .param(
+                        "expiresAt",
+                        DatabaseTimestamps.toOffsetDateTime(EXPIRES_AT)
+                )
+                .update())
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

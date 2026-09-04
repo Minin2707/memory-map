@@ -167,9 +167,9 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void shouldUpdateOwnMemoryForViewer() {
+    void shouldDenyViewerForOwnMemory() {
 
-        assertAuthorRoleCanUpdateOwnMemory(StoryRole.VIEWER);
+        assertDeniedAuthorRoleKeepsMemoryUnchanged(StoryRole.VIEWER);
     }
 
     @Test
@@ -481,6 +481,21 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
         assertThat(denied.getMessage())
                 .isEqualTo(missing.getMessage())
                 .isEqualTo("Memory could not be updated");
+        assertThat(memoryRepository.findById(memory.id()))
+                .contains(memory);
+    }
+
+    private void assertDeniedAuthorRoleKeepsMemoryUnchanged(StoryRole role) {
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User author = saveUser(USER_ID, "author-google-subject");
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), author.id(), role);
+        Memory memory = saveMemory(story.id(), author.id());
+
+        assertMemoryUnavailable(() -> updateMemoryUseCase.updateMemory(
+                titleCommand(author.id(), memory.id(), "Updated memory")
+        ));
+
         assertThat(memoryRepository.findById(memory.id()))
                 .contains(memory);
     }

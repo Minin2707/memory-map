@@ -167,7 +167,7 @@ void main() {
         tester,
         FakeStoryParticipantRepository()
           ..participantsResult = <StoryParticipant>[],
-        onInvite: () {},
+        onInvite: (_) {},
         onLeftStory: () {},
         onParticipantRemoved: (_) {},
       );
@@ -279,13 +279,15 @@ void main() {
     ) async {
       for (final role in StoryRole.values) {
         var calls = 0;
+        StoryRole? receivedRole;
         await pumpScreen(
           tester,
           FakeStoryParticipantRepository()
             ..participantsResult = participantsWithCurrentRole(role),
           currentUserId: 'current-user-id',
-          onInvite: () {
+          onInvite: (role) {
             calls += 1;
+            receivedRole = role;
           },
         );
 
@@ -294,9 +296,11 @@ void main() {
           expect(action, findsOneWidget);
           await pressButton(tester, action);
           expect(calls, 1);
+          expect(receivedRole, role);
         } else {
           expect(action, findsNothing);
           expect(calls, 0);
+          expect(receivedRole, isNull);
         }
       }
     });
@@ -400,7 +404,7 @@ void main() {
         onBack: () {
           backCalls += 1;
         },
-        onInvite: () {},
+        onInvite: (_) {},
         onLeftStory: () {
           leftCalls += 1;
         },
@@ -656,7 +660,7 @@ void main() {
         onBack: () {
           backCalls += 1;
         },
-        onInvite: () {},
+        onInvite: (_) {},
         onLeftStory: () {},
         onParticipantRemoved: (_) {},
       );
@@ -811,7 +815,7 @@ Future<ProviderContainer> pumpScreen(
   String currentUserId = 'owner-user-id',
   Locale locale = const Locale('en'),
   VoidCallback? onBack,
-  VoidCallback? onInvite,
+  ValueChanged<StoryRole>? onInvite,
   VoidCallback? onLeftStory,
   ValueChanged<StoryParticipant>? onParticipantRemoved,
   TextScaler textScaler = TextScaler.noScaling,

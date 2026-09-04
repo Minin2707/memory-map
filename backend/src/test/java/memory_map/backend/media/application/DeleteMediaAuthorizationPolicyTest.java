@@ -43,7 +43,7 @@ class DeleteMediaAuthorizationPolicyTest {
     }
 
     @Test
-    void shouldAllowEditorAndViewerOnlyForOwnMemory() {
+    void shouldAllowEditorOnlyForOwnMemory() {
         assertThat(policy.canDeleteMedia(
                 participant(USER_ID, StoryRole.EDITOR),
                 memory(USER_ID),
@@ -53,7 +53,7 @@ class DeleteMediaAuthorizationPolicyTest {
                 participant(USER_ID, StoryRole.VIEWER),
                 memory(USER_ID),
                 USER_ID
-        )).isTrue();
+        )).isFalse();
         assertThat(policy.canDeleteMedia(
                 participant(USER_ID, StoryRole.EDITOR),
                 memory(AUTHOR_ID),

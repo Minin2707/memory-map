@@ -164,13 +164,19 @@ class CoordinatedUploadPhotoServiceTest {
     }
 
     @Test
-    void shouldUploadOwnPhotoForViewer() {
+    void shouldDenyViewerAuthorBeforeProcessing() {
         arrangeCurrentMemory(USER_ID);
         arrangeCurrentParticipant(USER_ID, StoryRole.VIEWER);
 
-        MediaFile result = service.uploadPhoto(command(USER_ID));
+        assertThatThrownBy(() -> service.uploadPhoto(command(USER_ID)))
+                .isInstanceOf(PhotoUploadUnavailableException.class)
+                .hasMessage("Photo could not be uploaded");
 
-        assertThat(result).isEqualTo(expectedMediaFile());
+        assertNoImageStorageOrSaveWork();
+        assertThat(events).containsExactly(
+                "memory.findByIdForUpdate",
+                "participant.find"
+        );
     }
 
     @Test

@@ -1,10 +1,10 @@
 package memory_map.backend.invite.api;
 
+import jakarta.validation.Valid;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
 import memory_map.backend.invite.application.AcceptInviteCommand;
 import memory_map.backend.invite.application.AcceptInviteUseCase;
-import memory_map.backend.invite.application.CreateInviteCommand;
 import memory_map.backend.invite.application.CreateInviteUseCase;
 import memory_map.backend.invite.application.CreatedInvite;
 import memory_map.backend.story.api.UserStoryResponse;
@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -57,7 +58,8 @@ public class InviteController {
 
     @PostMapping("/stories/{storyId}/invites")
     public ResponseEntity<CreatedInviteResponse> createInvite(
-            @PathVariable UUID storyId
+            @PathVariable UUID storyId,
+            @Valid @RequestBody CreateInviteRequest request
     ) {
         AuthenticatedUser authenticatedUser =
                 currentAuthenticatedUserProvider.getCurrentUser();
@@ -65,7 +67,7 @@ public class InviteController {
         Instant currentTime = clock.instant();
 
         CreatedInvite createdInvite = createInviteUseCase.createInvite(
-                new CreateInviteCommand(
+                request.toCommand(
                         authenticatedUser,
                         storyId,
                         inviteId,

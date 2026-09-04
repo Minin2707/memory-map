@@ -71,7 +71,8 @@ public class TransactionalUpdateMemoryService implements UpdateMemoryUseCase {
     ) {
         return role == StoryRole.OWNER
                 || role == StoryRole.CO_OWNER
-                || memory.createdBy().equals(requesterUserId);
+                || (role == StoryRole.EDITOR
+                        && memory.createdBy().equals(requesterUserId));
     }
 
     private static Memory candidateMemory(

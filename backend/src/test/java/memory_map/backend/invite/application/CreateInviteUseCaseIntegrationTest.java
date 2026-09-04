@@ -13,6 +13,8 @@ import memory_map.backend.user.domain.User;
 import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -102,8 +104,13 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
-    @Test
-    void shouldCreateInviteForOwner() {
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {
+            "CO_OWNER",
+            "EDITOR",
+            "VIEWER"
+    })
+    void shouldCreateInviteForOwner(StoryRole targetRole) {
 
         User owner = saveUser(OWNER_ID, "owner-google-subject");
         Story story = saveStory(
@@ -117,7 +124,8 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
         CreatedInvite result = createInviteUseCase.createInvite(command(
                 owner.id(),
                 story.id(),
-                INVITE_ID
+                INVITE_ID,
+                targetRole
         ));
 
         Invite persisted = inviteRepository.findById(INVITE_ID)
@@ -137,6 +145,7 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
         assertThat(persisted.tokenHash()).isEqualTo(expectedHash);
         assertThat(persisted.tokenHash()).isNotEqualTo(rawToken);
         assertThat(persisted.createdBy()).isEqualTo(owner.id());
+        assertThat(persisted.role()).isEqualTo(targetRole);
         assertThat(persisted.createdAt()).isEqualTo(CURRENT_TIME);
         assertThat(persisted.expiresAt())
                 .isEqualTo(CURRENT_TIME.plus(Duration.ofHours(48)));
@@ -144,8 +153,9 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
         assertThat(inviteCountByTokenHash(rawToken)).isZero();
     }
 
-    @Test
-    void shouldCreateInviteForCoOwner() {
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {"EDITOR", "VIEWER"})
+    void shouldCreateInviteForCoOwner(StoryRole targetRole) {
 
         User owner = saveUser(OWNER_ID, "owner-google-subject");
         User coOwner = saveUser(USER_ID, "co-owner-google-subject");
@@ -161,7 +171,8 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
         CreatedInvite result = createInviteUseCase.createInvite(command(
                 coOwner.id(),
                 story.id(),
-                INVITE_ID
+                INVITE_ID,
+                targetRole
         ));
 
         Invite persisted = inviteRepository.findById(INVITE_ID)
@@ -170,6 +181,32 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
         assertThat(result.inviteLink().isAbsolute()).isTrue();
         assertThat(persisted.createdBy()).isEqualTo(coOwner.id());
         assertThat(persisted.storyId()).isEqualTo(story.id());
+        assertThat(persisted.role()).isEqualTo(targetRole);
+    }
+
+    @Test
+    void shouldDenyCoOwnerCreatingCoOwnerInvite() {
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User coOwner = saveUser(USER_ID, "co-owner-google-subject");
+        Story story = saveStory(
+                STORY_ID,
+                owner.id(),
+                "Our Story",
+                "The beginning"
+        );
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        saveParticipant(story.id(), coOwner.id(), StoryRole.CO_OWNER);
+
+        assertInviteUnavailable(() -> createInviteUseCase.createInvite(
+                command(
+                        coOwner.id(),
+                        story.id(),
+                        INVITE_ID,
+                        StoryRole.CO_OWNER
+                )
+        ));
+
+        assertThat(inviteCount()).isZero();
     }
 
     @Test
@@ -283,12 +320,14 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
         createInviteUseCase.createInvite(command(
                 owner.id(),
                 story.id(),
-                INVITE_ID
+                INVITE_ID,
+                StoryRole.VIEWER
         ));
         createInviteUseCase.createInvite(command(
                 owner.id(),
                 story.id(),
-                SECOND_INVITE_ID
+                SECOND_INVITE_ID,
+                StoryRole.EDITOR
         ));
 
         List<Invite> invites = inviteRepository.findByStoryId(story.id());
@@ -302,6 +341,9 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
                 .doesNotHaveDuplicates();
         assertThat(invites)
                 .allSatisfy(invite -> assertThat(invite.usedAt()).isNull());
+        assertThat(invites)
+                .extracting(Invite::role)
+                .containsExactly(StoryRole.VIEWER, StoryRole.EDITOR);
     }
 
     @Test
@@ -378,9 +420,15 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
         saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
         saveParticipant(story.id(), user.id(), role);
 
-        assertInviteUnavailable(() -> createInviteUseCase.createInvite(
-                command(user.id(), story.id(), INVITE_ID)
-        ));
+        for (StoryRole targetRole : List.of(
+                StoryRole.CO_OWNER,
+                StoryRole.EDITOR,
+                StoryRole.VIEWER
+        )) {
+            assertInviteUnavailable(() -> createInviteUseCase.createInvite(
+                    command(user.id(), story.id(), INVITE_ID, targetRole)
+            ));
+        }
 
         assertThat(inviteCount()).isZero();
     }
@@ -440,10 +488,20 @@ class CreateInviteUseCaseIntegrationTest extends IntegrationTest {
             UUID storyId,
             UUID inviteId
     ) {
+        return command(userId, storyId, inviteId, StoryRole.CO_OWNER);
+    }
+
+    private static CreateInviteCommand command(
+            UUID userId,
+            UUID storyId,
+            UUID inviteId,
+            StoryRole targetRole
+    ) {
         return new CreateInviteCommand(
                 new AuthenticatedUser(userId),
                 storyId,
                 inviteId,
+                targetRole,
                 CURRENT_TIME
         );
     }

@@ -7,7 +7,6 @@ import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
-import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,7 +72,7 @@ public class TransactionalAcceptInviteService implements AcceptInviteUseCase {
         storyParticipantRepository.save(new StoryParticipant(
                 invite.storyId(),
                 userId,
-                StoryRole.CO_OWNER,
+                invite.role(),
                 command.currentTime()
         ));
 
@@ -92,7 +91,7 @@ public class TransactionalAcceptInviteService implements AcceptInviteUseCase {
                 command.currentTime()
         );
 
-        return new UserStory(story, StoryRole.CO_OWNER);
+        return new UserStory(story, invite.role());
     }
 
     private static void validateInvite(

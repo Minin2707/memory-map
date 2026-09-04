@@ -43,12 +43,19 @@ class TransactionalCreateInviteServiceTest {
     private static final URI INVITE_LINK =
             URI.create("https://app.memorymap.app/invite/" + RAW_TOKEN);
 
-    @Test
-    void shouldCreateInviteForOwner() {
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {
+            "CO_OWNER",
+            "EDITOR",
+            "VIEWER"
+    })
+    void shouldCreateInviteForOwner(StoryRole targetRole) {
 
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
-        CreatedInvite result = context.service().createInvite(command());
+        CreatedInvite result = context.service().createInvite(
+                command(targetRole)
+        );
 
         assertThat(result).isEqualTo(new CreatedInvite(
                 INVITE_LINK,
@@ -65,7 +72,7 @@ class TransactionalCreateInviteServiceTest {
         assertThat(context.linkFactory().receivedRawToken())
                 .isEqualTo(RAW_TOKEN);
         assertThat(context.inviteRepository().savedInvite())
-                .isEqualTo(expectedInvite());
+                .isEqualTo(expectedInvite(targetRole));
         assertThat(context.inviteRepository().savedInvite().tokenHash())
                 .isEqualTo(TOKEN_HASH)
                 .isNotEqualTo(RAW_TOKEN);
@@ -78,16 +85,19 @@ class TransactionalCreateInviteServiceTest {
         );
     }
 
-    @Test
-    void shouldCreateInviteForCoOwner() {
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {"EDITOR", "VIEWER"})
+    void shouldCreateInviteForCoOwner(StoryRole targetRole) {
 
         TestContext context = testContext(userStory(StoryRole.CO_OWNER));
 
-        CreatedInvite result = context.service().createInvite(command());
+        CreatedInvite result = context.service().createInvite(
+                command(targetRole)
+        );
 
         assertThat(result.inviteLink()).isEqualTo(INVITE_LINK);
         assertThat(context.inviteRepository().savedInvite())
-                .isEqualTo(expectedInvite());
+                .isEqualTo(expectedInvite(targetRole));
     }
 
     @ParameterizedTest
@@ -96,8 +106,29 @@ class TransactionalCreateInviteServiceTest {
 
         TestContext context = testContext(userStory(role));
 
+        for (StoryRole targetRole : List.of(
+                StoryRole.CO_OWNER,
+                StoryRole.EDITOR,
+                StoryRole.VIEWER
+        )) {
+            assertInviteUnavailable(
+                    () -> context.service().createInvite(command(targetRole))
+            );
+        }
+
+        assertThat(context.tokenGenerator().generateCallCount()).isZero();
+        assertThat(context.tokenHasher().hashCallCount()).isZero();
+        assertThat(context.inviteRepository().saveCallCount()).isZero();
+        assertThat(context.linkFactory().createCallCount()).isZero();
+    }
+
+    @Test
+    void shouldDenyCoOwnerCreatingCoOwnerInvite() {
+
+        TestContext context = testContext(userStory(StoryRole.CO_OWNER));
+
         assertInviteUnavailable(
-                () -> context.service().createInvite(command())
+                () -> context.service().createInvite(command(StoryRole.CO_OWNER))
         );
 
         assertThat(context.tokenGenerator().generateCallCount()).isZero();
@@ -142,7 +173,7 @@ class TransactionalCreateInviteServiceTest {
 
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
-        context.service().createInvite(command());
+        context.service().createInvite(command(StoryRole.EDITOR));
 
         Invite saved = context.inviteRepository().savedInvite();
 
@@ -150,6 +181,7 @@ class TransactionalCreateInviteServiceTest {
         assertThat(saved.storyId()).isEqualTo(STORY_ID);
         assertThat(saved.tokenHash()).isEqualTo(TOKEN_HASH);
         assertThat(saved.createdBy()).isEqualTo(USER_ID);
+        assertThat(saved.role()).isEqualTo(StoryRole.EDITOR);
         assertThat(saved.createdAt()).isEqualTo(CURRENT_TIME);
         assertThat(saved.expiresAt()).isEqualTo(EXPIRES_AT);
         assertThat(saved.usedAt()).isNull();
@@ -372,6 +404,7 @@ class TransactionalCreateInviteServiceTest {
                 new AuthenticatedUser(USER_ID),
                 STORY_ID,
                 INVITE_ID,
+                StoryRole.CO_OWNER,
                 Instant.MAX
         );
 
@@ -470,18 +503,28 @@ class TransactionalCreateInviteServiceTest {
     }
 
     private static CreateInviteCommand command() {
+        return command(StoryRole.CO_OWNER);
+    }
+
+    private static CreateInviteCommand command(StoryRole targetRole) {
         return new CreateInviteCommand(
                 new AuthenticatedUser(USER_ID),
                 STORY_ID,
                 INVITE_ID,
+                targetRole,
                 CURRENT_TIME
         );
     }
 
     private static Invite expectedInvite() {
+        return expectedInvite(StoryRole.CO_OWNER);
+    }
+
+    private static Invite expectedInvite(StoryRole role) {
         return new Invite(
                 INVITE_ID,
                 STORY_ID,
+                role,
                 TOKEN_HASH,
                 USER_ID,
                 CURRENT_TIME,

@@ -819,7 +819,10 @@ void main() {
       expect(fakeInviteRepository.createCalls, 1);
       expect(
         fakeInviteRepository.receivedCreateInput,
-        CreateInviteInput(storyId: ownerStory.story.id),
+        CreateInviteInput(
+          storyId: ownerStory.story.id,
+          targetRole: StoryRole.editor,
+        ),
       );
 
       await tapButton(
@@ -881,6 +884,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Invite someone close'), findsOneWidget);
+      expect(find.text('Choose access'), findsNothing);
+      expect(
+        tester.widget<FilledButton>(
+          find.byKey(const ValueKey('invite.create-action')),
+        ).onPressed,
+        isNull,
+      );
       expect(fakeStoryRepository.getStoryCalls, 0);
       expect(fakeInviteRepository.createCalls, 0);
 
@@ -909,6 +919,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Invite someone close'), findsOneWidget);
+      expect(find.text('Choose access'), findsNothing);
       expect(find.text('Continue with Google'), findsNothing);
 
       await tapButton(

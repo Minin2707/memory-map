@@ -36,6 +36,7 @@ import 'package:memory_map/features/profile/presentation/profile_language_screen
 import 'package:memory_map/features/profile/presentation/profile_screen.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
 import 'package:memory_map/features/story/presentation/create_story_screen.dart';
 import 'package:memory_map/features/story/presentation/edit_story_route.dart';
@@ -450,10 +451,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 extra: userStory,
               );
             },
-            onInvite: () {
+            onInvite: (role) {
               context.pushNamed(
                 inviteStoryRouteName,
                 pathParameters: {_storyIdPathParameter: storyId},
+                extra: role,
               );
             },
             onParticipantsSelected: (_) {
@@ -800,10 +802,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             onBack: () {
               _popOrGoToStoryDetails(context, storyId);
             },
-            onInvite: () {
+            onInvite: (role) {
               context.pushNamed(
                 inviteStoryRouteName,
                 pathParameters: {_storyIdPathParameter: storyId},
+                extra: role,
               );
             },
             onLeftStory: () {
@@ -822,6 +825,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
           return InviteScreen(
             storyId: storyId,
+            currentInviterRole: _inviteStoryRoleFromExtra(state.extra),
             onBack: () {
               _popOrGoToStoryDetails(context, storyId);
             },
@@ -1102,6 +1106,14 @@ String? _storyTitleFromExtra(Object? extra) {
 String? _storyMapInitialMemoryIdFromExtra(Object? extra) {
   if (extra is String && extra.trim().isNotEmpty) {
     return extra;
+  }
+
+  return null;
+}
+
+StoryRole? _inviteStoryRoleFromExtra(Object? extra) {
+  if (extra == StoryRole.owner || extra == StoryRole.coOwner) {
+    return extra as StoryRole;
   }
 
   return null;

@@ -2042,6 +2042,48 @@ abstract class AppLocalizations {
   /// **'The invite remains valid until the date returned by the server.'**
   String get inviteExpirationDescription;
 
+  /// No description provided for @inviteTargetRoleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose access'**
+  String get inviteTargetRoleTitle;
+
+  /// No description provided for @inviteRoleCoOwnerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Co-author'**
+  String get inviteRoleCoOwnerLabel;
+
+  /// No description provided for @inviteRoleCoOwnerDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Can manage the story and memories.'**
+  String get inviteRoleCoOwnerDescription;
+
+  /// No description provided for @inviteRoleEditorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Editor'**
+  String get inviteRoleEditorLabel;
+
+  /// No description provided for @inviteRoleEditorDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Can add memories and edit their own.'**
+  String get inviteRoleEditorDescription;
+
+  /// No description provided for @inviteRoleViewerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'View only'**
+  String get inviteRoleViewerLabel;
+
+  /// No description provided for @inviteRoleViewerDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Can view the story and memories.'**
+  String get inviteRoleViewerDescription;
+
   /// No description provided for @inviteWhatCanDoTitle.
   ///
   /// In en, this message translates to:

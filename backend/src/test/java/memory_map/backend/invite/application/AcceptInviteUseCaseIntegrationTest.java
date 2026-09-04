@@ -109,8 +109,15 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
-    @Test
-    void shouldAcceptInviteAndCreateCoOwnerParticipant() {
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {
+            "CO_OWNER",
+            "EDITOR",
+            "VIEWER"
+    })
+    void shouldAcceptInviteAndCreateParticipantWithInviteRole(
+            StoryRole inviteRole
+    ) {
 
         User owner = saveUser(OWNER_ID);
         User invitedUser = saveUser(USER_ID);
@@ -121,6 +128,7 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
                 story.id(),
                 owner.id(),
                 RAW_INVITE_TOKEN,
+                inviteRole,
                 EXPIRES_AT,
                 null
         );
@@ -140,14 +148,15 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
 
         assertThat(result).isEqualTo(new UserStory(
                 story,
-                StoryRole.CO_OWNER
+                inviteRole
         ));
         assertThat(participant).isEqualTo(new StoryParticipant(
                 story.id(),
                 invitedUser.id(),
-                StoryRole.CO_OWNER,
+                inviteRole,
                 CURRENT_TIME
         ));
+        assertThat(consumed.role()).isEqualTo(inviteRole);
         assertThat(consumed.usedAt()).isEqualTo(CURRENT_TIME);
     }
 
@@ -483,9 +492,30 @@ class AcceptInviteUseCaseIntegrationTest extends IntegrationTest {
             Instant expiresAt,
             Instant usedAt
     ) {
+        return saveInvite(
+                inviteId,
+                storyId,
+                createdBy,
+                rawInviteToken,
+                StoryRole.CO_OWNER,
+                expiresAt,
+                usedAt
+        );
+    }
+
+    private Invite saveInvite(
+            UUID inviteId,
+            UUID storyId,
+            UUID createdBy,
+            String rawInviteToken,
+            StoryRole role,
+            Instant expiresAt,
+            Instant usedAt
+    ) {
         Invite invite = new Invite(
                 inviteId,
                 storyId,
+                role,
                 inviteTokenHasher.hash(rawInviteToken),
                 createdBy,
                 BASE_TIME,

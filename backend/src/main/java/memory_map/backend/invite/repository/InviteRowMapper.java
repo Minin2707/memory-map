@@ -1,6 +1,7 @@
 package memory_map.backend.invite.repository;
 
 import memory_map.backend.invite.domain.Invite;
+import memory_map.backend.storyparticipant.domain.StoryRole;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;
@@ -16,6 +17,7 @@ public class InviteRowMapper implements RowMapper<Invite> {
 
         UUID id = rs.getObject("id", UUID.class);
         UUID storyId = rs.getObject("story_id", UUID.class);
+        StoryRole role = StoryRole.valueOf(rs.getString("role"));
         String tokenHash = rs.getString("token_hash");
         UUID createdBy = rs.getObject("created_by", UUID.class);
         OffsetDateTime createdAt = rs.getObject("created_at", OffsetDateTime.class);
@@ -26,6 +28,7 @@ public class InviteRowMapper implements RowMapper<Invite> {
         return new Invite(
                 id,
                 storyId,
+                role,
                 tokenHash,
                 createdBy,
                 createdAt.toInstant(),

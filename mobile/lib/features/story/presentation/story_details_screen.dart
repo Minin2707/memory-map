@@ -46,7 +46,7 @@ class StoryDetailsScreen extends ConsumerWidget {
   final String storyId;
   final VoidCallback? onBack;
   final ValueChanged<UserStory>? onEditStory;
-  final VoidCallback? onInvite;
+  final ValueChanged<StoryRole>? onInvite;
   final ValueChanged<UserStory>? onMemoriesSelected;
   final ValueChanged<UserStory>? onParticipantsSelected;
   final ValueChanged<UserStory>? onMapSelected;
@@ -193,7 +193,11 @@ class StoryDetailsScreen extends ConsumerWidget {
             storyId: storyId,
             userStory: userStory,
             onBack: onBack,
-            onInvite: userStory.canUpdateStoryMetadata ? onInvite : null,
+            onInvite: onInvite != null && userStory.canUpdateStoryMetadata
+                ? () {
+                    onInvite!(userStory.role);
+                  }
+                : null,
             onEditStory: userStory.canUpdateStoryMetadata
                 ? onEditStory
                 : null,
@@ -209,7 +213,11 @@ class StoryDetailsScreen extends ConsumerWidget {
             onManage: userStory.canUpdateStoryMetadata
                 ? onParticipantsSelected
                 : null,
-            onInvite: userStory.canUpdateStoryMetadata ? onInvite : null,
+            onInvite: onInvite != null && userStory.canUpdateStoryMetadata
+                ? () {
+                    onInvite!(userStory.role);
+                  }
+                : null,
           ),
         ),
       ),

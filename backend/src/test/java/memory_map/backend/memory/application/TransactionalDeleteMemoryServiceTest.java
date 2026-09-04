@@ -85,19 +85,39 @@ class TransactionalDeleteMemoryServiceTest {
                 .isEqualTo(1);
     }
 
-    @ParameterizedTest
-    @EnumSource(value = StoryRole.class, names = {"EDITOR", "VIEWER"})
-    void shouldDeleteOwnMemoryForAuthorRoles(StoryRole role) {
+    @Test
+    void shouldDeleteOwnMemoryForEditor() {
 
         TestContext context = testContext(
                 existingMemory(USER_ID),
-                participant(role)
+                participant(StoryRole.EDITOR)
         );
 
         context.service().deleteMemory(command());
 
         assertThat(context.memoryRepository().deleteCallCount())
                 .isEqualTo(1);
+    }
+
+    @Test
+    void shouldDenyViewerForOwnMemory() {
+
+        TestContext context = testContext(
+                existingMemory(USER_ID),
+                participant(StoryRole.VIEWER)
+        );
+
+        assertMemoryUnavailable(() -> context.service().deleteMemory(
+                command()
+        ));
+
+        assertThat(context.memoryRepository().deleteCallCount()).isZero();
+        assertThat(context.mediaCleanupCoordinator().prepareCallCount())
+                .isZero();
+        assertThat(context.calls()).containsExactly(
+                "find Memory for update",
+                "find StoryParticipant"
+        );
     }
 
     @ParameterizedTest

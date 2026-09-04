@@ -126,10 +126,23 @@ class TransactionalDeleteMediaServiceTest {
     }
 
     @Test
-    void shouldDeleteOwnMemoryMediaForEditorAndViewer() {
+    void shouldDeleteOwnMemoryMediaForEditor() {
         assertAuthorRoleCanDeleteOwnMedia(StoryRole.EDITOR);
-        reset();
-        assertAuthorRoleCanDeleteOwnMedia(StoryRole.VIEWER);
+    }
+
+    @Test
+    void shouldDenyViewerForOwnMemoryMedia() {
+        arrangeCurrentMemory(USER_ID);
+        arrangeCurrentParticipant(USER_ID, StoryRole.VIEWER);
+
+        assertUnavailable(() -> service.deleteMedia(command(USER_ID)));
+
+        assertNoMetadataDeleteOrStorageWork();
+        assertThat(events).containsExactly(
+                "media.findById",
+                "memory.findByIdForUpdate",
+                "participant.find"
+        );
     }
 
     @Test

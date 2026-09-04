@@ -8,6 +8,7 @@ import 'package:memory_map/features/invite/application/create_invite_state.dart'
 import 'package:memory_map/features/invite/domain/invite.dart';
 import 'package:memory_map/features/invite/presentation/invite_clipboard.dart';
 import 'package:memory_map/features/invite/presentation/invite_failure_message.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 typedef InviteShareCallback = FutureOr<void> Function(String inviteLink);
@@ -19,6 +20,7 @@ typedef InviteDateFormatter = String Function(
 class InviteScreen extends ConsumerStatefulWidget {
   const InviteScreen({
     required this.storyId,
+    required this.currentInviterRole,
     this.onBack,
     this.onShareInvite,
     this.clipboard = const FlutterInviteClipboard(),
@@ -27,6 +29,7 @@ class InviteScreen extends ConsumerStatefulWidget {
   });
 
   final String storyId;
+  final StoryRole? currentInviterRole;
   final VoidCallback? onBack;
   final InviteShareCallback? onShareInvite;
   final InviteClipboard clipboard;
@@ -37,6 +40,8 @@ class InviteScreen extends ConsumerStatefulWidget {
 }
 
 class _InviteScreenState extends ConsumerState<InviteScreen> {
+  StoryRole _selectedTargetRole = StoryRole.editor;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -46,6 +51,8 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
     final isCreating = inviteState.isCreating;
     final failureMessage = _failureMessage(l10n, inviteValue, inviteState);
     final dateFormatter = widget.dateFormatter ?? _formatInviteDate;
+    final targetRoles = _targetRolesForInviterRole(widget.currentInviterRole);
+    final canCreateInvite = targetRoles.contains(_selectedTargetRole);
 
     return PopScope(
       canPop: false,
@@ -81,9 +88,17 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
                     children: [
                       if (invite == null)
                         _InviteInitialView(
+                          targetRoles: targetRoles,
+                          selectedTargetRole: _selectedTargetRole,
                           isCreating: isCreating,
-                          failureMessage: failureMessage,
-                          onCreate: _createInvite,
+                          failureMessage: failureMessage ??
+                              (targetRoles.isEmpty
+                                  ? l10n.inviteFailureNotFound
+                                  : null),
+                          onTargetRoleChanged: isCreating
+                              ? null
+                              : _selectTargetRole,
+                          onCreate: canCreateInvite ? _createInvite : null,
                         )
                       else
                         _InviteSuccessView(
@@ -127,13 +142,24 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
     return inviteFailureMessage(l10n, failure);
   }
 
+  void _selectTargetRole(StoryRole role) {
+    if (!_targetRolesForInviterRole(widget.currentInviterRole)
+        .contains(role)) {
+      return;
+    }
+
+    setState(() {
+      _selectedTargetRole = role;
+    });
+  }
+
   Future<void> _createInvite() {
     final notifier = ref.read(createInviteProvider.notifier);
     if (ref.read(createInviteProvider).hasError) {
       notifier.reset();
     }
 
-    return notifier.createInvite(widget.storyId);
+    return notifier.createInvite(widget.storyId, _selectedTargetRole);
   }
 
   Future<void> _copyInviteLink() async {
@@ -194,6 +220,21 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
   }
 }
 
+List<StoryRole> _targetRolesForInviterRole(StoryRole? inviterRole) {
+  return switch (inviterRole) {
+    StoryRole.owner => const [
+        StoryRole.coOwner,
+        StoryRole.editor,
+        StoryRole.viewer,
+      ],
+    StoryRole.coOwner => const [
+        StoryRole.editor,
+        StoryRole.viewer,
+      ],
+    StoryRole.editor || StoryRole.viewer || null => const [],
+  };
+}
+
 class _InviteAppBar extends StatelessWidget {
   const _InviteAppBar({
     required this.title,
@@ -239,14 +280,20 @@ class _InviteAppBar extends StatelessWidget {
 
 class _InviteInitialView extends StatelessWidget {
   const _InviteInitialView({
+    required this.targetRoles,
+    required this.selectedTargetRole,
     required this.isCreating,
     required this.failureMessage,
+    required this.onTargetRoleChanged,
     required this.onCreate,
   });
 
+  final List<StoryRole> targetRoles;
+  final StoryRole selectedTargetRole;
   final bool isCreating;
   final String? failureMessage;
-  final VoidCallback onCreate;
+  final ValueChanged<StoryRole>? onTargetRoleChanged;
+  final VoidCallback? onCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -281,6 +328,17 @@ class _InviteInitialView extends StatelessWidget {
             ],
           ),
         ),
+        if (targetRoles.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _InviteCard(
+            key: const ValueKey('invite.role-selector-card'),
+            child: _InviteRoleSelector(
+              targetRoles: targetRoles,
+              selectedTargetRole: selectedTargetRole,
+              onChanged: onTargetRoleChanged,
+            ),
+          ),
+        ],
         const SizedBox(height: 18),
         _InviteCard(
           child: _InstructionList(
@@ -321,6 +379,133 @@ class _InviteInitialView extends StatelessWidget {
       ],
     );
   }
+}
+
+class _InviteRoleSelector extends StatelessWidget {
+  const _InviteRoleSelector({
+    required this.targetRoles,
+    required this.selectedTargetRole,
+    required this.onChanged,
+  });
+
+  final List<StoryRole> targetRoles;
+  final StoryRole selectedTargetRole;
+  final ValueChanged<StoryRole>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return RadioGroup<StoryRole>(
+      groupValue: selectedTargetRole,
+      onChanged: (role) {
+        if (role != null) {
+          onChanged?.call(role);
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.inviteTargetRoleTitle, style: _sectionTitleStyle),
+          const SizedBox(height: 14),
+          for (var index = 0; index < targetRoles.length; index += 1) ...[
+            if (index > 0) const SizedBox(height: 10),
+            _InviteRoleOption(
+              role: targetRoles[index],
+              selected: targetRoles[index] == selectedTargetRole,
+              onChanged: onChanged,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InviteRoleOption extends StatelessWidget {
+  const _InviteRoleOption({
+    required this.role,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final StoryRole role;
+  final bool selected;
+  final ValueChanged<StoryRole>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final enabled = onChanged != null;
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkWell(
+        key: ValueKey('invite.role-option.${role.name}'),
+        onTap: enabled ? () => onChanged!(role) : null,
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFFFF1F3) : const Color(0xFFFFFBFC),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFFFF5D72)
+                  : const Color(0xFFE5E7EB),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Radio<StoryRole>(
+                value: role,
+                enabled: enabled,
+                activeColor: const Color(0xFFFF5D72),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_roleLabel(l10n, role), style: _sectionTitleStyle),
+                    const SizedBox(height: 4),
+                    Text(
+                      _roleDescription(l10n, role),
+                      style: _bodyTextStyle,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _roleLabel(AppLocalizations l10n, StoryRole role) {
+  return switch (role) {
+    StoryRole.coOwner => l10n.inviteRoleCoOwnerLabel,
+    StoryRole.editor => l10n.inviteRoleEditorLabel,
+    StoryRole.viewer => l10n.inviteRoleViewerLabel,
+    StoryRole.owner => l10n.storyRoleOwner,
+  };
+}
+
+String _roleDescription(AppLocalizations l10n, StoryRole role) {
+  return switch (role) {
+    StoryRole.coOwner => l10n.inviteRoleCoOwnerDescription,
+    StoryRole.editor => l10n.inviteRoleEditorDescription,
+    StoryRole.viewer => l10n.inviteRoleViewerDescription,
+    StoryRole.owner => l10n.storyRoleOwner,
+  };
 }
 
 class _InviteSuccessView extends StatelessWidget {

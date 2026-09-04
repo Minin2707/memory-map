@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="sharedpref" path="FlutterSecureStorage" />
         <exclude domain="file" path="private_media_cache/" />
         <exclude domain="root" path="private_media_cache/" />
     </cloud-backup>
+
     <device-transfer>
+        <exclude domain="sharedpref" path="FlutterSecureStorage" />
         <exclude domain="file" path="private_media_cache/" />
         <exclude domain="root" path="private_media_cache/" />
     </device-transfer>

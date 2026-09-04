@@ -18,7 +18,10 @@ final class DefaultInviteRepository implements InviteRepository {
   @override
   Future<Invite> createInvite(CreateInviteInput input) async {
     try {
-      return await _inviteRemoteDataSource.createInvite(input.storyId);
+      return await _inviteRemoteDataSource.createInvite(
+        input.storyId,
+        input.targetRole,
+      );
     } on InviteRemoteException catch (exception) {
       throw InviteApplicationException(_mapFailure(exception));
     }

@@ -107,7 +107,11 @@ class InviteControllerTest {
                         .header(
                                 HttpHeaders.AUTHORIZATION,
                                 "Bearer " + VALID_ACCESS_TOKEN
-                        ))
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"EDITOR"}
+                                """))
                 .andExpect(status().isCreated())
                 .andExpect(content()
                         .contentTypeCompatibleWith(
@@ -128,6 +132,7 @@ class InviteControllerTest {
                 .isEqualTo(new AuthenticatedUser(USER_ID));
         assertThat(command.storyId()).isEqualTo(STORY_ID);
         assertThat(command.inviteId()).isNotNull();
+        assertThat(command.targetRole()).isEqualTo(StoryRole.EDITOR);
         assertThat(command.currentTime()).isEqualTo(CURRENT_TIME);
         assertThat(currentAuthenticatedUserProvider.callCount())
                 .isEqualTo(1);
@@ -155,7 +160,11 @@ class InviteControllerTest {
                         .header(
                                 HttpHeaders.AUTHORIZATION,
                                 "Bearer " + VALID_ACCESS_TOKEN
-                        ))
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"VIEWER"}
+                                """))
                 .andExpect(status().isOk())
                 .andExpect(content()
                         .contentTypeCompatibleWith(
@@ -215,7 +224,11 @@ class InviteControllerTest {
                         .header(
                                 HttpHeaders.AUTHORIZATION,
                                 "Bearer " + VALID_ACCESS_TOKEN
-                        ))
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"CO_OWNER"}
+                                """))
                 .andExpect(status().isNotFound())
                 .andExpect(content()
                         .contentTypeCompatibleWith(
@@ -248,6 +261,84 @@ class InviteControllerTest {
                 .doesNotContain("SQL")
                 .doesNotContain("Jdbc")
                 .doesNotContain("repository");
+    }
+
+    @Test
+    void shouldReturnBadRequestForOwnerInviteTargetRole()
+            throws Exception {
+
+        String response = mockMvc.perform(post(
+                        "/api/v1/stories/{storyId}/invites",
+                        STORY_ID
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + VALID_ACCESS_TOKEN
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"OWNER"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        ))
+                .andExpect(jsonPath("$.detail")
+                        .value("Invalid invite request"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(createInviteUseCase.callCount()).isZero();
+        assertThat(response)
+                .doesNotContain("OWNER")
+                .doesNotContain(STORY_ID.toString())
+                .doesNotContain(USER_ID.toString());
+    }
+
+    @Test
+    void shouldReturnBadRequestForMissingInviteTargetRole()
+            throws Exception {
+
+        mockMvc.perform(post(
+                        "/api/v1/stories/{storyId}/invites",
+                        STORY_ID
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + VALID_ACCESS_TOKEN
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail")
+                        .value("Invalid invite request"));
+
+        assertThat(createInviteUseCase.callCount()).isZero();
+    }
+
+    @Test
+    void shouldReturnBadRequestForUnknownInviteTargetRole()
+            throws Exception {
+
+        mockMvc.perform(post(
+                        "/api/v1/stories/{storyId}/invites",
+                        STORY_ID
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + VALID_ACCESS_TOKEN
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"ADMIN"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail")
+                        .value("Invalid invite request"));
+
+        assertThat(createInviteUseCase.callCount()).isZero();
     }
 
     @Test
@@ -311,7 +402,11 @@ class InviteControllerTest {
                         .header(
                                 HttpHeaders.AUTHORIZATION,
                                 "Bearer " + VALID_ACCESS_TOKEN
-                        ))
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"CO_OWNER"}
+                                """))
                 .andExpect(status().isBadRequest());
 
         assertThat(currentAuthenticatedUserProvider.callCount()).isZero();

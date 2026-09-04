@@ -65,7 +65,7 @@ public class TransactionalCreateInviteService implements CreateInviteUseCase {
                 command.authenticatedUser().userId()
         ).orElseThrow(InviteCreationUnavailableException::new);
 
-        if (!canCreateInvite(userStory.role())) {
+        if (!canCreateInvite(userStory.role(), command.targetRole())) {
             throw new InviteCreationUnavailableException();
         }
 
@@ -81,9 +81,17 @@ public class TransactionalCreateInviteService implements CreateInviteUseCase {
         return new CreatedInvite(inviteLink, expiresAt);
     }
 
-    private static boolean canCreateInvite(StoryRole role) {
-        return role == StoryRole.OWNER
-                || role == StoryRole.CO_OWNER;
+    private static boolean canCreateInvite(
+            StoryRole actorRole,
+            StoryRole targetRole
+    ) {
+        if (targetRole == StoryRole.OWNER) {
+            return false;
+        }
+
+        return actorRole == StoryRole.OWNER
+                || (actorRole == StoryRole.CO_OWNER
+                        && targetRole != StoryRole.CO_OWNER);
     }
 
     private static Invite invite(
@@ -96,6 +104,7 @@ public class TransactionalCreateInviteService implements CreateInviteUseCase {
         return new Invite(
                 command.inviteId(),
                 command.storyId(),
+                command.targetRole(),
                 tokenHash,
                 userId,
                 command.currentTime(),

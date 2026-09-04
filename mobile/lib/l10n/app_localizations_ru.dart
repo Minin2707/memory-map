@@ -1125,6 +1125,30 @@ class AppLocalizationsRu extends AppLocalizations {
       'Приглашение действительно до даты, которую вернул сервер.';
 
   @override
+  String get inviteTargetRoleTitle => 'Выберите доступ';
+
+  @override
+  String get inviteRoleCoOwnerLabel => 'Соавтор';
+
+  @override
+  String get inviteRoleCoOwnerDescription =>
+      'Может управлять историей и воспоминаниями.';
+
+  @override
+  String get inviteRoleEditorLabel => 'Редактор';
+
+  @override
+  String get inviteRoleEditorDescription =>
+      'Может добавлять воспоминания и редактировать свои.';
+
+  @override
+  String get inviteRoleViewerLabel => 'Только просмотр';
+
+  @override
+  String get inviteRoleViewerDescription =>
+      'Может просматривать историю и воспоминания.';
+
+  @override
   String get inviteWhatCanDoTitle => 'Что можно сделать с этой ссылкой?';
 
   @override

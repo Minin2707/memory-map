@@ -6,6 +6,7 @@ import 'package:memory_map/features/invite/data/remote/invite_remote_data_source
 import 'package:memory_map/features/invite/data/remote/invite_remote_exception.dart';
 import 'package:memory_map/features/invite/domain/invite.dart';
 import 'package:memory_map/features/story/data/dto/user_story_dto.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
 
 final inviteRemoteDataSourceProvider = Provider<InviteRemoteDataSource>((ref) {
@@ -21,8 +22,13 @@ final class DioInviteRemoteDataSource implements InviteRemoteDataSource {
   final Dio _dio;
 
   @override
-  Future<Invite> createInvite(String storyId) async {
-    final response = await _post(_createInvitePath(storyId));
+  Future<Invite> createInvite(String storyId, StoryRole targetRole) async {
+    final response = await _post(
+      _createInvitePath(storyId),
+      data: <String, Object?>{
+        'role': _targetRoleWireValue(targetRole),
+      },
+    );
 
     _ensureExpectedStatus(response, 201);
 
@@ -42,9 +48,12 @@ final class DioInviteRemoteDataSource implements InviteRemoteDataSource {
     );
   }
 
-  Future<Response<Object?>> _post(String path) async {
+  Future<Response<Object?>> _post(
+    String path, {
+    Object? data,
+  }) async {
     try {
-      return await _dio.post<Object?>(path);
+      return await _dio.post<Object?>(path, data: data);
     } on DioException catch (error) {
       _throwMappedDioException(error);
     }
@@ -77,6 +86,15 @@ final class DioInviteRemoteDataSource implements InviteRemoteDataSource {
     }
 
     return '$_storiesPath/${Uri.encodeComponent(storyId)}/invites';
+  }
+
+  String _targetRoleWireValue(StoryRole targetRole) {
+    return switch (targetRole) {
+      StoryRole.coOwner => 'CO_OWNER',
+      StoryRole.editor => 'EDITOR',
+      StoryRole.viewer => 'VIEWER',
+      StoryRole.owner => throw ArgumentError('targetRole must not be owner'),
+    };
   }
 
   String _acceptInvitePath(String rawToken) {

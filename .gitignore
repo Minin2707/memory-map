@@ -16,3 +16,8 @@ backend/config/application-local.yml
 
 # Windows
 Thumbs.db
+
+# Android release signing
+mobile/android/key.properties
+*.jks
+*.keystore

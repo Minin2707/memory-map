@@ -173,9 +173,9 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void shouldDeleteOwnMemoryForViewer() {
+    void shouldDenyViewerForOwnMemory() {
 
-        assertAuthorRoleCanDeleteOwnMemory(StoryRole.VIEWER);
+        assertDeniedAuthorRoleKeepsMemory(StoryRole.VIEWER);
     }
 
     @Test
@@ -506,6 +506,22 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 .isEqualTo("Memory could not be deleted");
         assertThat(memoryRepository.findById(memory.id()))
                 .contains(memory);
+    }
+
+    private void assertDeniedAuthorRoleKeepsMemory(StoryRole role) {
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User author = saveUser(USER_ID, "author-google-subject");
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), author.id(), role);
+        Memory memory = saveMemory(MEMORY_ID, story.id(), author.id());
+
+        assertMemoryUnavailable(() -> deleteMemoryUseCase.deleteMemory(
+                command(author.id(), memory.id())
+        ));
+
+        assertThat(memoryRepository.findById(memory.id()))
+                .contains(memory);
+        assertThat(storageService.deletedKeys).isEmpty();
     }
 
     private User saveUser(UUID id, String googleSubject) {

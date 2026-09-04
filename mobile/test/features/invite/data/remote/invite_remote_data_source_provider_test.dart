@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/auth/data/network/authorized_dio_provider.dart';
 import 'package:memory_map/features/invite/data/remote/dio_invite_remote_data_source.dart';
 import 'package:memory_map/features/invite/data/remote/invite_remote_data_source.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
 
 void main() {
   group('inviteRemoteDataSourceProvider', () {
@@ -35,7 +36,7 @@ void main() {
       expect(dataSource, isA<DioInviteRemoteDataSource>());
       expect(adapter.fetchCalls, 0);
 
-      await dataSource.createInvite('story-id');
+      await dataSource.createInvite('story-id', StoryRole.editor);
 
       expect(adapter.fetchCalls, 1);
       expect(adapter.lastPath, '/api/v1/stories/story-id/invites');

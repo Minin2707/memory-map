@@ -5,6 +5,7 @@ import 'package:memory_map/features/invite/application/invite_application_provid
 import 'package:memory_map/features/invite/domain/create_invite_input.dart';
 import 'package:memory_map/features/invite/domain/invite.dart';
 import 'package:memory_map/features/invite/domain/invite_failure.dart';
+import 'package:memory_map/features/story/domain/story_role.dart';
 
 final createInviteProvider = AsyncNotifierProvider.autoDispose<
     CreateInviteNotifier, CreateInviteState>(
@@ -18,7 +19,7 @@ final class CreateInviteNotifier extends AsyncNotifier<CreateInviteState> {
     return const CreateInviteState();
   }
 
-  Future<Invite?> createInvite(String storyId) async {
+  Future<Invite?> createInvite(String storyId, StoryRole targetRole) async {
     final currentState = _currentState;
     if (_isLoading || currentState == null || currentState.isCreating) {
       return null;
@@ -26,7 +27,10 @@ final class CreateInviteNotifier extends AsyncNotifier<CreateInviteState> {
 
     late final CreateInviteInput input;
     try {
-      input = CreateInviteInput(storyId: storyId);
+      input = CreateInviteInput(
+        storyId: storyId,
+        targetRole: targetRole,
+      );
     } on ArgumentError {
       state = AsyncData<CreateInviteState>(
         currentState.copyWith(

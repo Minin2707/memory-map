@@ -180,8 +180,8 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void shouldUploadOwnPhotoForViewer() {
-        assertAuthorRoleCanUploadOwnPhoto(StoryRole.VIEWER);
+    void shouldDenyViewerAuthorWithoutProcessingOrStorage() {
+        assertDeniedAuthorRoleKeepsSystemUnchanged(StoryRole.VIEWER);
     }
 
     @Test
@@ -410,6 +410,23 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
 
         assertPhotoUnavailable(() -> uploadPhotoUseCase.uploadPhoto(command(
                 participant.id(),
+                memory.id(),
+                MEDIA_ID
+        )));
+
+        assertThat(memoryRepository.findById(memory.id())).contains(memory);
+        assertNoProcessingStorageOrMetadata();
+    }
+
+    private void assertDeniedAuthorRoleKeepsSystemUnchanged(StoryRole role) {
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User author = saveUser(USER_ID, "author-google-subject");
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), author.id(), role);
+        Memory memory = saveMemory(MEMORY_ID, story.id(), author.id());
+
+        assertPhotoUnavailable(() -> uploadPhotoUseCase.uploadPhoto(command(
+                author.id(),
                 memory.id(),
                 MEDIA_ID
         )));

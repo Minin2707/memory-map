@@ -18,6 +18,7 @@ public class JdbcInviteRepository implements InviteRepository {
             SELECT
                 id,
                 story_id,
+                role,
                 token_hash,
                 created_by,
                 created_at,
@@ -49,6 +50,7 @@ public class JdbcInviteRepository implements InviteRepository {
             INSERT INTO invites (
                 id,
                 story_id,
+                role,
                 token_hash,
                 created_by,
                 created_at,
@@ -58,6 +60,7 @@ public class JdbcInviteRepository implements InviteRepository {
             VALUES (
                 :id,
                 :storyId,
+                :role,
                 :tokenHash,
                 :createdBy,
                 :createdAt,
@@ -132,6 +135,7 @@ public class JdbcInviteRepository implements InviteRepository {
         jdbcClient.sql(INSERT_SQL)
                 .param("id", invite.id())
                 .param("storyId", invite.storyId())
+                .param("role", invite.role().name())
                 .param("tokenHash", invite.tokenHash())
                 .param("createdBy", invite.createdBy())
                 .param("createdAt", DatabaseTimestamps.toOffsetDateTime(invite.createdAt()))

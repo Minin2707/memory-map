@@ -1,6 +1,7 @@
 package memory_map.backend.invite.application;
 
 import memory_map.backend.auth.domain.AuthenticatedUser;
+import memory_map.backend.storyparticipant.domain.StoryRole;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -14,6 +15,8 @@ public record CreateInviteCommand(
 
         UUID inviteId,
 
+        StoryRole targetRole,
+
         Instant currentTime
 
 ) {
@@ -24,7 +27,14 @@ public record CreateInviteCommand(
         );
         Objects.requireNonNull(storyId, "storyId must not be null");
         Objects.requireNonNull(inviteId, "inviteId must not be null");
+        Objects.requireNonNull(targetRole, "targetRole must not be null");
         Objects.requireNonNull(currentTime, "currentTime must not be null");
+
+        if (targetRole == StoryRole.OWNER) {
+            throw new IllegalArgumentException(
+                    "targetRole must not be OWNER"
+            );
+        }
     }
 
     @Override
@@ -33,6 +43,7 @@ public record CreateInviteCommand(
                 + "authenticatedUser=<redacted>, "
                 + "storyId=<redacted>, "
                 + "inviteId=<redacted>, "
+                + "targetRole=<redacted>, "
                 + "currentTime=" + currentTime
                 + "]";
     }

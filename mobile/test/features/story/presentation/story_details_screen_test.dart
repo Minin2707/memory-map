@@ -722,7 +722,7 @@ void main() {
               previewPhoto: memoryPreviewPhoto('media-latest'),
             ),
           ],
-        onInvite: () {
+        onInvite: (_) {
           inviteCalls += 1;
         },
         onMemoriesSelected: (userStory) {
@@ -848,16 +848,22 @@ void main() {
       WidgetTester tester,
     ) async {
       for (final role in <StoryRole>[StoryRole.owner, StoryRole.coOwner]) {
+        StoryRole? inviteRole;
         await pumpScreen(
           tester,
           FakeStoryRepository()..storyResult = userStory(role: role),
-          onInvite: () {},
+          onInvite: (role) {
+            inviteRole = role;
+          },
         );
 
-        expect(
-          find.byKey(const ValueKey('story-details.invite-action')),
-          findsOneWidget,
-        );
+        final inviteAction =
+            find.byKey(const ValueKey('story-details.invite-action'));
+        expect(inviteAction, findsOneWidget);
+
+        await pressButton(tester, inviteAction);
+
+        expect(inviteRole, role);
       }
     });
 
@@ -876,8 +882,9 @@ void main() {
           onParticipantsSelected: (userStory) {
             managedStory = userStory;
           },
-          onInvite: () {
+          onInvite: (role) {
             inviteCalls += 1;
+            expect(role, story.role);
           },
         );
 
@@ -916,7 +923,7 @@ void main() {
               participant(displayName: 'Anna', role: role),
             ],
           onParticipantsSelected: (_) {},
-          onInvite: () {},
+          onInvite: (_) {},
         );
 
         await scrollDownUntilFound(
@@ -995,7 +1002,7 @@ void main() {
         await pumpScreen(
           tester,
           FakeStoryRepository()..storyResult = userStory(role: role),
-          onInvite: () {},
+          onInvite: (_) {},
         );
 
         expect(
@@ -1377,7 +1384,7 @@ Future<ProviderContainer> pumpScreen(
   String storyId = 'story-1',
   VoidCallback? onBack,
   ValueChanged<UserStory>? onEditStory,
-  VoidCallback? onInvite,
+  ValueChanged<StoryRole>? onInvite,
   ValueChanged<UserStory>? onMemoriesSelected,
   ValueChanged<UserStory>? onParticipantsSelected,
   ValueChanged<UserStory>? onMapSelected,

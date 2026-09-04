@@ -616,6 +616,7 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
         Invite invite = new Invite(
                 id,
                 storyId,
+                StoryRole.CO_OWNER,
                 "token-hash-" + id,
                 createdBy,
                 BASE_TIME,

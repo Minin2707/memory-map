@@ -150,10 +150,13 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void shouldDeleteOwnMemoryMediaForEditorAndViewer() {
+    void shouldDeleteOwnMemoryMediaForEditor() {
         assertAuthorRoleCanDeleteOwnMedia(StoryRole.EDITOR);
-        cleanDatabaseAndStorage();
-        assertAuthorRoleCanDeleteOwnMedia(StoryRole.VIEWER);
+    }
+
+    @Test
+    void shouldDenyViewerForOwnMemoryMedia() {
+        assertDeniedAuthorRoleKeepsMediaAndStorage(StoryRole.VIEWER);
     }
 
     @Test
@@ -315,6 +318,24 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
 
         assertUnavailable(() -> deleteMediaUseCase.deleteMedia(
                 command(requester.id(), mediaFile.id())
+        ));
+
+        assertThat(mediaFileRepository.findById(mediaFile.id()))
+                .contains(mediaFile);
+        assertThat(storageService.deletedKeys).isEmpty();
+    }
+
+    private void assertDeniedAuthorRoleKeepsMediaAndStorage(StoryRole role) {
+        User owner = saveUser(OWNER_ID);
+        User author = saveUser(USER_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), author.id(), role);
+        Memory memory = saveMemory(MEMORY_ID, story.id(), author.id());
+        MediaFile mediaFile = saveMediaFile(MEDIA_ID, memory.id());
+        putObjects(mediaFile);
+
+        assertUnavailable(() -> deleteMediaUseCase.deleteMedia(
+                command(author.id(), mediaFile.id())
         ));
 
         assertThat(mediaFileRepository.findById(mediaFile.id()))

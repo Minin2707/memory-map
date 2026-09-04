@@ -46,7 +46,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(InviteControllerIntegrationTest.InviteControllerIntegrationTestConfiguration.class)
 @TestPropertySource(properties = {
         "app.invite.ttl=PT48H",
-        "app.invite.base-url=https://test.memorymap.app"
+        "app.invite.base-url=https://test.memorymap.app",
+        "app.rate-limit.invite-accept.capacity=1000",
+        "app.rate-limit.invite-accept.refill-tokens=1000",
+        "app.rate-limit.invite-accept.refill-period=PT1M"
 })
 class InviteControllerIntegrationTest extends IntegrationTest {
 
@@ -150,6 +153,7 @@ class InviteControllerIntegrationTest extends IntegrationTest {
 
         assertThat(persisted.storyId()).isEqualTo(story.id());
         assertThat(persisted.createdBy()).isEqualTo(owner.id());
+        assertThat(persisted.role()).isEqualTo(StoryRole.CO_OWNER);
         assertThat(persisted.createdAt()).isEqualTo(CURRENT_TIME);
         assertThat(persisted.expiresAt())
                 .isEqualTo(CURRENT_TIME.plus(inviteProperties.ttl()));
@@ -175,6 +179,7 @@ class InviteControllerIntegrationTest extends IntegrationTest {
         JsonNode response = postInvite(
                 validAccessToken(coOwner.id()),
                 story.id(),
+                StoryRole.EDITOR,
                 201
         );
 
@@ -184,10 +189,18 @@ class InviteControllerIntegrationTest extends IntegrationTest {
                 .isEqualTo("2026-01-12T10:00:00.123456Z");
         assertThat(persisted.storyId()).isEqualTo(story.id());
         assertThat(persisted.createdBy()).isEqualTo(coOwner.id());
+        assertThat(persisted.role()).isEqualTo(StoryRole.EDITOR);
     }
 
-    @Test
-    void shouldAcceptInviteCreatedByOwnerAndCreateCoOwnerParticipant()
+    @ParameterizedTest
+    @EnumSource(value = StoryRole.class, names = {
+            "CO_OWNER",
+            "EDITOR",
+            "VIEWER"
+    })
+    void shouldAcceptInviteAndCreateParticipantWithInviteRole(
+            StoryRole inviteRole
+    )
             throws Exception {
 
         User owner = saveUser(OWNER_ID);
@@ -202,6 +215,7 @@ class InviteControllerIntegrationTest extends IntegrationTest {
                 story.id(),
                 owner.id(),
                 RAW_INVITE_TOKEN,
+                inviteRole,
                 EXPIRES_AT,
                 null
         );
@@ -225,7 +239,7 @@ class InviteControllerIntegrationTest extends IntegrationTest {
                 .isEqualTo("Accepted Story");
         assertThat(response.at("/description").asText())
                 .isEqualTo("The beginning");
-        assertThat(response.at("/role").asText()).isEqualTo("CO_OWNER");
+        assertThat(response.at("/role").asText()).isEqualTo(inviteRole.name());
         assertThat(response.at("/createdAt").asText())
                 .isEqualTo("2026-01-01T10:00:00.123456Z");
         assertThat(response.at("/updatedAt").asText())
@@ -234,9 +248,10 @@ class InviteControllerIntegrationTest extends IntegrationTest {
         assertThat(participant).isEqualTo(new StoryParticipant(
                 story.id(),
                 invitedUser.id(),
-                StoryRole.CO_OWNER,
+                inviteRole,
                 CURRENT_TIME
         ));
+        assertThat(consumed.role()).isEqualTo(inviteRole);
         assertThat(consumed.usedAt()).isEqualTo(CURRENT_TIME);
     }
 
@@ -513,6 +528,27 @@ class InviteControllerIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void shouldReturnBadRequestForOwnerInviteTargetRole() throws Exception {
+        User owner = saveUser(USER_ID);
+        Story story = saveStory(
+                STORY_ID,
+                owner.id(),
+                "Owner Story"
+        );
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+
+        JsonNode response = postInvite(
+                validAccessToken(owner.id()),
+                story.id(),
+                StoryRole.OWNER,
+                400
+        );
+
+        assertInvalidInviteRequestBodyIsSafe(response);
+        assertThat(inviteCount()).isZero();
+    }
+
+    @Test
     void shouldReturnNotFoundWhenStoryDoesNotExist() throws Exception {
 
         User user = saveUser(USER_ID);
@@ -624,7 +660,11 @@ class InviteControllerIntegrationTest extends IntegrationTest {
                         .header(
                                 HttpHeaders.AUTHORIZATION,
                                 "Bearer " + validAccessToken(user.id())
-                        ))
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"CO_OWNER"}
+                                """))
                 .andExpect(status().isBadRequest())
                 .andReturn()
                 .getResponse()
@@ -689,6 +729,7 @@ class InviteControllerIntegrationTest extends IntegrationTest {
                 story.id(),
                 """
                 {
+                  "role": "VIEWER",
                   "inviteId": "%s",
                   "storyId": "%s",
                   "createdBy": "%s",
@@ -710,6 +751,7 @@ class InviteControllerIntegrationTest extends IntegrationTest {
         assertThat(persisted.createdBy()).isEqualTo(owner.id());
         assertThat(persisted.createdBy())
                 .isNotEqualTo(CLIENT_SUPPLIED_CREATOR_ID);
+        assertThat(persisted.role()).isEqualTo(StoryRole.VIEWER);
         assertThat(persisted.expiresAt())
                 .isEqualTo(CURRENT_TIME.plus(inviteProperties.ttl()));
     }
@@ -719,7 +761,28 @@ class InviteControllerIntegrationTest extends IntegrationTest {
             UUID storyId,
             int expectedStatus
     ) throws Exception {
-        return postInvite(accessToken, storyId, "", expectedStatus);
+        return postInvite(
+                accessToken,
+                storyId,
+                StoryRole.CO_OWNER,
+                expectedStatus
+        );
+    }
+
+    private JsonNode postInvite(
+            String accessToken,
+            UUID storyId,
+            StoryRole role,
+            int expectedStatus
+    ) throws Exception {
+        return postInvite(
+                accessToken,
+                storyId,
+                """
+                {"role":"%s"}
+                """.formatted(role.name()),
+                expectedStatus
+        );
     }
 
     private JsonNode postInvite(
@@ -828,9 +891,28 @@ class InviteControllerIntegrationTest extends IntegrationTest {
             Instant expiresAt,
             Instant usedAt
     ) {
+        return saveInvite(
+                storyId,
+                createdBy,
+                rawInviteToken,
+                StoryRole.CO_OWNER,
+                expiresAt,
+                usedAt
+        );
+    }
+
+    private Invite saveInvite(
+            UUID storyId,
+            UUID createdBy,
+            String rawInviteToken,
+            StoryRole role,
+            Instant expiresAt,
+            Instant usedAt
+    ) {
         Invite invite = new Invite(
                 UUID.randomUUID(),
                 storyId,
+                role,
                 inviteTokenHasher.hash(rawInviteToken),
                 createdBy,
                 BASE_TIME,
@@ -972,6 +1054,30 @@ class InviteControllerIntegrationTest extends IntegrationTest {
                 .doesNotContain("access denied")
                 .doesNotContain("forbidden")
                 .doesNotContain("InviteAcceptanceUnavailableException")
+                .doesNotContain("stackTrace")
+                .doesNotContain("tokenHash")
+                .doesNotContain("rawToken")
+                .doesNotContain("SQL")
+                .doesNotContain("Jdbc")
+                .doesNotContain("repository");
+    }
+
+    private static void assertInvalidInviteRequestBodyIsSafe(
+            JsonNode response
+    ) {
+        assertThat(response.at("/title").asText())
+                .isEqualTo("Bad Request");
+        assertThat(response.at("/status").asInt()).isEqualTo(400);
+        assertThat(response.at("/detail").asText())
+                .isEqualTo("Invalid invite request");
+        assertThat(response.toString())
+                .doesNotContain(STORY_ID.toString())
+                .doesNotContain(USER_ID.toString())
+                .doesNotContain(OWNER_ID.toString())
+                .doesNotContain("OWNER")
+                .doesNotContain("CO_OWNER")
+                .doesNotContain("EDITOR")
+                .doesNotContain("VIEWER")
                 .doesNotContain("stackTrace")
                 .doesNotContain("tokenHash")
                 .doesNotContain("rawToken")

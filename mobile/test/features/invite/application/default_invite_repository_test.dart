@@ -17,11 +17,17 @@ void main() {
       final fakes = InviteRepositoryFakes();
       final repository = fakes.createRepository();
 
-      await repository.createInvite(CreateInviteInput(storyId: ' story-id '));
+      await repository.createInvite(
+        CreateInviteInput(
+          storyId: ' story-id ',
+          targetRole: StoryRole.editor,
+        ),
+      );
 
       expect(fakes.remote.createCalls, 1);
       expect(fakes.remote.acceptCalls, 0);
       expect(fakes.remote.receivedStoryId, ' story-id ');
+      expect(fakes.remote.receivedTargetRole, StoryRole.editor);
     });
 
     test('shouldReturnExactInviteWithoutModification', () async {
@@ -29,12 +35,16 @@ void main() {
       final repository = fakes.createRepository();
 
       final invite = await repository.createInvite(
-        CreateInviteInput(storyId: 'story-id'),
+        CreateInviteInput(
+          storyId: 'story-id',
+          targetRole: StoryRole.viewer,
+        ),
       );
 
       expect(invite, inviteFixture);
       expect(invite.inviteLink, inviteFixture.inviteLink);
       expect(invite.expiresAt, inviteFixture.expiresAt);
+      expect(fakes.remote.receivedTargetRole, StoryRole.viewer);
     });
   });
 
@@ -95,7 +105,12 @@ void main() {
       final repository = fakes.createRepository();
 
       await expectLater(
-        repository.createInvite(CreateInviteInput(storyId: 'story-id')),
+        repository.createInvite(
+          CreateInviteInput(
+            storyId: 'story-id',
+            targetRole: StoryRole.editor,
+          ),
+        ),
         throwsA(isA<UnexpectedInviteException>()),
       );
     });
@@ -154,7 +169,12 @@ Future<void> expectCreateRemoteFailure(
   final repository = fakes.createRepository();
 
   await expectApplicationFailure(
-    repository.createInvite(CreateInviteInput(storyId: 'story-id')),
+    repository.createInvite(
+      CreateInviteInput(
+        storyId: 'story-id',
+        targetRole: StoryRole.editor,
+      ),
+    ),
     failure,
   );
 }
@@ -261,14 +281,16 @@ final class FakeInviteRemoteDataSource implements InviteRemoteDataSource {
   int acceptCalls = 0;
   Object? failure;
   String? receivedStoryId;
+  StoryRole? receivedTargetRole;
   String? receivedRawToken;
   Invite invite = inviteFixture;
   UserStory userStory = userStoryFixture;
 
   @override
-  Future<Invite> createInvite(String storyId) async {
+  Future<Invite> createInvite(String storyId, StoryRole targetRole) async {
     createCalls += 1;
     receivedStoryId = storyId;
+    receivedTargetRole = targetRole;
     _throwIfConfigured();
 
     return invite;

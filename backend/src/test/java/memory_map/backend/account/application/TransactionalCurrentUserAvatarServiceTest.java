@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TransactionalCurrentUserAvatarServiceTest {
@@ -49,6 +51,125 @@ class TransactionalCurrentUserAvatarServiceTest {
             "users/%s/avatar/%s".formatted(USER_ID, AVATAR_OBJECT_ID);
 
     @Test
+    void shouldRejectNullConstructorDependencies() {
+        FakeUserRepository userRepository =
+                new FakeUserRepository(userWithCustomAvatar());
+        UserAvatarImageProcessor imageProcessor = imageProcessor();
+        UserAvatarStorageKeyFactory storageKeyFactory =
+                new DeterministicUserAvatarStorageKeyFactory();
+        FakeStorageService storageService = new FakeStorageService();
+        FakeRollbackCoordinator rollbackCoordinator =
+                new FakeRollbackCoordinator();
+        FakeCommitCoordinator commitCoordinator = new FakeCommitCoordinator();
+
+        assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
+                null,
+                imageProcessor,
+                storageKeyFactory,
+                storageService,
+                rollbackCoordinator,
+                commitCoordinator
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("userRepository must not be null");
+        assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
+                userRepository,
+                null,
+                storageKeyFactory,
+                storageService,
+                rollbackCoordinator,
+                commitCoordinator
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("imageProcessor must not be null");
+        assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
+                userRepository,
+                imageProcessor,
+                null,
+                storageService,
+                rollbackCoordinator,
+                commitCoordinator
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("storageKeyFactory must not be null");
+        assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
+                userRepository,
+                imageProcessor,
+                storageKeyFactory,
+                null,
+                rollbackCoordinator,
+                commitCoordinator
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("storageService must not be null");
+        assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
+                userRepository,
+                imageProcessor,
+                storageKeyFactory,
+                storageService,
+                null,
+                commitCoordinator
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("rollbackCoordinator must not be null");
+        assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
+                userRepository,
+                imageProcessor,
+                storageKeyFactory,
+                storageService,
+                rollbackCoordinator,
+                null
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("commitCoordinator must not be null");
+    }
+
+    @Test
+    void shouldRejectNullCommands() {
+        TestContext context = new TestContext(userWithCustomAvatar());
+
+        assertThatThrownBy(() -> context.service().uploadAvatar(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("command must not be null");
+        assertThatThrownBy(() -> context.service().downloadAvatar(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("command must not be null");
+        assertThatThrownBy(() -> context.service().removeAvatar(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("command must not be null");
+    }
+
+    @Test
+    void shouldRejectUploadWhenUserIsUnavailableWithoutMutatingStorageOrDb() {
+        TestContext context = new TestContext(null);
+
+        assertThatThrownBy(() -> context.service().uploadAvatar(uploadCommand()))
+                .isInstanceOf(UserAvatarUnavailableException.class);
+
+        assertThat(context.storageService().storedObject()).isNull();
+        assertThat(context.storageService().deletedKeys()).isEmpty();
+        assertThat(context.userRepository().updateCustomAvatarCalls()).isZero();
+        assertThat(context.rollbackCoordinator().actions()).isEmpty();
+        assertThat(context.commitCoordinator().actions()).isEmpty();
+    }
+
+    @Test
+    void shouldStoreNewAvatarWithoutSchedulingOldCleanupWhenNoPreviousAvatar() {
+        TestContext context = new TestContext(userWithoutCustomAvatar());
+
+        User updated = context.service().uploadAvatar(uploadCommand());
+
+        assertThat(updated).isEqualTo(context.userRepository().activeUser());
+        assertThat(updated.customAvatarStorageKey()).isEqualTo(NEW_STORAGE_KEY);
+        assertThat(context.storageService().storedObject().storageKey())
+                .isEqualTo(new StorageKey(NEW_STORAGE_KEY));
+        assertThat(context.storageService().storedObject().contentType())
+                .isEqualTo("image/jpeg");
+        assertThat(context.rollbackCoordinator().actions()).hasSize(1);
+        assertThat(context.userRepository().updateCustomAvatarCalls())
+                .isEqualTo(1);
+        assertThat(context.userRepository().updatedCustomAvatarStorageKey())
+                .isEqualTo(NEW_STORAGE_KEY);
+        assertThat(context.userRepository().updatedAt())
+                .isEqualTo(CURRENT_TIME);
+        assertThat(context.commitCoordinator().actions()).isEmpty();
+    }
+
+    @Test
     void shouldStoreNewAvatarAndCleanupOldAvatarAfterCommit() {
         TestContext context = new TestContext(userWithCustomAvatar());
 
@@ -56,6 +177,12 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         assertThat(updated.avatarUrl()).isEqualTo(GOOGLE_AVATAR_URL);
         assertThat(updated.customAvatarStorageKey()).isEqualTo(NEW_STORAGE_KEY);
+        assertThat(context.userRepository().updateCustomAvatarCalls())
+                .isEqualTo(1);
+        assertThat(context.userRepository().updatedCustomAvatarStorageKey())
+                .isEqualTo(NEW_STORAGE_KEY);
+        assertThat(context.userRepository().updatedAt())
+                .isEqualTo(CURRENT_TIME);
         assertThat(context.storageService().storedObject().storageKey())
                 .isEqualTo(new StorageKey(NEW_STORAGE_KEY));
         assertThat(context.storageService().storedObject().contentType())
@@ -67,6 +194,66 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         assertThat(context.storageService().deletedKeys())
                 .containsExactly(new StorageKey(OLD_STORAGE_KEY));
+    }
+
+    @Test
+    void shouldDeleteNewAvatarFromRollbackCallbackAndSuppressCleanupFailure() {
+        TestContext context = new TestContext(userWithCustomAvatar());
+
+        context.service().uploadAvatar(uploadCommand());
+
+        Runnable rollbackCleanup =
+                context.rollbackCoordinator().actions().getFirst();
+        rollbackCleanup.run();
+        assertThat(context.storageService().deletedKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
+
+        context.storageService().deleteFailure =
+                new RuntimeException("cleanup failed");
+        assertThatCode(rollbackCleanup::run).doesNotThrowAnyException();
+        assertThat(context.storageService().deletedKeys())
+                .containsExactly(
+                        new StorageKey(NEW_STORAGE_KEY),
+                        new StorageKey(NEW_STORAGE_KEY)
+                );
+    }
+
+    @Test
+    void shouldDeleteNewAvatarWhenRollbackRegistrationFailsAndRethrowPrimary() {
+        TestContext context = new TestContext(userWithCustomAvatar());
+        RuntimeException failure = new RuntimeException(
+                "rollback registration failed"
+        );
+        context.rollbackCoordinator().failure = failure;
+
+        assertThatThrownBy(() -> context.service().uploadAvatar(uploadCommand()))
+                .isSameAs(failure);
+
+        assertThat(context.storageService().deletedKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
+        assertThat(context.userRepository().updateCustomAvatarCalls()).isZero();
+        assertThat(context.commitCoordinator().actions()).isEmpty();
+    }
+
+    @Test
+    void shouldSuppressCleanupFailureWhenRollbackRegistrationFails() {
+        TestContext context = new TestContext(userWithCustomAvatar());
+        RuntimeException primary = new RuntimeException(
+                "rollback registration failed"
+        );
+        RuntimeException cleanupFailure = new RuntimeException(
+                "cleanup failed"
+        );
+        context.rollbackCoordinator().failure = primary;
+        context.storageService().deleteFailure = cleanupFailure;
+
+        assertThatThrownBy(() -> context.service().uploadAvatar(uploadCommand()))
+                .isSameAs(primary)
+                .satisfies(exception -> assertThat(exception.getSuppressed())
+                        .containsExactly(cleanupFailure));
+
+        assertThat(context.storageService().deletedKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
     }
 
     @Test
@@ -86,21 +273,137 @@ class TransactionalCurrentUserAvatarServiceTest {
     }
 
     @Test
+    void shouldSuppressCleanupFailureWhenDbUpdateFails() {
+        TestContext context = new TestContext(userWithCustomAvatar());
+        RuntimeException primary = new RuntimeException("update failed");
+        RuntimeException cleanupFailure = new RuntimeException(
+                "cleanup failed"
+        );
+        context.userRepository().updateFailure = primary;
+        context.storageService().deleteFailure = cleanupFailure;
+
+        assertThatThrownBy(() -> context.service().uploadAvatar(uploadCommand()))
+                .isSameAs(primary)
+                .satisfies(exception -> assertThat(exception.getSuppressed())
+                        .containsExactly(cleanupFailure));
+
+        assertThat(context.storageService().deletedKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
+        assertThat(context.commitCoordinator().actions()).isEmpty();
+    }
+
+    @Test
+    void shouldRejectDownloadWhenUserDoesNotExist() {
+        TestContext context = new TestContext(null);
+
+        assertThatThrownBy(() -> context.service()
+                .downloadAvatar(downloadCommand()))
+                .isInstanceOf(UserAvatarUnavailableException.class);
+
+        assertThat(context.storageService().readKey()).isNull();
+    }
+
+    @Test
+    void shouldRejectDownloadWhenUserIsDeleted() {
+        TestContext context = new TestContext(deletedUserWithCustomAvatar());
+
+        assertThatThrownBy(() -> context.service()
+                .downloadAvatar(downloadCommand()))
+                .isInstanceOf(UserAvatarUnavailableException.class);
+
+        assertThat(context.storageService().readKey()).isNull();
+    }
+
+    @Test
+    void shouldRejectDownloadWhenUserHasNoCustomAvatar() {
+        TestContext context = new TestContext(userWithoutCustomAvatar());
+
+        assertThatThrownBy(() -> context.service()
+                .downloadAvatar(downloadCommand()))
+                .isInstanceOf(UserAvatarUnavailableException.class);
+
+        assertThat(context.storageService().readKey()).isNull();
+    }
+
+    @Test
+    void shouldDownloadStoredCustomAvatar() throws Exception {
+        TestContext context = new TestContext(userWithCustomAvatar());
+        byte[] bytes = new byte[] {9, 8, 7};
+        context.storageService().readObject = new StoredObject(
+                new ByteArrayInputStream(bytes),
+                bytes.length,
+                "image/jpeg"
+        );
+
+        DownloadedUserAvatar avatar = context.service()
+                .downloadAvatar(downloadCommand());
+
+        assertThat(context.storageService().readKey())
+                .isEqualTo(new StorageKey(OLD_STORAGE_KEY));
+        assertThat(avatar.content().readAllBytes()).containsExactly(bytes);
+        assertThat(avatar.contentLength()).isEqualTo(bytes.length);
+        assertThat(avatar.contentType()).isEqualTo("image/jpeg");
+    }
+
+    @Test
+    void shouldRejectRemoveWhenUserIsUnavailableWithoutMutatingAvatar() {
+        TestContext context = new TestContext(null);
+
+        assertThatThrownBy(() -> context.service().removeAvatar(removeCommand()))
+                .isInstanceOf(UserAvatarUnavailableException.class);
+
+        assertThat(context.userRepository().clearCustomAvatarCalls()).isZero();
+        assertThat(context.storageService().deletedKeys()).isEmpty();
+        assertThat(context.commitCoordinator().actions()).isEmpty();
+    }
+
+    @Test
+    void shouldClearAvatarWithoutSchedulingOldCleanupWhenNoPreviousAvatar() {
+        TestContext context = new TestContext(userWithoutCustomAvatar());
+
+        User updated = context.service().removeAvatar(removeCommand());
+
+        assertThat(updated).isEqualTo(context.userRepository().activeUser());
+        assertThat(updated.hasCustomAvatar()).isFalse();
+        assertThat(context.userRepository().clearCustomAvatarCalls())
+                .isEqualTo(1);
+        assertThat(context.userRepository().updatedAt())
+                .isEqualTo(CURRENT_TIME);
+        assertThat(context.commitCoordinator().actions()).isEmpty();
+        assertThat(context.storageService().deletedKeys()).isEmpty();
+    }
+
+    @Test
     void shouldRemoveCustomAvatarAndCleanupOldAvatarAfterCommit() {
         TestContext context = new TestContext(userWithCustomAvatar());
 
-        User updated = context.service().removeAvatar(new RemoveCurrentUserAvatarCommand(
-                new AuthenticatedUser(USER_ID),
-                CURRENT_TIME
-        ));
+        User updated = context.service().removeAvatar(removeCommand());
 
         assertThat(updated.avatarUrl()).isEqualTo(GOOGLE_AVATAR_URL);
         assertThat(updated.customAvatarStorageKey()).isNull();
         assertThat(updated.hasCustomAvatar()).isFalse();
+        assertThat(context.userRepository().clearCustomAvatarCalls())
+                .isEqualTo(1);
+        assertThat(context.userRepository().updatedAt())
+                .isEqualTo(CURRENT_TIME);
         assertThat(context.storageService().deletedKeys()).isEmpty();
 
         context.commitCoordinator().actions().getFirst().run();
 
+        assertThat(context.storageService().deletedKeys())
+                .containsExactly(new StorageKey(OLD_STORAGE_KEY));
+    }
+
+    @Test
+    void shouldSuppressOldAvatarCleanupFailureAfterRemoveCommit() {
+        TestContext context = new TestContext(userWithCustomAvatar());
+        context.storageService().deleteFailure =
+                new RuntimeException("cleanup failed");
+
+        context.service().removeAvatar(removeCommand());
+
+        assertThatCode(context.commitCoordinator().actions().getFirst()::run)
+                .doesNotThrowAnyException();
         assertThat(context.storageService().deletedKeys())
                 .containsExactly(new StorageKey(OLD_STORAGE_KEY));
     }
@@ -110,6 +413,19 @@ class TransactionalCurrentUserAvatarServiceTest {
                 new AuthenticatedUser(USER_ID),
                 AVATAR_OBJECT_ID,
                 new ImageProcessingInput(new byte[] {1, 2, 3}, "image/jpeg"),
+                CURRENT_TIME
+        );
+    }
+
+    private static DownloadCurrentUserAvatarCommand downloadCommand() {
+        return new DownloadCurrentUserAvatarCommand(
+                new AuthenticatedUser(USER_ID)
+        );
+    }
+
+    private static RemoveCurrentUserAvatarCommand removeCommand() {
+        return new RemoveCurrentUserAvatarCommand(
+                new AuthenticatedUser(USER_ID),
                 CURRENT_TIME
         );
     }
@@ -128,9 +444,39 @@ class TransactionalCurrentUserAvatarServiceTest {
         );
     }
 
+    private static User userWithoutCustomAvatar() {
+        return new User(
+                USER_ID,
+                "google-subject-123",
+                "Ada Lovelace",
+                GOOGLE_AVATAR_URL,
+                CREATED_AT,
+                CREATED_AT
+        );
+    }
+
+    private static User deletedUserWithCustomAvatar() {
+        return new User(
+                USER_ID,
+                "google-subject-123",
+                "Ada Lovelace",
+                GOOGLE_AVATAR_URL,
+                OLD_STORAGE_KEY,
+                CREATED_AT,
+                CREATED_AT,
+                CREATED_AT,
+                CURRENT_TIME
+        );
+    }
+
+    private static UserAvatarImageProcessor imageProcessor() {
+        return new UserAvatarImageProcessor(new FakeImageProcessor());
+    }
+
     private record TestContext(
             FakeUserRepository userRepository,
             FakeStorageService storageService,
+            FakeRollbackCoordinator rollbackCoordinator,
             FakeCommitCoordinator commitCoordinator,
             TransactionalCurrentUserAvatarService service
     ) {
@@ -138,6 +484,7 @@ class TransactionalCurrentUserAvatarServiceTest {
             this(
                     new FakeUserRepository(user),
                     new FakeStorageService(),
+                    new FakeRollbackCoordinator(),
                     new FakeCommitCoordinator()
             );
         }
@@ -145,18 +492,20 @@ class TransactionalCurrentUserAvatarServiceTest {
         private TestContext(
                 FakeUserRepository userRepository,
                 FakeStorageService storageService,
+                FakeRollbackCoordinator rollbackCoordinator,
                 FakeCommitCoordinator commitCoordinator
         ) {
             this(
                     userRepository,
                     storageService,
+                    rollbackCoordinator,
                     commitCoordinator,
                     new TransactionalCurrentUserAvatarService(
                             userRepository,
-                            new UserAvatarImageProcessor(new FakeImageProcessor()),
+                            imageProcessor(),
                             new DeterministicUserAvatarStorageKeyFactory(),
                             storageService,
-                            new FakeRollbackCoordinator(),
+                            rollbackCoordinator,
                             commitCoordinator
                     )
             );
@@ -165,8 +514,13 @@ class TransactionalCurrentUserAvatarServiceTest {
 
     private static final class FakeUserRepository implements UserRepository {
 
-        private final User activeUser;
+        private User activeUser;
         private boolean failUpdateCustomAvatar;
+        private RuntimeException updateFailure;
+        private int updateCustomAvatarCalls;
+        private int clearCustomAvatarCalls;
+        private String updatedCustomAvatarStorageKey;
+        private Instant updatedAt;
 
         private FakeUserRepository(User activeUser) {
             this.activeUser = activeUser;
@@ -174,7 +528,9 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         @Override
         public Optional<User> findActiveByIdForUpdate(UUID id) {
-            return activeUser.id().equals(id)
+            return activeUser != null &&
+                    activeUser.id().equals(id) &&
+                    !activeUser.isDeleted()
                     ? Optional.of(activeUser)
                     : Optional.empty();
         }
@@ -185,14 +541,21 @@ class TransactionalCurrentUserAvatarServiceTest {
                 String storageKey,
                 Instant updatedAt
         ) {
+            updateCustomAvatarCalls++;
+            updatedCustomAvatarStorageKey = storageKey;
+            this.updatedAt = updatedAt;
+            if (updateFailure != null) {
+                throw updateFailure;
+            }
             if (failUpdateCustomAvatar) {
                 throw new RuntimeException("update failed");
             }
 
-            return new User(
+            activeUser = new User(
                     activeUser.id(),
                     activeUser.googleSubject(),
                     activeUser.displayName(),
+                    activeUser.displayNameCustomized(),
                     activeUser.avatarUrl(),
                     storageKey,
                     updatedAt,
@@ -200,18 +563,26 @@ class TransactionalCurrentUserAvatarServiceTest {
                     updatedAt,
                     activeUser.deletedAt()
             );
+            return activeUser;
         }
 
         @Override
         public User clearCustomAvatar(UUID id, Instant updatedAt) {
-            return new User(
+            clearCustomAvatarCalls++;
+            this.updatedAt = updatedAt;
+            activeUser = new User(
                     activeUser.id(),
                     activeUser.googleSubject(),
                     activeUser.displayName(),
+                    activeUser.displayNameCustomized(),
                     activeUser.avatarUrl(),
+                    null,
+                    null,
                     activeUser.createdAt(),
-                    updatedAt
+                    updatedAt,
+                    activeUser.deletedAt()
             );
+            return activeUser;
         }
 
         @Override
@@ -221,7 +592,9 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         @Override
         public Optional<User> findById(UUID id) {
-            throw new UnsupportedOperationException();
+            return activeUser != null && activeUser.id().equals(id)
+                    ? Optional.of(activeUser)
+                    : Optional.empty();
         }
 
         @Override
@@ -232,11 +605,30 @@ class TransactionalCurrentUserAvatarServiceTest {
         private User activeUser() {
             return activeUser;
         }
+
+        private int updateCustomAvatarCalls() {
+            return updateCustomAvatarCalls;
+        }
+
+        private int clearCustomAvatarCalls() {
+            return clearCustomAvatarCalls;
+        }
+
+        private String updatedCustomAvatarStorageKey() {
+            return updatedCustomAvatarStorageKey;
+        }
+
+        private Instant updatedAt() {
+            return updatedAt;
+        }
     }
 
     private static final class FakeStorageService implements StorageService {
 
         private StorageObjectWrite storedObject;
+        private StoredObject readObject;
+        private StorageKey readKey;
+        private RuntimeException deleteFailure;
         private final List<StorageKey> deletedKeys = new ArrayList<>();
 
         @Override
@@ -251,7 +643,8 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         @Override
         public StoredObject read(StorageKey storageKey) {
-            throw new UnsupportedOperationException();
+            readKey = storageKey;
+            return readObject;
         }
 
         @Override
@@ -265,6 +658,9 @@ class TransactionalCurrentUserAvatarServiceTest {
         @Override
         public void delete(StorageKey storageKey) {
             deletedKeys.add(storageKey);
+            if (deleteFailure != null) {
+                throw deleteFailure;
+            }
         }
 
         private StorageObjectWrite storedObject() {
@@ -273,6 +669,10 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         private List<StorageKey> deletedKeys() {
             return deletedKeys;
+        }
+
+        private StorageKey readKey() {
+            return readKey;
         }
     }
 
@@ -294,8 +694,19 @@ class TransactionalCurrentUserAvatarServiceTest {
     private static final class FakeRollbackCoordinator
             implements TransactionRollbackCoordinator {
 
+        private final List<Runnable> actions = new ArrayList<>();
+        private RuntimeException failure;
+
         @Override
         public void onRollback(Runnable action) {
+            if (failure != null) {
+                throw failure;
+            }
+            actions.add(action);
+        }
+
+        private List<Runnable> actions() {
+            return actions;
         }
     }
 

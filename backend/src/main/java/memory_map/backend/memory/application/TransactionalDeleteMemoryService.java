@@ -70,6 +70,7 @@ public class TransactionalDeleteMemoryService implements DeleteMemoryUseCase {
     ) {
         return role == StoryRole.OWNER
                 || role == StoryRole.CO_OWNER
-                || memory.createdBy().equals(requesterUserId);
+                || (role == StoryRole.EDITOR
+                        && memory.createdBy().equals(requesterUserId));
     }
 }

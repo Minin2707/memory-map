@@ -11,7 +11,10 @@ void main() {
   group('InviteRepository', () {
     test('shouldExposeCreateInviteContract', () async {
       final repository = FakeInviteRepository();
-      final input = CreateInviteInput(storyId: 'story-id');
+      final input = CreateInviteInput(
+        storyId: 'story-id',
+        targetRole: StoryRole.editor,
+      );
 
       final invite = await repository.createInvite(input);
 

@@ -13,19 +13,39 @@ import 'package:memory_map/features/story/domain/user_story.dart';
 
 void main() {
   group('DioInviteRemoteDataSource createInvite', () {
-    test('shouldPostCreateInviteWithoutBody', () async {
+    test('shouldPostCreateInviteWithTargetRoleBody', () async {
       final adapter = FakeHttpClientAdapter(
         statusCode: 201,
         responseData: validInviteJson(),
       );
       final dataSource = createDataSource(adapter);
 
-      await dataSource.createInvite('story-id');
+      await dataSource.createInvite('story-id', StoryRole.coOwner);
 
       expect(adapter.lastMethod, 'POST');
       expect(adapter.lastPath, '/api/v1/stories/story-id/invites');
-      expect(adapter.lastBody, isNull);
+      expect(adapter.lastBody, <String, Object?>{'role': 'CO_OWNER'});
       expect(adapter.lastHeaders.toString(), isNot(contains('story-id')));
+    });
+
+    test('shouldMapCreateInviteTargetRolesToExplicitWireValues', () async {
+      final cases = <StoryRole, String>{
+        StoryRole.coOwner: 'CO_OWNER',
+        StoryRole.editor: 'EDITOR',
+        StoryRole.viewer: 'VIEWER',
+      };
+
+      for (final entry in cases.entries) {
+        final adapter = FakeHttpClientAdapter(
+          statusCode: 201,
+          responseData: validInviteJson(),
+        );
+        final dataSource = createDataSource(adapter);
+
+        await dataSource.createInvite('story-id', entry.key);
+
+        expect(adapter.lastBody, <String, Object?>{'role': entry.value});
+      }
     });
 
     test('shouldEncodeCreateInviteStoryIdPathSegment', () async {
@@ -35,7 +55,7 @@ void main() {
       );
       final dataSource = createDataSource(adapter);
 
-      await dataSource.createInvite('story/id');
+      await dataSource.createInvite('story/id', StoryRole.editor);
 
       expect(adapter.lastPath, '/api/v1/stories/story%2Fid/invites');
     });
@@ -48,7 +68,7 @@ void main() {
         ),
       );
 
-      final invite = await dataSource.createInvite('story-id');
+      final invite = await dataSource.createInvite('story-id', StoryRole.editor);
 
       expect(invite, createInvite());
       expect(invite.expiresAt.isUtc, isTrue);
@@ -62,8 +82,22 @@ void main() {
       final dataSource = createDataSource(adapter);
 
       await expectLater(
-        dataSource.createInvite('   '),
+        dataSource.createInvite('   ', StoryRole.editor),
         throwsA(argumentErrorWithMessage('storyId must not be blank')),
+      );
+      expect(adapter.fetchCalls, 0);
+    });
+
+    test('shouldRejectOwnerTargetRoleWithoutNetworkCall', () async {
+      final adapter = FakeHttpClientAdapter(
+        statusCode: 201,
+        responseData: validInviteJson(),
+      );
+      final dataSource = createDataSource(adapter);
+
+      await expectLater(
+        dataSource.createInvite('story-id', StoryRole.owner),
+        throwsA(argumentErrorWithMessage('targetRole must not be owner')),
       );
       expect(adapter.fetchCalls, 0);
     });
@@ -75,9 +109,9 @@ void main() {
       );
       final dataSource = createDataSource(adapter);
 
-      await dataSource.createInvite('story-id');
+      await dataSource.createInvite('story-id', StoryRole.viewer);
 
-      expect(adapter.lastBody, isNull);
+      expect(adapter.lastBody, <String, Object?>{'role': 'VIEWER'});
       expect(adapter.lastPath, isNot(contains('role')));
       expect(adapter.lastPath, isNot(contains('ttl')));
       expect(adapter.lastPath, isNot(contains('createdBy')));
@@ -296,7 +330,7 @@ void main() {
       );
 
       await expectLater(
-        dataSource.createInvite('story-id'),
+        dataSource.createInvite('story-id', StoryRole.editor),
         throwsA(isA<InviteRemoteMalformedResponseException>()),
       );
     });
@@ -307,7 +341,7 @@ void main() {
       );
 
       await expectLater(
-        dataSource.createInvite('story-id'),
+        dataSource.createInvite('story-id', StoryRole.editor),
         throwsA(isA<InviteRemoteMalformedResponseException>()),
       );
     });
@@ -318,7 +352,7 @@ void main() {
       );
 
       await expectLater(
-        dataSource.createInvite('story-id'),
+        dataSource.createInvite('story-id', StoryRole.editor),
         throwsA(isA<InviteRemoteMalformedResponseException>()),
       );
     });
@@ -396,7 +430,7 @@ Future<void> expectInviteStatusFailure(
   );
 
   await expectLater(
-    dataSource.createInvite('story-id'),
+    dataSource.createInvite('story-id', StoryRole.editor),
     throwsA(matcher),
   );
 }

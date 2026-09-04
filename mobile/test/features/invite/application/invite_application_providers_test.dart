@@ -41,7 +41,10 @@ void main() {
       final repository = container.read(inviteRepositoryProvider);
 
       final invite = await repository.createInvite(
-        CreateInviteInput(storyId: 'story-id'),
+        CreateInviteInput(
+          storyId: 'story-id',
+          targetRole: StoryRole.editor,
+        ),
       );
       final userStory = await repository.acceptInvite(
         AcceptInviteInput(rawToken: 'raw-token'),
@@ -50,6 +53,7 @@ void main() {
       expect(invite, inviteFixture);
       expect(userStory, userStoryFixture);
       expect(remote.receivedStoryId, 'story-id');
+      expect(remote.receivedTargetRole, StoryRole.editor);
       expect(remote.receivedRawToken, 'raw-token');
       expect(remote.totalCalls, 2);
     });
@@ -75,12 +79,14 @@ final UserStory userStoryFixture = UserStory(
 final class FakeInviteRemoteDataSource implements InviteRemoteDataSource {
   int totalCalls = 0;
   String? receivedStoryId;
+  StoryRole? receivedTargetRole;
   String? receivedRawToken;
 
   @override
-  Future<Invite> createInvite(String storyId) async {
+  Future<Invite> createInvite(String storyId, StoryRole targetRole) async {
     totalCalls += 1;
     receivedStoryId = storyId;
+    receivedTargetRole = targetRole;
 
     return inviteFixture;
   }

@@ -22,7 +22,7 @@ class ParticipantsScreen extends ConsumerStatefulWidget {
   final String storyId;
   final String currentUserId;
   final VoidCallback? onBack;
-  final VoidCallback? onInvite;
+  final ValueChanged<StoryRole>? onInvite;
   final VoidCallback? onLeftStory;
   final ValueChanged<StoryParticipant>? onParticipantRemoved;
 
@@ -193,7 +193,11 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
             participantCount: state.participants.length,
             canInvite: canInvite,
             inviteEnabled: !mutationActive,
-            onInvite: widget.onInvite,
+            onInvite: canInvite
+                ? () {
+                    widget.onInvite!(currentRole!);
+                  }
+                : null,
           ),
         ),
       ),

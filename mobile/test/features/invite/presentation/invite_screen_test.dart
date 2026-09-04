@@ -29,6 +29,10 @@ void main() {
       expect(find.text('Invite participant'), findsOneWidget);
       expect(find.text('Invite someone close'), findsOneWidget);
       expect(find.text('Invite link'), findsOneWidget);
+      expect(find.text('Choose access'), findsOneWidget);
+      expect(find.text('Co-author'), findsOneWidget);
+      expect(find.text('Editor'), findsOneWidget);
+      expect(find.text('View only'), findsOneWidget);
       expect(find.text('Create invite'), findsOneWidget);
       expect(find.textContaining(inviteLink), findsNothing);
       expect(find.byKey(const ValueKey('invite.copy-action')), findsNothing);
@@ -48,7 +52,59 @@ void main() {
 
       expect(find.text('Пригласить участника'), findsOneWidget);
       expect(find.text('Пригласите близкого человека'), findsOneWidget);
+      expect(find.text('Выберите доступ'), findsOneWidget);
       expect(find.text('Создать приглашение'), findsOneWidget);
+    });
+
+    testWidgets('shouldFailClosedWithoutValidInviterRole', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeInviteRepository();
+      await pumpScreen(
+        tester,
+        repository,
+        currentInviterRole: StoryRole.viewer,
+      );
+
+      expect(find.text('Choose access'), findsNothing);
+      expect(find.text('Co-author'), findsNothing);
+      expect(find.text('Editor'), findsNothing);
+      expect(find.text('View only'), findsNothing);
+      expect(find.text('This story is unavailable for invites.'), findsOneWidget);
+      expect(
+        tester.widget<FilledButton>(
+          find.byKey(const ValueKey('invite.create-action')),
+        ).onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('shouldHideCoOwnerTargetRoleForCoOwnerInviter', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeInviteRepository();
+      await pumpScreen(
+        tester,
+        repository,
+        currentInviterRole: StoryRole.coOwner,
+      );
+
+      expect(find.text('Co-author'), findsNothing);
+      expect(find.text('Editor'), findsOneWidget);
+      expect(find.text('View only'), findsOneWidget);
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('invite.create-action')),
+      );
+
+      expect(
+        repository.receivedCreateInput,
+        CreateInviteInput(
+          storyId: defaultStoryId,
+          targetRole: StoryRole.editor,
+        ),
+      );
     });
   });
 
@@ -67,7 +123,10 @@ void main() {
       expect(repository.createCalls, 1);
       expect(
         repository.receivedCreateInput,
-        CreateInviteInput(storyId: defaultStoryId),
+        CreateInviteInput(
+          storyId: defaultStoryId,
+          targetRole: StoryRole.editor,
+        ),
       );
       expect(find.text('Invite created'), findsOneWidget);
       expect(find.text('Invite is ready!'), findsOneWidget);
@@ -106,6 +165,54 @@ void main() {
 
       expect(find.text('Creating invite...'), findsOneWidget);
       expect(repository.createCalls, 1);
+
+      completer.complete(inviteFixture);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('shouldCreateInviteWithSelectedTargetRole', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeInviteRepository();
+      await pumpScreen(tester, repository);
+
+      await tapRoleOption(tester, StoryRole.viewer);
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('invite.create-action')),
+      );
+
+      expect(
+        repository.receivedCreateInput,
+        CreateInviteInput(
+          storyId: defaultStoryId,
+          targetRole: StoryRole.viewer,
+        ),
+      );
+    });
+
+    testWidgets('shouldDisableRoleSelectionWhileCreating', (
+      WidgetTester tester,
+    ) async {
+      final completer = Completer<Invite>();
+      final repository = FakeInviteRepository()..createCompleter = completer;
+      await pumpScreen(tester, repository);
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('invite.create-action')),
+        settle: false,
+      );
+      await tester.pump();
+      await tapRoleOption(tester, StoryRole.viewer, settle: false);
+
+      expect(
+        repository.receivedCreateInput,
+        CreateInviteInput(
+          storyId: defaultStoryId,
+          targetRole: StoryRole.editor,
+        ),
+      );
 
       completer.complete(inviteFixture);
       await tester.pumpAndSettle();
@@ -402,6 +509,21 @@ Future<void> createInvite(WidgetTester tester) async {
   await pressButton(tester, find.byKey(const ValueKey('invite.create-action')));
 }
 
+Future<void> tapRoleOption(
+  WidgetTester tester,
+  StoryRole role, {
+  bool settle = true,
+}) async {
+  final finder = find.byKey(ValueKey('invite.role-option.${role.name}'));
+  tester.widget<InkWell>(finder).onTap?.call();
+
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
+}
+
 Future<void> pressButton(
   WidgetTester tester,
   Finder finder, {
@@ -434,6 +556,7 @@ Future<ProviderContainer> pumpScreen(
   InviteShareCallback? onShareInvite,
   InviteClipboard clipboard = const FlutterInviteClipboard(),
   TextScaler textScaler = TextScaler.noScaling,
+  StoryRole? currentInviterRole = StoryRole.owner,
 }) async {
   final container = ProviderContainer(
     overrides: [
@@ -458,6 +581,7 @@ Future<ProviderContainer> pumpScreen(
         },
         home: InviteScreen(
           storyId: storyId,
+          currentInviterRole: currentInviterRole,
           onBack: onBack,
           onShareInvite: onShareInvite,
           clipboard: clipboard,

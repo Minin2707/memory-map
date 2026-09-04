@@ -1,6 +1,7 @@
 package memory_map.backend.invite.application;
 
 import memory_map.backend.auth.domain.AuthenticatedUser;
+import memory_map.backend.storyparticipant.domain.StoryRole;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.RecordComponent;
@@ -31,6 +32,7 @@ class CreateInviteCommandTest {
                 AUTHENTICATED_USER,
                 STORY_ID,
                 INVITE_ID,
+                StoryRole.CO_OWNER,
                 CURRENT_TIME
         );
 
@@ -38,6 +40,7 @@ class CreateInviteCommandTest {
                 .isEqualTo(AUTHENTICATED_USER);
         assertThat(command.storyId()).isEqualTo(STORY_ID);
         assertThat(command.inviteId()).isEqualTo(INVITE_ID);
+        assertThat(command.targetRole()).isEqualTo(StoryRole.CO_OWNER);
         assertThat(command.currentTime()).isEqualTo(CURRENT_TIME);
     }
 
@@ -48,6 +51,7 @@ class CreateInviteCommandTest {
                 null,
                 STORY_ID,
                 INVITE_ID,
+                StoryRole.CO_OWNER,
                 CURRENT_TIME
         ))
                 .isInstanceOf(NullPointerException.class)
@@ -61,6 +65,7 @@ class CreateInviteCommandTest {
                 AUTHENTICATED_USER,
                 null,
                 INVITE_ID,
+                StoryRole.CO_OWNER,
                 CURRENT_TIME
         ))
                 .isInstanceOf(NullPointerException.class)
@@ -74,10 +79,39 @@ class CreateInviteCommandTest {
                 AUTHENTICATED_USER,
                 STORY_ID,
                 null,
+                StoryRole.CO_OWNER,
                 CURRENT_TIME
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("inviteId must not be null");
+    }
+
+    @Test
+    void shouldRejectNullTargetRole() {
+
+        assertThatThrownBy(() -> new CreateInviteCommand(
+                AUTHENTICATED_USER,
+                STORY_ID,
+                INVITE_ID,
+                null,
+                CURRENT_TIME
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("targetRole must not be null");
+    }
+
+    @Test
+    void shouldRejectOwnerTargetRole() {
+
+        assertThatThrownBy(() -> new CreateInviteCommand(
+                AUTHENTICATED_USER,
+                STORY_ID,
+                INVITE_ID,
+                StoryRole.OWNER,
+                CURRENT_TIME
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("targetRole must not be OWNER");
     }
 
     @Test
@@ -87,6 +121,7 @@ class CreateInviteCommandTest {
                 AUTHENTICATED_USER,
                 STORY_ID,
                 INVITE_ID,
+                StoryRole.CO_OWNER,
                 null
         ))
                 .isInstanceOf(NullPointerException.class)
@@ -100,18 +135,21 @@ class CreateInviteCommandTest {
                 AUTHENTICATED_USER,
                 STORY_ID,
                 INVITE_ID,
+                StoryRole.CO_OWNER,
                 CURRENT_TIME
         );
         CreateInviteCommand second = new CreateInviteCommand(
                 AUTHENTICATED_USER,
                 STORY_ID,
                 INVITE_ID,
+                StoryRole.CO_OWNER,
                 CURRENT_TIME
         );
         CreateInviteCommand different = new CreateInviteCommand(
                 AUTHENTICATED_USER,
                 STORY_ID,
                 UUID.fromString("00000000-0000-0000-0000-000000000004"),
+                StoryRole.CO_OWNER,
                 CURRENT_TIME
         );
 
@@ -127,6 +165,7 @@ class CreateInviteCommandTest {
                 AUTHENTICATED_USER,
                 STORY_ID,
                 INVITE_ID,
+                StoryRole.EDITOR,
                 CURRENT_TIME
         );
 
@@ -134,10 +173,12 @@ class CreateInviteCommandTest {
                 .contains("authenticatedUser=<redacted>")
                 .contains("storyId=<redacted>")
                 .contains("inviteId=<redacted>")
+                .contains("targetRole=<redacted>")
                 .contains(CURRENT_TIME.toString())
                 .doesNotContain(USER_ID.toString())
                 .doesNotContain(STORY_ID.toString())
-                .doesNotContain(INVITE_ID.toString());
+                .doesNotContain(INVITE_ID.toString())
+                .doesNotContain(StoryRole.EDITOR.name());
     }
 
     @Test
@@ -148,12 +189,13 @@ class CreateInviteCommandTest {
                         "authenticatedUser",
                         "storyId",
                         "inviteId",
+                        "targetRole",
                         "currentTime"
                 );
     }
 
     @Test
-    void shouldNotContainTokenLinkTtlOrRoleFields() {
+    void shouldNotContainTokenLinkTtlOrPersistenceFields() {
 
         assertThat(recordComponentNames())
                 .doesNotContain(
@@ -163,8 +205,6 @@ class CreateInviteCommandTest {
                         "expiresAt",
                         "ttl",
                         "baseUrl",
-                        "targetRole",
-                        "role",
                         "ownerId",
                         "createdBy"
                 );

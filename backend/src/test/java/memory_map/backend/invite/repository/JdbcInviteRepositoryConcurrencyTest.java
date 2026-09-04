@@ -4,6 +4,7 @@ import memory_map.backend.IntegrationTest;
 import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.StoryRepository;
+import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.user.domain.User;
 import memory_map.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -180,6 +181,7 @@ class JdbcInviteRepositoryConcurrencyTest extends IntegrationTest {
         return new Invite(
                 UUID.randomUUID(),
                 storyId,
+                StoryRole.CO_OWNER,
                 tokenHash,
                 createdBy,
                 BASE_TIME,

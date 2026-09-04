@@ -1109,6 +1109,29 @@ class AppLocalizationsEn extends AppLocalizations {
       'The invite remains valid until the date returned by the server.';
 
   @override
+  String get inviteTargetRoleTitle => 'Choose access';
+
+  @override
+  String get inviteRoleCoOwnerLabel => 'Co-author';
+
+  @override
+  String get inviteRoleCoOwnerDescription =>
+      'Can manage the story and memories.';
+
+  @override
+  String get inviteRoleEditorLabel => 'Editor';
+
+  @override
+  String get inviteRoleEditorDescription =>
+      'Can add memories and edit their own.';
+
+  @override
+  String get inviteRoleViewerLabel => 'View only';
+
+  @override
+  String get inviteRoleViewerDescription => 'Can view the story and memories.';
+
+  @override
   String get inviteWhatCanDoTitle => 'What can you do with this link?';
 
   @override

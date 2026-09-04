@@ -102,13 +102,12 @@ class TransactionalUpdateMemoryServiceTest {
                 .isEqualTo(1);
     }
 
-    @ParameterizedTest
-    @EnumSource(value = StoryRole.class, names = {"EDITOR", "VIEWER"})
-    void shouldUpdateOwnMemoryForAuthorRoles(StoryRole role) {
+    @Test
+    void shouldUpdateOwnMemoryForEditor() {
 
         TestContext context = testContext(
                 existingMemory(USER_ID),
-                participant(role)
+                participant(StoryRole.EDITOR)
         );
 
         Memory result = context.service().updateMemory(command(
@@ -124,6 +123,30 @@ class TransactionalUpdateMemoryServiceTest {
         assertThat(result.placeName()).isEqualTo("Kutaisi");
         assertThat(context.memoryRepository().updateCallCount())
                 .isEqualTo(1);
+    }
+
+    @Test
+    void shouldDenyViewerForOwnMemory() {
+
+        TestContext context = testContext(
+                existingMemory(USER_ID),
+                participant(StoryRole.VIEWER)
+        );
+
+        assertMemoryUnavailable(() -> context.service().updateMemory(command(
+                PatchField.provided("Updated memory"),
+                notProvided(),
+                notProvided(),
+                notProvided(),
+                notProvided(),
+                notProvided()
+        )));
+
+        assertThat(context.memoryRepository().updateCallCount()).isZero();
+        assertThat(context.calls()).containsExactly(
+                "find Memory for update",
+                "find StoryParticipant"
+        );
     }
 
     @ParameterizedTest

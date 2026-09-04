@@ -52,9 +52,9 @@ class PhotoUploadAuthorizationPolicyTest {
     }
 
     @Test
-    void shouldAllowViewerAuthor() {
+    void shouldDenyViewerAuthor() {
         assertThat(canUpload(StoryRole.VIEWER, AUTHOR_ID, memory(AUTHOR_ID)))
-                .isTrue();
+                .isFalse();
     }
 
     @Test
