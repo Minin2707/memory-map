@@ -120,6 +120,24 @@ void main() {
         throwsA(isA<AuthRemoteMalformedResponseException>()),
       );
     });
+
+    test('shouldMapLoginResponseMissingCustomAvatarPresenceAsMalformed', () async {
+      final userJson = validUserJson()..remove('hasCustomAvatar');
+      final dataSource = createDataSource(
+        FakeHttpClientAdapter(
+          statusCode: 200,
+          responseData: <String, Object?>{
+            ...validLoginResponseJson(),
+            'user': userJson,
+          },
+        ),
+      );
+
+      await expectLater(
+        dataSource.loginWithGoogle('raw-google-id-token'),
+        throwsA(isA<AuthRemoteMalformedResponseException>()),
+      );
+    });
   });
 
   group('DioAuthRemoteDataSource refresh', () {
@@ -421,6 +439,7 @@ Map<String, Object?> validUserJson() {
     'id': 'user-id',
     'displayName': 'Ada Lovelace',
     'avatarUrl': 'https://example.com/avatar.png',
+    'hasCustomAvatar': false,
   };
 }
 

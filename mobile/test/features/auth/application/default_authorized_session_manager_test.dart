@@ -297,6 +297,27 @@ void main() {
   });
 
   group('DefaultAuthorizedSessionManager explicit invalidation', () {
+    test('shouldInvalidateSameUserSessionAfterTokenRefresh', () async {
+      final fakes = ManagerFakes()..store.setSession(refreshedSession);
+      final manager = fakes.createManager();
+
+      await manager.invalidateCurrentSession(session);
+
+      expect(fakes.storage.clearCalls, 1);
+      expect(fakes.store.session, isNull);
+    });
+
+    test('shouldPreserveDifferentUserSessionDuringStaleInvalidation',
+        () async {
+      final fakes = ManagerFakes()..store.setSession(otherSession);
+      final manager = fakes.createManager();
+
+      await manager.invalidateCurrentSession(session);
+
+      expect(fakes.storage.clearCalls, 0);
+      expect(fakes.store.session, otherSession);
+    });
+
     test('shouldClearInMemorySessionWhenStorageClearFails', () async {
       final fakes = ManagerFakes()
         ..store.setSession(session)

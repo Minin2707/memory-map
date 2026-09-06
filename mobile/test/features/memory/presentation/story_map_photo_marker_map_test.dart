@@ -265,6 +265,103 @@ void main() {
         <String>['selected-b', 'normal-a', 'normal-c'],
       );
     });
+
+    test('shouldReleaseSlotAndStartQueuedRunnerWhenRunnerFails', () async {
+      final zoneErrors = <Object>[];
+
+      final zoneFuture = runZonedGuarded<Future<void>>(() async {
+        final limiter = StoryMapMarkerIconCompositionLimiter(maxConcurrent: 1);
+        final firstStarted = Completer<void>();
+        final secondStarted = Completer<void>();
+        final started = <String>[];
+
+        limiter.enqueue(
+          imageKey: 'first',
+          priority: false,
+          runner: () async {
+            started.add('first');
+            firstStarted.complete();
+            throw StateError('composition failed');
+          },
+        );
+        limiter.enqueue(
+          imageKey: 'second',
+          priority: false,
+          runner: () async {
+            started.add('second');
+            secondStarted.complete();
+          },
+        );
+
+        await firstStarted.future;
+        await secondStarted.future;
+        await flushMicrotasks();
+
+        expect(started, <String>['first', 'second']);
+        expect(limiter.isIdle, isTrue);
+      }, (error, _) {
+        zoneErrors.add(error);
+      });
+      await zoneFuture!;
+
+      expect(zoneErrors, isEmpty);
+    });
+  });
+
+  group('StoryMapPhotoMarkerMap late async completion policy', () {
+    test('shouldCommitDelayedThumbnailOnlyWhenStillMountedAndRelevant', () {
+      expect(
+        storyMapShouldCommitThumbnailLoadForTesting(
+          mounted: true,
+          thumbnailPath: '/api/v1/media/a/thumbnail',
+          currentThumbnailPaths: <String>{'/api/v1/media/a/thumbnail'},
+        ),
+        isTrue,
+      );
+      expect(
+        storyMapShouldCommitThumbnailLoadForTesting(
+          mounted: true,
+          thumbnailPath: '/api/v1/media/a/thumbnail',
+          currentThumbnailPaths: <String>{'/api/v1/media/b/thumbnail'},
+        ),
+        isFalse,
+      );
+      expect(
+        storyMapShouldCommitThumbnailLoadForTesting(
+          mounted: false,
+          thumbnailPath: '/api/v1/media/a/thumbnail',
+          currentThumbnailPaths: <String>{'/api/v1/media/a/thumbnail'},
+        ),
+        isFalse,
+      );
+    });
+
+    test('shouldCommitDelayedIconOnlyWhenStillMountedAndRelevant', () {
+      expect(
+        storyMapShouldCommitIconBytesForTesting(
+          mounted: true,
+          imageKey: 'photo-a.selected',
+          relevantIconKeys: <String>{'photo-a.selected'},
+        ),
+        isTrue,
+      );
+      expect(
+        storyMapShouldCommitIconBytesForTesting(
+          mounted: true,
+          imageKey: 'photo-a.selected',
+          relevantIconKeys: <String>{'photo-b.selected'},
+        ),
+        isFalse,
+      );
+      expect(
+        storyMapShouldCommitIconBytesForTesting(
+          mounted: false,
+          imageKey: 'photo-a.selected',
+          relevantIconKeys: <String>{'photo-a.selected'},
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('StoryMapPhotoMarkerMap icon retention keys', () {

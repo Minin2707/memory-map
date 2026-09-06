@@ -14,6 +14,7 @@ import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.JdbcMemoryRepository;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.repository.JdbcStoryRepository;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
@@ -61,6 +62,9 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
 
     @Autowired
     private BlockingMemoryRepository blockingMemoryRepository;
+
+    @Autowired
+    private BlockingStoryRepository blockingStoryRepository;
 
     @Autowired
     private MediaFileRepository mediaFileRepository;
@@ -112,13 +116,14 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
     private static final LocalDate EVENT_DATE =
             LocalDate.of(2024, 5, 20);
     private static final String CLEAN_DATABASE_SQL = """
-        TRUNCATE TABLE users
+        TRUNCATE TABLE users, storage_cleanup_tasks
         RESTART IDENTITY CASCADE
         """;
 
     @BeforeEach
     void cleanDatabase() {
         blockingMemoryRepository.reset();
+        blockingStoryRepository.reset();
         storageService.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
@@ -310,7 +315,8 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 .contains(other);
         assertThat(memoryRepository.findById(untouched.id()))
                 .contains(untouched);
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 thumbnailKey(first),
                 displayKey(first),
                 thumbnailKey(second),
@@ -319,7 +325,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void shouldCleanupOneMediaFileAfterMemoryDeleteCommit() {
+    void shouldScheduleOneMediaFileAfterMemoryDelete() {
 
         User owner = saveUser(OWNER_ID, "owner-google-subject");
         Story story = saveStory(STORY_ID, owner.id());
@@ -331,14 +337,15 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
 
         assertThat(memoryRepository.findById(memory.id())).isEmpty();
         assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 thumbnailKey(mediaFile),
                 displayKey(mediaFile)
         );
     }
 
     @Test
-    void shouldCleanupAllMediaFilesAndContinueAfterStorageFailure() {
+    void shouldScheduleAllMediaFilesForDurableCleanup() {
 
         User owner = saveUser(OWNER_ID, "owner-google-subject");
         Story story = saveStory(STORY_ID, owner.id());
@@ -347,16 +354,13 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
         MediaFile first = saveMediaFile(MEDIA_ID, memory.id());
         MediaFile second = saveMediaFile(SECOND_MEDIA_ID, memory.id());
         MediaFile third = saveMediaFile(OTHER_MEDIA_ID, memory.id());
-        storageService.failingKeys = List.of(
-                displayKey(first),
-                thumbnailKey(third)
-        );
 
         deleteMemoryUseCase.deleteMemory(command(owner.id(), memory.id()));
 
         assertThat(memoryRepository.findById(memory.id())).isEmpty();
         assertThat(mediaFileRepository.findByMemoryId(memory.id())).isEmpty();
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 thumbnailKey(first),
                 displayKey(first),
                 thumbnailKey(second),
@@ -394,6 +398,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
         assertThat(mediaFileRepository.findById(mediaFile.id()))
                 .contains(mediaFile);
         assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).isEmpty();
     }
 
     @Test
@@ -420,6 +425,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
         assertThat(mediaFileRepository.findById(mediaFile.id()))
                 .contains(mediaFile);
         assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).isEmpty();
     }
 
     @Test
@@ -431,7 +437,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
         saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
         Memory memory = saveMemory(MEMORY_ID, story.id(), owner.id());
         ExecutorService executor = Executors.newFixedThreadPool(2);
-        blockingMemoryRepository.blockFirstFindByIdForUpdate();
+        blockingStoryRepository.blockFirstLock();
 
         try {
             Future<Void> first = executor.submit(() -> {
@@ -442,7 +448,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 return null;
             });
 
-            blockingMemoryRepository.awaitFirstLockAcquired();
+            blockingStoryRepository.awaitFirstLockAcquired();
 
             Future<Void> second = executor.submit(() -> {
                 deleteMemoryUseCase.deleteMemory(command(
@@ -452,11 +458,11 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                 return null;
             });
 
-            blockingMemoryRepository.awaitSecondLockAttemptStarted();
+            blockingStoryRepository.awaitSecondLockAttemptStarted();
             assertThatThrownBy(() -> second.get(250, TimeUnit.MILLISECONDS))
                     .isInstanceOf(TimeoutException.class);
 
-            blockingMemoryRepository.releaseFirstTransaction();
+            blockingStoryRepository.releaseFirstTransaction();
 
             assertThat(first.get(10, TimeUnit.SECONDS)).isNull();
             assertThatThrownBy(() -> second.get(10, TimeUnit.SECONDS))
@@ -466,7 +472,7 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                     );
             assertThat(memoryRepository.findById(memory.id())).isEmpty();
         } finally {
-            blockingMemoryRepository.releaseFirstTransaction();
+            blockingStoryRepository.releaseFirstTransaction();
             executor.shutdownNow();
         }
     }
@@ -617,6 +623,19 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
         return new StorageKey(mediaFile.displayStorageKey());
     }
 
+    private List<StorageKey> cleanupTaskKeys() {
+        return jdbcClient.sql("""
+                SELECT storage_key
+                FROM storage_cleanup_tasks
+                ORDER BY created_at, id
+                """)
+                .query(String.class)
+                .list()
+                .stream()
+                .map(StorageKey::new)
+                .toList();
+    }
+
     private static DeleteMemoryCommand command(UUID userId, UUID memoryId) {
         return new DeleteMemoryCommand(
                 new AuthenticatedUser(userId),
@@ -655,6 +674,14 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
                     delegate,
                     mediaFileRepository
             );
+        }
+
+        @Bean
+        @Primary
+        BlockingStoryRepository blockingStoryRepository(
+                JdbcStoryRepository delegate
+        ) {
+            return new BlockingStoryRepository(delegate);
         }
 
         @Bean
@@ -698,6 +725,94 @@ class DeleteMemoryUseCaseIntegrationTest extends IntegrationTest {
         private void reset() {
             deletedKeys.clear();
             failingKeys = List.of();
+        }
+    }
+
+    static final class BlockingStoryRepository implements StoryRepository {
+
+        private final StoryRepository delegate;
+        private final AtomicInteger lockCalls = new AtomicInteger();
+        private volatile CountDownLatch firstLockAcquired =
+                new CountDownLatch(0);
+        private volatile CountDownLatch releaseFirstTransaction =
+                new CountDownLatch(0);
+        private volatile CountDownLatch secondLockAttemptStarted =
+                new CountDownLatch(0);
+        private volatile boolean blockFirstLock;
+
+        private BlockingStoryRepository(StoryRepository delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Story save(Story story) {
+            return delegate.save(story);
+        }
+
+        @Override
+        public Story update(Story story) {
+            return delegate.update(story);
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            return delegate.findById(id);
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            if (!blockFirstLock) {
+                return delegate.lockById(id);
+            }
+
+            int call = lockCalls.incrementAndGet();
+
+            if (call == 1) {
+                boolean locked = delegate.lockById(id);
+                firstLockAcquired.countDown();
+                await(releaseFirstTransaction);
+
+                return locked;
+            }
+
+            if (call == 2) {
+                secondLockAttemptStarted.countDown();
+            }
+
+            return delegate.lockById(id);
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            return delegate.findByOwnerId(ownerId);
+        }
+
+        private void blockFirstLock() {
+            lockCalls.set(0);
+            firstLockAcquired = new CountDownLatch(1);
+            releaseFirstTransaction = new CountDownLatch(1);
+            secondLockAttemptStarted = new CountDownLatch(1);
+            blockFirstLock = true;
+        }
+
+        private void awaitFirstLockAcquired() {
+            await(firstLockAcquired);
+        }
+
+        private void awaitSecondLockAttemptStarted() {
+            await(secondLockAttemptStarted);
+        }
+
+        private void releaseFirstTransaction() {
+            releaseFirstTransaction.countDown();
+        }
+
+        private void reset() {
+            blockFirstLock = false;
+            lockCalls.set(0);
+            firstLockAcquired = new CountDownLatch(0);
+            releaseFirstTransaction = new CountDownLatch(0);
+            secondLockAttemptStarted = new CountDownLatch(0);
         }
     }
 

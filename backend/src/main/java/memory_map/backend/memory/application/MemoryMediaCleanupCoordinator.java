@@ -4,5 +4,5 @@ import java.util.UUID;
 
 public interface MemoryMediaCleanupCoordinator {
 
-    void prepareAfterCommitCleanup(UUID memoryId);
+    void scheduleCleanup(UUID memoryId);
 }

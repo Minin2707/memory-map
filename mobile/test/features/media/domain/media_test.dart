@@ -35,6 +35,18 @@ void main() {
       expect(() => media(thumbnailFileSize: 0), throwsArgumentError);
       expect(() => media(mimeType: '   '), throwsArgumentError);
       expect(
+        () => media(thumbnailPath: '/api/v1/media/media-id/thumbnail'),
+        returnsNormally,
+      );
+      expect(
+        () => media(displayPath: '/api/v1/media/media-id/display?foo=bar'),
+        throwsArgumentError,
+      );
+      expect(
+        () => media(displayPath: '/api/v1/media/media-id/display#fragment'),
+        throwsArgumentError,
+      );
+      expect(
         () => media(thumbnailPath: 'https://storage.example/object'),
         throwsArgumentError,
       );

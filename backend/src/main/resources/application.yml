@@ -25,6 +25,9 @@ app:
       access-key: ${MINIO_ACCESS_KEY:${MINIO_ROOT_USER:}}
       secret-key: ${MINIO_SECRET_KEY:${MINIO_ROOT_PASSWORD:}}
       bucket: ${MINIO_BUCKET:photos}
+    cleanup:
+      worker-enabled: false
+      fixed-delay-millis: 30000
 
   auth:
     google:

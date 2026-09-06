@@ -4,6 +4,8 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
 import memory_map.backend.story.application.CreateStoryCommand;
 import memory_map.backend.story.application.CreateStoryUseCase;
+import memory_map.backend.story.application.DeleteStoryCommand;
+import memory_map.backend.story.application.DeleteStoryUseCase;
 import memory_map.backend.story.application.GetStoriesUseCase;
 import memory_map.backend.story.application.GetStoryUseCase;
 import memory_map.backend.story.application.StoryNotFoundException;
@@ -32,6 +34,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -61,6 +64,9 @@ class StoryControllerTest {
 
     @Autowired
     private FakeUpdateStoryUseCase updateStoryUseCase;
+
+    @Autowired
+    private FakeDeleteStoryUseCase deleteStoryUseCase;
 
     @Autowired
     private FakeCurrentAuthenticatedUserProvider
@@ -94,6 +100,7 @@ class StoryControllerTest {
         getStoriesUseCase.reset();
         getStoryUseCase.reset();
         updateStoryUseCase.reset();
+        deleteStoryUseCase.reset();
         currentAuthenticatedUserProvider.reset();
     }
 
@@ -567,6 +574,77 @@ class StoryControllerTest {
     }
 
     @Test
+    void shouldDeleteStoryById() throws Exception {
+
+        mockMvc.perform(delete(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                ))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        DeleteStoryCommand command = deleteStoryUseCase.receivedCommand();
+
+        assertThat(command.authenticatedUser())
+                .isEqualTo(new AuthenticatedUser(USER_ID));
+        assertThat(command.storyId()).isEqualTo(FIRST_STORY_ID);
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(deleteStoryUseCase.callCount()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectMalformedDeleteStoryId() throws Exception {
+
+        mockMvc.perform(delete("/api/v1/stories/not-a-uuid"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
+        assertThat(deleteStoryUseCase.callCount()).isZero();
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenDeleteStoryIsUnavailable()
+            throws Exception {
+
+        deleteStoryUseCase.failWith(new StoryNotFoundException());
+
+        String response = mockMvc.perform(delete(
+                        "/api/v1/stories/{storyId}",
+                        FIRST_STORY_ID
+                ))
+                .andExpect(status().isNotFound())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        ))
+                .andExpect(jsonPath("$.title").value("Not Found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail")
+                        .value("Story was not found"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/v1/stories"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(deleteStoryUseCase.callCount()).isEqualTo(1);
+        assertThat(response)
+                .doesNotContain(FIRST_STORY_ID.toString())
+                .doesNotContain(USER_ID.toString())
+                .doesNotContain("ownerId")
+                .doesNotContain("access denied")
+                .doesNotContain("forbidden")
+                .doesNotContain("StoryNotFoundException")
+                .doesNotContain("stackTrace")
+                .doesNotContain("SQL")
+                .doesNotContain("Jdbc")
+                .doesNotContain("repository");
+    }
+
+    @Test
     void shouldReturnNotFoundWhenUpdateStoryIsUnavailable()
             throws Exception {
 
@@ -760,6 +838,7 @@ class StoryControllerTest {
                 getStoriesUseCase,
                 getStoryUseCase,
                 updateStoryUseCase,
+                deleteStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
@@ -775,6 +854,7 @@ class StoryControllerTest {
                 null,
                 getStoryUseCase,
                 updateStoryUseCase,
+                deleteStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
@@ -790,6 +870,7 @@ class StoryControllerTest {
                 getStoriesUseCase,
                 null,
                 updateStoryUseCase,
+                deleteStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
@@ -805,11 +886,28 @@ class StoryControllerTest {
                 getStoriesUseCase,
                 getStoryUseCase,
                 null,
+                deleteStoryUseCase,
                 currentAuthenticatedUserProvider,
                 clock
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("updateStoryUseCase must not be null");
+    }
+
+    @Test
+    void shouldRejectNullDeleteStoryUseCaseDependency() {
+
+        assertThatThrownBy(() -> new StoryController(
+                createStoryUseCase,
+                getStoriesUseCase,
+                getStoryUseCase,
+                updateStoryUseCase,
+                null,
+                currentAuthenticatedUserProvider,
+                clock
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("deleteStoryUseCase must not be null");
     }
 
     @Test
@@ -820,6 +918,7 @@ class StoryControllerTest {
                 getStoriesUseCase,
                 getStoryUseCase,
                 updateStoryUseCase,
+                deleteStoryUseCase,
                 null,
                 clock
         ))
@@ -837,6 +936,7 @@ class StoryControllerTest {
                 getStoriesUseCase,
                 getStoryUseCase,
                 updateStoryUseCase,
+                deleteStoryUseCase,
                 currentAuthenticatedUserProvider,
                 null
         ))
@@ -873,6 +973,11 @@ class StoryControllerTest {
         @Bean
         FakeUpdateStoryUseCase updateStoryUseCase() {
             return new FakeUpdateStoryUseCase();
+        }
+
+        @Bean
+        FakeDeleteStoryUseCase deleteStoryUseCase() {
+            return new FakeDeleteStoryUseCase();
         }
 
         @Bean
@@ -1049,6 +1154,42 @@ class StoryControllerTest {
         }
 
         private UpdateStoryCommand receivedCommand() {
+            return receivedCommand;
+        }
+
+        private int callCount() {
+            return callCount;
+        }
+
+        private void failWith(RuntimeException exception) {
+            this.exception = exception;
+        }
+
+        private void reset() {
+            receivedCommand = null;
+            exception = null;
+            callCount = 0;
+        }
+    }
+
+    static final class FakeDeleteStoryUseCase
+            implements DeleteStoryUseCase {
+
+        private DeleteStoryCommand receivedCommand;
+        private RuntimeException exception;
+        private int callCount;
+
+        @Override
+        public void deleteStory(DeleteStoryCommand command) {
+            receivedCommand = command;
+            callCount++;
+
+            if (exception != null) {
+                throw exception;
+            }
+        }
+
+        private DeleteStoryCommand receivedCommand() {
             return receivedCommand;
         }
 

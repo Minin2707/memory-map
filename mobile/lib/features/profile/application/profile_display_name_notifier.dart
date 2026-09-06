@@ -90,16 +90,17 @@ final class ProfileDisplayNameNotifier
       return const AccountDisplayNameValidationFailure();
     }
 
-    if (_containsControlCharacter(normalizedDisplayName)) {
+    if (containsIsoControlCharacter(normalizedDisplayName)) {
       return const AccountDisplayNameValidationFailure();
     }
 
     return null;
   }
 
-  static bool _containsControlCharacter(String value) {
+  static bool containsIsoControlCharacter(String value) {
     return value.runes.any((codePoint) {
-      return codePoint <= 0x1F || codePoint == 0x7F;
+      return codePoint <= 0x1F ||
+          (codePoint >= 0x7F && codePoint <= 0x9F);
     });
   }
 

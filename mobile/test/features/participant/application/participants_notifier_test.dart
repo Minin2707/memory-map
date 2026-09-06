@@ -319,6 +319,41 @@ void main() {
 
       expect(failedRepository.getCalls, 1);
     });
+
+    test('shouldIgnoreCompletedRefreshAfterProviderInvalidation', () async {
+      final refreshCompleter = Completer<List<StoryParticipant>>();
+      final repository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[ownerParticipant];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        storyParticipantsProvider('story-1'),
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(storyParticipantsProvider('story-1').future);
+      repository.getCompleter = refreshCompleter;
+
+      final refresh = container
+          .read(storyParticipantsProvider('story-1').notifier)
+          .refreshParticipants();
+      await pumpEventQueue();
+      repository.participantsResult = <StoryParticipant>[viewerParticipant];
+      container.invalidate(storyParticipantsProvider('story-1'));
+      await pumpEventQueue();
+      final rebuilt = container.read(
+        storyParticipantsProvider('story-1').future,
+      );
+
+      refreshCompleter.complete(<StoryParticipant>[ownerParticipant]);
+      await refresh;
+      await rebuilt;
+
+      expect(readState(container, 'story-1').participants, <StoryParticipant>[
+        viewerParticipant,
+      ]);
+    });
   });
 
   group('ParticipantsNotifier leaveStory', () {
@@ -387,6 +422,38 @@ void main() {
 
       leaveCompleter.complete();
       expect(await firstLeave, isTrue);
+    });
+
+    test('shouldIgnoreCompletedLeaveAfterProviderInvalidation', () async {
+      final leaveCompleter = Completer<void>();
+      final participantRepository = FakeStoryParticipantRepository()
+        ..leaveCompleter = leaveCompleter;
+      final storyRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[ownerStory, otherStory];
+      final container = createContainer(
+        participantRepository,
+        storyRepository: storyRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      final participantsSubscription = container.listen(
+        storyParticipantsProvider('story-1'),
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(participantsSubscription.close);
+      await container.read(storyParticipantsProvider('story-1').future);
+
+      final leave = container
+          .read(storyParticipantsProvider('story-1').notifier)
+          .leaveStory();
+      await pumpEventQueue();
+      container.invalidate(storyParticipantsProvider('story-1'));
+      await pumpEventQueue();
+
+      leaveCompleter.complete();
+      expect(await leave, isFalse);
+      expect(readStories(container), <UserStory>[ownerStory, otherStory]);
     });
 
     test('shouldExposeKnownLeaveFailuresAndPreserveParticipants', () async {
@@ -572,6 +639,44 @@ void main() {
 
       removeCompleter.complete();
       expect(await firstRemove, isTrue);
+    });
+
+    test('shouldIgnoreCompletedRemoveAfterProviderInvalidation', () async {
+      final removeCompleter = Completer<void>();
+      final participantRepository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[
+          ownerParticipant,
+          viewerParticipant,
+        ]
+        ..removeCompleter = removeCompleter;
+      final storyRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[userStory(participantCount: 2)]
+        ..storyResult = userStory(participantCount: 1);
+      final container = createContainer(
+        participantRepository,
+        storyRepository: storyRepository,
+      );
+      addTearDown(container.dispose);
+      await container.read(storiesNotifierProvider.future);
+      final participantsSubscription = container.listen(
+        storyParticipantsProvider('story-1'),
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(participantsSubscription.close);
+      await container.read(storyParticipantsProvider('story-1').future);
+
+      final remove = container
+          .read(storyParticipantsProvider('story-1').notifier)
+          .removeParticipant('viewer-user-id');
+      await pumpEventQueue();
+      container.invalidate(storyParticipantsProvider('story-1'));
+      await pumpEventQueue();
+
+      removeCompleter.complete();
+      expect(await remove, isFalse);
+      expect(storyRepository.getStoryCalls, 0);
+      expect(readStories(container).single.participantCount, 2);
     });
 
     test('shouldExposeKnownRemoveFailuresAndPreserveParticipants', () async {
@@ -965,6 +1070,11 @@ final class FakeStoryRepository implements StoryRepository {
 
   @override
   Future<UserStory> updateStory(UpdateStoryInput input) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteStory({required String storyId}) async {
     throw UnimplementedError();
   }
 

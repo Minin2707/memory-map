@@ -9,7 +9,7 @@ public final class NoOpAccountDeletionMediaCleanupCoordinator
         implements AccountDeletionMediaCleanupCoordinator {
 
     @Override
-    public void scheduleAfterCommitCleanup(List<StorageKey> storageKeys) {
+    public void scheduleCleanup(List<StorageKey> storageKeys) {
         Objects.requireNonNull(storageKeys, "storageKeys must not be null");
     }
 }

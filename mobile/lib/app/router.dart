@@ -18,6 +18,7 @@ import 'package:memory_map/features/invite/presentation/invite_screen.dart';
 import 'package:memory_map/features/memory/application/memory_details_notifier.dart';
 import 'package:memory_map/features/memory/application/story_map_notifier.dart';
 import 'package:memory_map/features/memory/application/story_memories_notifier.dart';
+import 'package:memory_map/features/memory/application/story_timeline_projection.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
 import 'package:memory_map/features/memory/presentation/create_memory_screen.dart';
@@ -27,13 +28,16 @@ import 'package:memory_map/features/memory/presentation/memory_edit_route.dart';
 import 'package:memory_map/features/memory/presentation/story_map_route.dart';
 import 'package:memory_map/features/memory/presentation/story_memories_route.dart';
 import 'package:memory_map/features/memory/presentation/story_timeline_route.dart';
+import 'package:memory_map/features/music/application/story_soundtrack_notifier.dart';
 import 'package:memory_map/features/music/presentation/soundtrack_selection_screen.dart';
 import 'package:memory_map/features/notification/presentation/notifications_screen.dart';
 import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/presentation/participants_screen.dart';
+import 'package:memory_map/features/playback/application/story_playback_provider.dart';
 import 'package:memory_map/features/playback/presentation/story_playback_route.dart';
 import 'package:memory_map/features/profile/presentation/profile_language_screen.dart';
 import 'package:memory_map/features/profile/presentation/profile_screen.dart';
+import 'package:memory_map/features/story/application/delete_story_notifier.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
@@ -109,6 +113,7 @@ const _memoryDetailsMapOrigin = 'map';
 const _memoryDetailsTimelineOrigin = 'timeline';
 const _memoryDetailsDetailsOrigin = 'details';
 const _memoryDetailsPlaybackOrigin = 'playback';
+const _routingExceptionRecoveryPath = '/__memory-map-unmatched-route__';
 const _inviteDeepLinkParser = InviteDeepLinkParser();
 
 final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
@@ -167,6 +172,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     initialLocation: authCheckingRoute,
     refreshListenable: refreshNotifier,
+    onException: (
+      BuildContext context,
+      GoRouterState state,
+      GoRouter router,
+    ) {
+      final authState = ref.read(authNotifierProvider);
+      final startupBrandingComplete =
+          ref.read(_startupBrandingGateProvider).completed;
+      final inviteToken = _inviteTokenFromState(state);
+      if (inviteToken != null && !_hasAuthenticatedSession(authState)) {
+        ref.read(pendingInviteProvider.notifier).setToken(inviteToken);
+      }
+
+      final destination = _redirectFor(
+        authState,
+        _routingExceptionRecoveryPath,
+        ref.read(pendingInviteProvider),
+        startupBrandingComplete: startupBrandingComplete,
+      );
+      router.go(destination ?? authCheckingRoute);
+    },
     redirect: (BuildContext context, GoRouterState state) {
       final authState = ref.read(authNotifierProvider);
       final startupBrandingComplete =
@@ -197,7 +223,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: authLoginRoute,
         builder: (BuildContext context, GoRouterState state) {
-          return const LoginScreen();
+          return LoginScreen(
+            onPrivacyPolicy: () {
+              context.pushNamed(profilePrivacyRouteName);
+            },
+            onTermsOfUse: () {
+              context.pushNamed(profileTermsRouteName);
+            },
+          );
         },
       ),
       GoRoute(
@@ -512,6 +545,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pathParameters: {_storyIdPathParameter: storyId},
                 extra: userStory.story.title,
               );
+            },
+            onStoryDeleted: (userStory) {
+              _completeDeletedStory(ref, context, userStory.story.id);
             },
           );
         },
@@ -908,6 +944,10 @@ String? _redirectFor(
     return storiesRoute;
   }
 
+  if (_isPublicLegalRoute(path)) {
+    return null;
+  }
+
   if (path == authLoginRoute) {
     return null;
   }
@@ -943,6 +983,10 @@ bool _isAuthenticatedRoute(String path) {
       path == profileRoute ||
       path.startsWith('$profileRoute/') ||
       path.startsWith('/memories/');
+}
+
+bool _isPublicLegalRoute(String path) {
+  return path == profilePrivacyRoute || path == profileTermsRoute;
 }
 
 bool _isAcceptInviteRoute(String path) {
@@ -1187,6 +1231,24 @@ void _completeLeftStory(
   ref.invalidate(storyMemoriesProvider(storyId));
   ref.invalidate(storyMapProvider(storyId));
   ref.invalidate(storyMapSelectionProvider(storyId));
+}
+
+void _completeDeletedStory(
+  Ref ref,
+  BuildContext context,
+  String storyId,
+) {
+  ref.read(storiesNotifierProvider.notifier).removeStoryById(storyId);
+  context.goNamed(storiesRouteName);
+  ref.invalidate(deleteStoryProvider(storyId));
+  ref.invalidate(storyDetailsProvider(storyId));
+  ref.invalidate(storyParticipantsProvider(storyId));
+  ref.invalidate(storyMemoriesProvider(storyId));
+  ref.invalidate(storyTimelineSectionsProvider(storyId));
+  ref.invalidate(storyMapProvider(storyId));
+  ref.invalidate(storyMapSelectionProvider(storyId));
+  ref.invalidate(storySoundtrackProvider(storyId));
+  ref.invalidate(storyPlaybackProvider(storyId));
 }
 
 void _completeDeletedMemory(

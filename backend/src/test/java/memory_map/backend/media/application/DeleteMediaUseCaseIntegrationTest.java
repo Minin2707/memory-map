@@ -5,6 +5,7 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.domain.MediaType;
 import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.repository.StorageCleanupTaskRepository;
 import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectWrite;
@@ -68,6 +69,9 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
     private TestStorageService storageService;
 
     @Autowired
+    private TestStorageCleanupScheduler cleanupScheduler;
+
+    @Autowired
     private PlatformTransactionManager transactionManager;
 
     @Autowired
@@ -96,18 +100,19 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
     private static final LocalDate EVENT_DATE =
             LocalDate.of(2024, 5, 20);
     private static final String CLEAN_DATABASE_SQL = """
-        TRUNCATE TABLE users
+        TRUNCATE TABLE users, storage_cleanup_tasks
         RESTART IDENTITY CASCADE
         """;
 
     @BeforeEach
     void cleanDatabaseAndStorage() {
         storageService.reset();
+        cleanupScheduler.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
     @Test
-    void shouldDeleteMediaForOwnerAndCleanupBothStorageObjectsAfterCommit() {
+    void shouldDeleteMediaForOwnerAndScheduleBothStorageObjectsForCleanup() {
         User owner = saveUser(OWNER_ID);
         User author = saveUser(AUTHOR_ID);
         Story story = saveStory(STORY_ID, owner.id());
@@ -122,11 +127,14 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
 
         assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
         assertThat(mediaFileRepository.findById(other.id())).contains(other);
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 new StorageKey(mediaFile.thumbnailStorageKey()),
                 new StorageKey(mediaFile.displayStorageKey())
         );
         assertThat(storageService.objects).containsOnlyKeys(
+                new StorageKey(mediaFile.displayStorageKey()),
+                new StorageKey(mediaFile.thumbnailStorageKey()),
                 new StorageKey(other.displayStorageKey()),
                 new StorageKey(other.thumbnailStorageKey())
         );
@@ -146,7 +154,11 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
         deleteMediaUseCase.deleteMedia(command(coOwner.id(), mediaFile.id()));
 
         assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
-        assertThat(storageService.deletedKeys).hasSize(2);
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
+                new StorageKey(mediaFile.thumbnailStorageKey()),
+                new StorageKey(mediaFile.displayStorageKey())
+        );
     }
 
     @Test
@@ -241,10 +253,11 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
                 new StorageKey(mediaFile.displayStorageKey()),
                 new StorageKey(mediaFile.thumbnailStorageKey())
         );
+        assertThat(cleanupTaskKeys()).isEmpty();
     }
 
     @Test
-    void shouldWaitForOutermostTransactionCommitBeforeCleanup() {
+    void shouldScheduleCleanupTaskInsideBusinessTransaction() {
         User owner = saveUser(OWNER_ID);
         Story story = saveStory(STORY_ID, owner.id());
         saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
@@ -259,36 +272,48 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
 
             assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
             assertThat(storageService.deletedKeys).isEmpty();
+            assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
+                    new StorageKey(mediaFile.thumbnailStorageKey()),
+                    new StorageKey(mediaFile.displayStorageKey())
+            );
         });
 
         assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 new StorageKey(mediaFile.thumbnailStorageKey()),
                 new StorageKey(mediaFile.displayStorageKey())
         );
     }
 
     @Test
-    void shouldKeepMetadataDeletedWhenAfterCommitCleanupFails() {
+    void shouldRollbackMetadataDeleteWhenCleanupSchedulingFails() {
         User owner = saveUser(OWNER_ID);
         Story story = saveStory(STORY_ID, owner.id());
         saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
         Memory memory = saveMemory(MEMORY_ID, story.id(), owner.id());
         MediaFile mediaFile = saveMediaFile(MEDIA_ID, memory.id());
         putObjects(mediaFile);
-        storageService.deleteFailure = new RuntimeException("delete failed");
+        cleanupScheduler.failure = new RuntimeException("enqueue failed");
 
-        deleteMediaUseCase.deleteMedia(command(owner.id(), mediaFile.id()));
+        assertThatThrownBy(() -> deleteMediaUseCase.deleteMedia(command(
+                owner.id(),
+                mediaFile.id()
+        )))
+                .isSameAs(cleanupScheduler.failure);
 
-        assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
+        assertThat(mediaFileRepository.findById(mediaFile.id()))
+                .contains(mediaFile);
         assertThat(storageService.objects).containsOnlyKeys(
                 new StorageKey(mediaFile.displayStorageKey()),
                 new StorageKey(mediaFile.thumbnailStorageKey())
         );
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupScheduler.requestedKeys).containsExactly(
                 new StorageKey(mediaFile.thumbnailStorageKey()),
                 new StorageKey(mediaFile.displayStorageKey())
         );
+        assertThat(cleanupTaskKeys()).isEmpty();
     }
 
     private void assertAuthorRoleCanDeleteOwnMedia(StoryRole role) {
@@ -303,7 +328,11 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
         deleteMediaUseCase.deleteMedia(command(author.id(), mediaFile.id()));
 
         assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
-        assertThat(storageService.deletedKeys).hasSize(2);
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
+                new StorageKey(mediaFile.thumbnailStorageKey()),
+                new StorageKey(mediaFile.displayStorageKey())
+        );
     }
 
     private void assertDeniedRoleKeepsMediaAndStorage(StoryRole role) {
@@ -464,21 +493,70 @@ class DeleteMediaUseCaseIntegrationTest extends IntegrationTest {
         @Bean
         @Primary
         DeleteMediaUseCase testDeleteMediaUseCase(
+                StoryRepository storyRepository,
                 MediaFileRepository mediaFileRepository,
                 MemoryRepository memoryRepository,
                 StoryParticipantRepository storyParticipantRepository,
                 DeleteMediaAuthorizationPolicy authorizationPolicy,
-                StorageService storageService,
-                TransactionCommitCoordinator commitCoordinator
+                StorageCleanupScheduler cleanupScheduler
         ) {
             return new TransactionalDeleteMediaService(
+                    storyRepository,
                     mediaFileRepository,
                     memoryRepository,
                     storyParticipantRepository,
                     authorizationPolicy,
-                    storageService,
-                    commitCoordinator
+                    cleanupScheduler
             );
+        }
+
+        @Bean
+        @Primary
+        TestStorageCleanupScheduler testStorageCleanupScheduler(
+                StorageCleanupTaskRepository repository
+        ) {
+            return new TestStorageCleanupScheduler(repository);
+        }
+    }
+
+    private List<StorageKey> cleanupTaskKeys() {
+        return jdbcClient.sql("""
+                SELECT storage_key
+                FROM storage_cleanup_tasks
+                ORDER BY created_at, id
+                """)
+                .query(String.class)
+                .list()
+                .stream()
+                .map(StorageKey::new)
+                .toList();
+    }
+
+    static final class TestStorageCleanupScheduler
+            implements StorageCleanupScheduler {
+
+        private final StorageCleanupTaskRepository repository;
+        private final List<StorageKey> requestedKeys = new ArrayList<>();
+        private RuntimeException failure;
+
+        private TestStorageCleanupScheduler(
+                StorageCleanupTaskRepository repository
+        ) {
+            this.repository = repository;
+        }
+
+        @Override
+        public void schedule(java.util.Collection<StorageKey> storageKeys) {
+            requestedKeys.addAll(storageKeys);
+            if (failure != null) {
+                throw failure;
+            }
+            repository.enqueueAll(storageKeys, BASE_TIME);
+        }
+
+        private void reset() {
+            requestedKeys.clear();
+            failure = null;
         }
     }
 

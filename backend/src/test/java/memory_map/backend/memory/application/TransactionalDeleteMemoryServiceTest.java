@@ -3,6 +3,9 @@ package memory_map.backend.memory.application;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -64,9 +67,11 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.memoryRepository().deleteCallCount())
                 .isEqualTo(1);
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant",
-                "prepare media cleanup",
+                "schedule media cleanup",
                 "delete Memory"
         );
     }
@@ -115,6 +120,8 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.mediaCleanupCoordinator().prepareCallCount())
                 .isZero();
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant"
         );
@@ -135,6 +142,8 @@ class TransactionalDeleteMemoryServiceTest {
 
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant"
         );
@@ -159,7 +168,7 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
         assertThat(context.mediaCleanupCoordinator().prepareCallCount())
                 .isZero();
-        assertThat(context.calls()).containsExactly("find Memory for update");
+        assertThat(context.calls()).containsExactly("find Memory");
     }
 
     @Test
@@ -176,6 +185,8 @@ class TransactionalDeleteMemoryServiceTest {
 
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant"
         );
@@ -293,9 +304,11 @@ class TransactionalDeleteMemoryServiceTest {
         assertThat(context.mediaCleanupCoordinator().receivedMemoryId())
                 .isEqualTo(MEMORY_ID);
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant",
-                "prepare media cleanup",
+                "schedule media cleanup",
                 "delete Memory"
         );
     }
@@ -316,9 +329,11 @@ class TransactionalDeleteMemoryServiceTest {
 
         assertThat(context.memoryRepository().deleteCallCount()).isZero();
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant",
-                "prepare media cleanup"
+                "schedule media cleanup"
         );
     }
 
@@ -340,8 +355,30 @@ class TransactionalDeleteMemoryServiceTest {
     }
 
     @Test
+    void shouldRejectNullStoryRepositoryDependency() {
+
+        TestContext context = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        );
+
+        assertThatThrownBy(() -> new TransactionalDeleteMemoryService(
+                null,
+                context.memoryRepository(),
+                context.storyParticipantRepository(),
+                context.mediaCleanupCoordinator()
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("storyRepository must not be null");
+    }
+
+    @Test
     void shouldRejectNullMemoryRepositoryDependency() {
 
+        StoryRepository storyRepository = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        ).storyRepository();
         StoryParticipantRepository storyParticipantRepository = testContext(
                 existingMemory(AUTHOR_ID),
                 participant(StoryRole.OWNER)
@@ -352,6 +389,7 @@ class TransactionalDeleteMemoryServiceTest {
         ).mediaCleanupCoordinator();
 
         assertThatThrownBy(() -> new TransactionalDeleteMemoryService(
+                storyRepository,
                 null,
                 storyParticipantRepository,
                 mediaCleanupCoordinator
@@ -363,12 +401,17 @@ class TransactionalDeleteMemoryServiceTest {
     @Test
     void shouldRejectNullStoryParticipantRepositoryDependency() {
 
+        StoryRepository storyRepository = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        ).storyRepository();
         MemoryRepository memoryRepository = testContext(
                 existingMemory(AUTHOR_ID),
                 participant(StoryRole.OWNER)
         ).memoryRepository();
 
         assertThatThrownBy(() -> new TransactionalDeleteMemoryService(
+                storyRepository,
                 memoryRepository,
                 null,
                 testContext(
@@ -389,6 +432,7 @@ class TransactionalDeleteMemoryServiceTest {
         );
 
         assertThatThrownBy(() -> new TransactionalDeleteMemoryService(
+                context.storyRepository(),
                 context.memoryRepository(),
                 context.storyParticipantRepository(),
                 null
@@ -443,6 +487,8 @@ class TransactionalDeleteMemoryServiceTest {
         List<String> calls = new ArrayList<>();
         FakeMemoryRepository memoryRepository =
                 new FakeMemoryRepository(memory, calls);
+        FakeStoryRepository storyRepository =
+                new FakeStoryRepository(calls);
         FakeStoryParticipantRepository storyParticipantRepository =
                 new FakeStoryParticipantRepository(participant, calls);
         FakeMediaCleanupCoordinator mediaCleanupCoordinator =
@@ -450,10 +496,12 @@ class TransactionalDeleteMemoryServiceTest {
 
         return new TestContext(
                 new TransactionalDeleteMemoryService(
+                        storyRepository,
                         memoryRepository,
                         storyParticipantRepository,
                         mediaCleanupCoordinator
                 ),
+                storyRepository,
                 memoryRepository,
                 storyParticipantRepository,
                 mediaCleanupCoordinator,
@@ -503,6 +551,8 @@ class TransactionalDeleteMemoryServiceTest {
 
             TransactionalDeleteMemoryService service,
 
+            FakeStoryRepository storyRepository,
+
             FakeMemoryRepository memoryRepository,
 
             FakeStoryParticipantRepository storyParticipantRepository,
@@ -514,12 +564,58 @@ class TransactionalDeleteMemoryServiceTest {
     ) {
     }
 
+    private static final class FakeStoryRepository implements StoryRepository {
+
+        private final List<String> calls;
+        private boolean lockResult = true;
+
+        private FakeStoryRepository(List<String> calls) {
+            this.calls = calls;
+        }
+
+        @Override
+        public Story save(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story update(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            calls.add("lock Story");
+            return lockResult;
+        }
+
+        @Override
+        public Story updateCover(UUID id, StoryCoverMetadata cover) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story clearCover(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
     private static final class FakeMediaCleanupCoordinator
             implements MemoryMediaCleanupCoordinator {
 
         private final List<String> calls;
         private UUID receivedMemoryId;
-        private int prepareCallCount;
+        private int scheduleCallCount;
         private RuntimeException failure;
 
         private FakeMediaCleanupCoordinator(List<String> calls) {
@@ -527,9 +623,9 @@ class TransactionalDeleteMemoryServiceTest {
         }
 
         @Override
-        public void prepareAfterCommitCleanup(UUID memoryId) {
-            calls.add("prepare media cleanup");
-            prepareCallCount++;
+        public void scheduleCleanup(UUID memoryId) {
+            calls.add("schedule media cleanup");
+            scheduleCallCount++;
             receivedMemoryId = memoryId;
 
             if (failure != null) {
@@ -542,7 +638,7 @@ class TransactionalDeleteMemoryServiceTest {
         }
 
         private int prepareCallCount() {
-            return prepareCallCount;
+            return scheduleCallCount;
         }
 
         private void failOnPrepare(RuntimeException failure) {
@@ -573,7 +669,9 @@ class TransactionalDeleteMemoryServiceTest {
 
         @Override
         public Optional<Memory> findById(UUID id) {
-            throw new UnsupportedOperationException();
+            calls.add("find Memory");
+            receivedFindMemoryId = id;
+            return memory;
         }
 
         @Override

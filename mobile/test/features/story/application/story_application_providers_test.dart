@@ -73,4 +73,10 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
     totalCalls += 1;
     throw UnimplementedError();
   }
+
+  @override
+  Future<void> deleteStory(String storyId) {
+    totalCalls += 1;
+    throw UnimplementedError();
+  }
 }

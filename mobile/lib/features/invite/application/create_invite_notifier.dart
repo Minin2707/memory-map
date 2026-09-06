@@ -14,8 +14,11 @@ final createInviteProvider = AsyncNotifierProvider.autoDispose<
 );
 
 final class CreateInviteNotifier extends AsyncNotifier<CreateInviteState> {
+  int _providerGeneration = 0;
+
   @override
   Future<CreateInviteState> build() async {
+    _providerGeneration += 1;
     return const CreateInviteState();
   }
 
@@ -47,12 +50,17 @@ final class CreateInviteNotifier extends AsyncNotifier<CreateInviteState> {
       clearCreatedInvite: true,
       clearFailure: true,
     );
+    final providerGeneration = _providerGeneration;
     state = AsyncData<CreateInviteState>(creatingState);
 
     try {
       final invite = await ref.read(inviteRepositoryProvider).createInvite(
             input,
           );
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return null;
+      }
+
       state = AsyncData<CreateInviteState>(
         creatingState.copyWith(
           isCreating: false,
@@ -62,6 +70,10 @@ final class CreateInviteNotifier extends AsyncNotifier<CreateInviteState> {
       );
       return invite;
     } on InviteApplicationException catch (error) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return null;
+      }
+
       state = AsyncData<CreateInviteState>(
         creatingState.copyWith(
           isCreating: false,
@@ -71,6 +83,10 @@ final class CreateInviteNotifier extends AsyncNotifier<CreateInviteState> {
       );
       return null;
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return null;
+      }
+
       state = AsyncData<CreateInviteState>(
         creatingState.copyWith(
           isCreating: false,
@@ -87,6 +103,10 @@ final class CreateInviteNotifier extends AsyncNotifier<CreateInviteState> {
   }
 
   bool get _isLoading => state is AsyncLoading<CreateInviteState>;
+
+  bool _isCurrentProviderGeneration(int generation) {
+    return ref.mounted && generation == _providerGeneration;
+  }
 
   CreateInviteState? get _currentState {
     final currentState = state;

@@ -1,21 +1,29 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http_parser/http_parser.dart' as http_parser;
+import 'package:memory_map/features/auth/application/auth_application_providers.dart';
+import 'package:memory_map/features/auth/application/auth_user_response_decoder.dart';
 import 'package:memory_map/features/auth/data/network/authorized_dio_provider.dart';
-import 'package:memory_map/features/auth/data/remote/dto/auth_user_dto.dart';
 import 'package:memory_map/features/auth/domain/auth_user.dart';
 import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/profile/data/remote/account_remote_data_source.dart';
 import 'package:memory_map/features/profile/data/remote/account_remote_exception.dart';
 
 final accountRemoteDataSourceProvider = Provider<AccountRemoteDataSource>(
-  (ref) => DioAccountRemoteDataSource(ref.watch(authorizedDioProvider)),
+  (ref) => DioAccountRemoteDataSource(
+    ref.watch(authorizedDioProvider),
+    authUserResponseDecoder: ref.watch(authUserResponseDecoderProvider),
+  ),
 );
 
 final class DioAccountRemoteDataSource implements AccountRemoteDataSource {
-  DioAccountRemoteDataSource(this._dio);
+  DioAccountRemoteDataSource(
+    this._dio, {
+    required AuthUserResponseDecoder authUserResponseDecoder,
+  }) : _authUserResponseDecoder = authUserResponseDecoder;
 
   final Dio _dio;
+  final AuthUserResponseDecoder _authUserResponseDecoder;
 
   static const _currentAccountPath = '/api/v1/me';
   static const _currentAvatarPath = '/api/v1/me/avatar';
@@ -34,7 +42,7 @@ final class DioAccountRemoteDataSource implements AccountRemoteDataSource {
     });
     _ensureExpectedStatus(response, 200);
 
-    return _mapResponse(() => AuthUserDto.fromJson(response.data).toDomain());
+    return _mapResponse(() => _authUserResponseDecoder.decode(response.data));
   }
 
   @override
@@ -42,7 +50,7 @@ final class DioAccountRemoteDataSource implements AccountRemoteDataSource {
     final response = await _putMultipart(_currentAvatarPath, photo);
     _ensureExpectedStatus(response, 200);
 
-    return _mapResponse(() => AuthUserDto.fromJson(response.data).toDomain());
+    return _mapResponse(() => _authUserResponseDecoder.decode(response.data));
   }
 
   @override
@@ -50,7 +58,7 @@ final class DioAccountRemoteDataSource implements AccountRemoteDataSource {
     final response = await _delete(_currentAvatarPath);
     _ensureExpectedStatus(response, 200);
 
-    return _mapResponse(() => AuthUserDto.fromJson(response.data).toDomain());
+    return _mapResponse(() => _authUserResponseDecoder.decode(response.data));
   }
 
   Future<Response<Object?>> _delete(String path) async {

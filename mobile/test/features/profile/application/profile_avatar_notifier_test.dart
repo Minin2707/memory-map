@@ -62,6 +62,33 @@ void main() {
           '/api/v1/me/avatar/1');
     });
 
+    test('shouldReplaceCustomAvatarAndPublishNewVersionedUrl', () async {
+      final context = TestContext()
+        ..photoSelectionGateway.selectedPhoto = selectedPhoto()
+        ..accountRepository.uploadResult = replacementCustomUser;
+      context.sessionStore.setSession(customSession);
+      final container = context.createContainer();
+      await container.read(profileAvatarProvider.future);
+
+      final result = await container
+          .read(profileAvatarProvider.notifier)
+          .chooseAndUploadAvatar(customSession);
+
+      expect(result, isTrue);
+      expect(context.accountRepository.uploadCalls, 1);
+      expect(context.sessionStorage.writeCalls, 1);
+      expect(context.sessionStorage.writtenSession?.user.avatarUrl,
+          '/api/v1/me/avatar/2');
+      expect(context.sessionStorage.writtenSession?.user.hasCustomAvatar,
+          isTrue);
+      expect(context.sessionStorage.writtenSession?.tokens,
+          customSession.tokens);
+      expect(context.sessionStore.session?.user.avatarUrl,
+          '/api/v1/me/avatar/2');
+      expect(context.sessionStore.session?.user.hasCustomAvatar, isTrue);
+      expect(context.sessionStore.session?.tokens, customSession.tokens);
+    });
+
     test('shouldInvalidateLoadedParticipantsAfterAvatarUpload', () async {
       final context = TestContext()
         ..photoSelectionGateway.selectedPhoto = selectedPhoto();
@@ -271,6 +298,7 @@ final class FakeAccountRepository implements AccountRepository {
   int removeCalls = 0;
   Completer<AuthUser>? uploadCompleter;
   Completer<AuthUser>? removeCompleter;
+  AuthUser uploadResult = customUser;
 
   @override
   Future<void> deleteCurrentAccount() {
@@ -290,7 +318,7 @@ final class FakeAccountRepository implements AccountRepository {
       return completer.future;
     }
 
-    return customUser;
+    return uploadResult;
   }
 
   @override
@@ -414,6 +442,13 @@ final AuthUser customUser = AuthUser(
   id: 'user-id',
   displayName: 'Ada Lovelace',
   avatarUrl: '/api/v1/me/avatar/1',
+  hasCustomAvatar: true,
+);
+
+final AuthUser replacementCustomUser = AuthUser(
+  id: 'user-id',
+  displayName: 'Ada Lovelace',
+  avatarUrl: '/api/v1/me/avatar/2',
   hasCustomAvatar: true,
 );
 

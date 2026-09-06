@@ -183,6 +183,64 @@ void main() {
       expect(readState(container).acceptedStory, secondUserStoryFixture);
     });
 
+    test('shouldIgnoreCompletedAcceptAfterProviderInvalidation', () async {
+      final completer = Completer<UserStory>();
+      final repository = FakeInviteRepository()
+        ..acceptCompleter = completer;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        acceptInviteProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(acceptInviteProvider.future);
+
+      final accept = container
+          .read(acceptInviteProvider.notifier)
+          .acceptInvite('raw-token');
+      await pumpEventQueue();
+      container.invalidate(acceptInviteProvider);
+      await pumpEventQueue();
+      await container.read(acceptInviteProvider.future);
+
+      completer.complete(userStoryFixture);
+
+      expect(await accept, isNull);
+      expect(readState(container).acceptedStory, isNull);
+    });
+
+    test('shouldIgnoreFailedAcceptAfterProviderInvalidation', () async {
+      final completer = Completer<UserStory>();
+      final repository = FakeInviteRepository()
+        ..acceptCompleter = completer;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        acceptInviteProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(acceptInviteProvider.future);
+
+      final accept = container
+          .read(acceptInviteProvider.notifier)
+          .acceptInvite('raw-token');
+      await pumpEventQueue();
+      container.invalidate(acceptInviteProvider);
+      await pumpEventQueue();
+      await container.read(acceptInviteProvider.future);
+
+      completer.completeError(
+        const InviteApplicationException(InviteServerFailure()),
+      );
+
+      expect(await accept, isNull);
+      expect(readState(container), const AcceptInviteState());
+    });
+
     test('shouldResetToIdle', () async {
       final repository = FakeInviteRepository();
       final container = createContainer(repository);

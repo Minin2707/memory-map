@@ -122,6 +122,17 @@ void main() {
       expect(user.hasCustomAvatar, isTrue);
     });
 
+    test('shouldParseExplicitFalseCustomAvatarPresence', () {
+      final user = AuthUserDto.fromJson(
+        <String, Object?>{
+          ...validUserJson(),
+          'hasCustomAvatar': false,
+        },
+      );
+
+      expect(user.hasCustomAvatar, isFalse);
+    });
+
     test('shouldAllowNullAvatarUrl', () {
       final user = AuthUserDto.fromJson(
         <String, Object?>{
@@ -210,6 +221,23 @@ void main() {
           <String, Object?>{
             ...validUserJson(),
             'avatarUrl': 123,
+          },
+        ),
+      );
+    });
+
+    test('shouldRejectMissingCustomAvatarPresence', () {
+      final json = validUserJson()..remove('hasCustomAvatar');
+
+      expectMalformed(() => AuthUserDto.fromJson(json));
+    });
+
+    test('shouldRejectNullCustomAvatarPresence', () {
+      expectMalformed(
+        () => AuthUserDto.fromJson(
+          <String, Object?>{
+            ...validUserJson(),
+            'hasCustomAvatar': null,
           },
         ),
       );
@@ -370,6 +398,19 @@ void main() {
               ...validUserJson(),
               'id': '   ',
             },
+          },
+        ),
+      );
+    });
+
+    test('shouldRejectUserMissingCustomAvatarPresence', () {
+      final userJson = validUserJson()..remove('hasCustomAvatar');
+
+      expectMalformed(
+        () => GoogleLoginResponseDto.fromJson(
+          <String, Object?>{
+            ...validLoginResponseJson(),
+            'user': userJson,
           },
         ),
       );

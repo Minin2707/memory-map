@@ -3,6 +3,7 @@ package memory_map.backend.memory.application;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.notification.application.NotificationPublisher;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -14,15 +15,21 @@ import java.util.UUID;
 
 public class TransactionalCreateMemoryService implements CreateMemoryUseCase {
 
+    private final StoryRepository storyRepository;
     private final StoryParticipantRepository storyParticipantRepository;
     private final MemoryRepository memoryRepository;
     private final NotificationPublisher notificationPublisher;
 
     public TransactionalCreateMemoryService(
+            StoryRepository storyRepository,
             StoryParticipantRepository storyParticipantRepository,
             MemoryRepository memoryRepository,
             NotificationPublisher notificationPublisher
     ) {
+        this.storyRepository = Objects.requireNonNull(
+                storyRepository,
+                "storyRepository must not be null"
+        );
         this.storyParticipantRepository = Objects.requireNonNull(
                 storyParticipantRepository,
                 "storyParticipantRepository must not be null"
@@ -43,6 +50,10 @@ public class TransactionalCreateMemoryService implements CreateMemoryUseCase {
         Objects.requireNonNull(command, "command must not be null");
 
         UUID userId = command.authenticatedUser().userId();
+        if (!storyRepository.lockById(command.storyId())) {
+            throw new MemoryCreationUnavailableException();
+        }
+
         StoryParticipant participant = storyParticipantRepository.find(
                 command.storyId(),
                 userId

@@ -9,7 +9,8 @@ import memory_map.backend.media.application.DeleteMediaUseCase;
 import memory_map.backend.media.application.DownloadMediaUseCase;
 import memory_map.backend.media.application.ListMemoryMediaUseCase;
 import memory_map.backend.media.application.PhotoUploadAuthorizationPolicy;
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupRecoveryScheduler;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.application.TransactionRollbackCoordinator;
 import memory_map.backend.media.application.TransactionalDeleteMediaService;
 import memory_map.backend.media.application.TransactionalDownloadMediaService;
@@ -68,6 +69,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -142,7 +144,7 @@ class MediaControllerIntegrationTest extends IntegrationTest {
     private static final LocalDate EVENT_DATE =
             LocalDate.of(2024, 5, 20);
     private static final String CLEAN_DATABASE_SQL = """
-        TRUNCATE TABLE users
+        TRUNCATE TABLE users, storage_cleanup_tasks
         RESTART IDENTITY CASCADE
         """;
 
@@ -644,7 +646,7 @@ class MediaControllerIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void shouldDeleteMediaThroughRestAndCleanupStorageAfterCommit()
+    void shouldDeleteMediaThroughRestAndScheduleStorageCleanup()
             throws Exception {
 
         User owner = saveUser(OWNER_ID);
@@ -681,11 +683,15 @@ class MediaControllerIntegrationTest extends IntegrationTest {
                 .andExpect(content().string(""));
 
         assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 new StorageKey(mediaFile.thumbnailStorageKey()),
                 new StorageKey(mediaFile.displayStorageKey())
         );
-        assertThat(storageService.objects).isEmpty();
+        assertThat(storageService.objects).containsOnlyKeys(
+                new StorageKey(mediaFile.thumbnailStorageKey()),
+                new StorageKey(mediaFile.displayStorageKey())
+        );
     }
 
     @Test
@@ -1115,6 +1121,7 @@ class MediaControllerIntegrationTest extends IntegrationTest {
         @Bean
         @Primary
         UploadPhotoUseCase testUploadPhotoUseCase(
+                StoryRepository storyRepository,
                 MemoryRepository memoryRepository,
                 StoryParticipantRepository storyParticipantRepository,
                 MediaFileRepository mediaFileRepository,
@@ -1123,9 +1130,11 @@ class MediaControllerIntegrationTest extends IntegrationTest {
                 MediaStorageKeyFactory storageKeyFactory,
                 StorageService storageService,
                 TransactionRollbackCoordinator rollbackCoordinator,
+                StorageCleanupRecoveryScheduler recoveryScheduler,
                 NotificationPublisher notificationPublisher
         ) {
             return new CoordinatedUploadPhotoService(
+                    storyRepository,
                     memoryRepository,
                     storyParticipantRepository,
                     mediaFileRepository,
@@ -1134,6 +1143,7 @@ class MediaControllerIntegrationTest extends IntegrationTest {
                     storageKeyFactory,
                     storageService,
                     rollbackCoordinator,
+                    recoveryScheduler,
                     notificationPublisher
             );
         }
@@ -1141,22 +1151,35 @@ class MediaControllerIntegrationTest extends IntegrationTest {
         @Bean
         @Primary
         DeleteMediaUseCase testDeleteMediaUseCase(
+                StoryRepository storyRepository,
                 MediaFileRepository mediaFileRepository,
                 MemoryRepository memoryRepository,
                 StoryParticipantRepository storyParticipantRepository,
                 DeleteMediaAuthorizationPolicy authorizationPolicy,
-                StorageService storageService,
-                TransactionCommitCoordinator commitCoordinator
+                StorageCleanupScheduler cleanupScheduler
         ) {
             return new TransactionalDeleteMediaService(
+                    storyRepository,
                     mediaFileRepository,
                     memoryRepository,
                     storyParticipantRepository,
                     authorizationPolicy,
-                    storageService,
-                    commitCoordinator
+                    cleanupScheduler
             );
         }
+    }
+
+    private List<StorageKey> cleanupTaskKeys() {
+        return jdbcClient.sql("""
+                SELECT storage_key
+                FROM storage_cleanup_tasks
+                ORDER BY created_at, id
+                """)
+                .query(String.class)
+                .list()
+                .stream()
+                .map(StorageKey::new)
+                .toList();
     }
 
     static final class TestStorageService implements StorageService {

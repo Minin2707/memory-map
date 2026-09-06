@@ -116,7 +116,7 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
     private static final Instant CURRENT_TIME =
             Instant.parse("2026-01-10T10:00:00.123456Z");
     private static final String CLEAN_DATABASE_SQL = """
-        TRUNCATE TABLE users
+        TRUNCATE TABLE users, storage_cleanup_tasks
         RESTART IDENTITY CASCADE
         """;
 
@@ -1197,7 +1197,8 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
                 .contains(otherMemory);
         assertThat(mediaFileRepository.findById(other.id()))
                 .contains(other);
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 new StorageKey(first.thumbnailStorageKey()),
                 new StorageKey(first.displayStorageKey()),
                 new StorageKey(second.thumbnailStorageKey()),
@@ -2400,6 +2401,19 @@ class MemoryControllerIntegrationTest extends IntegrationTest {
             Story story
 
     ) {
+    }
+
+    private List<StorageKey> cleanupTaskKeys() {
+        return jdbcClient.sql("""
+                SELECT storage_key
+                FROM storage_cleanup_tasks
+                ORDER BY created_at, id
+                """)
+                .query(String.class)
+                .list()
+                .stream()
+                .map(StorageKey::new)
+                .toList();
     }
 
     @TestConfiguration(proxyBeanMethods = false)

@@ -6,6 +6,7 @@ import memory_map.backend.account.application.CurrentUserProfileUnavailableExcep
 import memory_map.backend.account.application.InvalidDisplayNameException;
 import memory_map.backend.account.application.InvalidUserAvatarException;
 import memory_map.backend.account.application.UserAvatarUnavailableException;
+import memory_map.backend.media.storage.StorageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -102,6 +103,18 @@ public class AccountApiExceptionHandler {
                 "Avatar is unavailable"
         );
         problemDetail.setTitle("Not Found");
+        problemDetail.setInstance(ACCOUNT_AVATAR_INSTANCE);
+
+        return problemDetail;
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ProblemDetail handleAvatarStorageFailure() {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Avatar storage operation failed"
+        );
+        problemDetail.setTitle("Internal Server Error");
         problemDetail.setInstance(ACCOUNT_AVATAR_INSTANCE);
 
         return problemDetail;

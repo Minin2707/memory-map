@@ -162,6 +162,10 @@ final class JustAudioPlaybackAudioController
     try {
       final currentSession =
           await _authorizedSessionManager.getCurrentSession();
+      if (_isDisposed) {
+        return;
+      }
+
       if (currentSession == null) {
         _fail(const PlaybackAudioAuthenticationFailure());
         return;
@@ -169,6 +173,10 @@ final class JustAudioPlaybackAudioController
 
       final refreshedSession = await _authorizedSessionManager
           .refreshCurrentSession(currentSession);
+      if (_isDisposed) {
+        return;
+      }
+
       final audioUri = _soundtrackAudioUri(
         _appConfig.apiBaseUrl,
         normalizedStoryId,
@@ -189,8 +197,16 @@ final class JustAudioPlaybackAudioController
       _hasPreparedSource = true;
       _emit(PlaybackAudioState.ready());
     } on AuthorizedSessionException {
+      if (_isDisposed) {
+        return;
+      }
+
       _fail(const PlaybackAudioAuthenticationFailure());
     } on Object {
+      if (_isDisposed) {
+        return;
+      }
+
       _fail(const PlaybackAudioUnavailableFailure());
     }
   }

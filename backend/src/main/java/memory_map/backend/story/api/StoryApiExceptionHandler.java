@@ -1,5 +1,6 @@
 package memory_map.backend.story.api;
 
+import memory_map.backend.media.storage.StorageException;
 import memory_map.backend.story.application.LastStoryOwnerCannotLeaveException;
 import memory_map.backend.story.application.ParticipantCannotRemoveSelfException;
 import memory_map.backend.story.application.StoryNotFoundException;
@@ -24,6 +25,8 @@ public class StoryApiExceptionHandler {
             URI.create("/api/v1/stories/participants/me");
     private static final URI REMOVE_PARTICIPANT_INSTANCE =
             URI.create("/api/v1/stories/participants");
+    private static final URI PARTICIPANT_AVATAR_INSTANCE =
+            URI.create("/api/v1/stories/participants/avatar");
 
     @ExceptionHandler(StoryNotFoundException.class)
     public ProblemDetail handleStoryNotFound() {
@@ -55,6 +58,18 @@ public class StoryApiExceptionHandler {
                 exception.getMessage(),
                 REMOVE_PARTICIPANT_INSTANCE
         );
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ProblemDetail handleParticipantAvatarStorageFailure() {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Participant avatar storage operation failed"
+        );
+        problemDetail.setTitle("Internal Server Error");
+        problemDetail.setInstance(PARTICIPANT_AVATAR_INSTANCE);
+
+        return problemDetail;
     }
 
     private static ProblemDetail conflictProblem(

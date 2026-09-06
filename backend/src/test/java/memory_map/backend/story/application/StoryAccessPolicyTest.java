@@ -31,12 +31,24 @@ class StoryAccessPolicyTest {
     }
 
     @Test
+    void shouldAllowOnlyOwnerToDeleteStory() {
+        assertThat(policy.canDeleteStory(StoryRole.OWNER)).isTrue();
+        assertThat(policy.canDeleteStory(StoryRole.CO_OWNER)).isFalse();
+        assertThat(policy.canDeleteStory(StoryRole.EDITOR)).isFalse();
+        assertThat(policy.canDeleteStory(StoryRole.VIEWER)).isFalse();
+    }
+
+    @Test
     void shouldRejectNullRole() {
         assertThatThrownBy(() -> policy.canReadStory(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("role must not be null");
 
         assertThatThrownBy(() -> policy.canChangeStorySoundtrack(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("role must not be null");
+
+        assertThatThrownBy(() -> policy.canDeleteStory(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("role must not be null");
     }

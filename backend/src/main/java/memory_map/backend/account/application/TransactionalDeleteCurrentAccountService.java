@@ -93,6 +93,7 @@ public class TransactionalDeleteCurrentAccountService
                 plan.deletedStoryIds()
         );
         accountDeletionRepository.deleteUnusedInvitesCreatedBy(userId);
+        accountDeletionRepository.deleteNotificationsByRecipientUserId(userId);
 
         transferOwnedStories(
                 plan.transfers(),
@@ -117,7 +118,7 @@ public class TransactionalDeleteCurrentAccountService
             throw new AccountDeletionUnavailableException();
         }
 
-        mediaCleanupCoordinator.scheduleAfterCommitCleanup(storageKeys);
+        mediaCleanupCoordinator.scheduleCleanup(storageKeys);
     }
 
     private AccountDeletionPlan planDeletion(

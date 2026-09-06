@@ -15,10 +15,13 @@ import 'package:memory_map/features/media/domain/photo_selection_gateway.dart';
 final mediaRepositoryProvider = Provider<MediaRepository>((ref) {
   final authenticatedMediaCache = ref.watch(authenticatedMediaCacheProvider);
   final sessionStore = ref.watch(authSessionStoreProvider);
+  String? previousUserId = sessionStore.session?.user.id;
   final sessionSubscription = sessionStore.changes.listen((session) {
-    if (session == null) {
+    final nextUserId = session?.user.id;
+    if (previousUserId != null && nextUserId != previousUserId) {
       unawaited(authenticatedMediaCache.clear());
     }
+    previousUserId = nextUserId;
   });
   ref.onDispose(() {
     unawaited(sessionSubscription.cancel());

@@ -134,6 +134,34 @@ void main() {
       await firstSave;
     });
 
+    test('shouldIgnoreCompletedSaveAfterProviderInvalidation', () async {
+      final completer = Completer<UserStory>();
+      final repository = FakeStoryRepository()
+        ..updateStoryCompleter = completer;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        editStoryProvider('story-1'),
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(editStoryProvider('story-1').future);
+
+      final save = container
+          .read(editStoryProvider('story-1').notifier)
+          .save(titleInput());
+      await pumpEventQueue();
+      container.invalidate(editStoryProvider('story-1'));
+      await pumpEventQueue();
+      final rebuilt = container.read(editStoryProvider('story-1').future);
+
+      completer.complete(updatedOwnerStory);
+      expect(await save, updatedOwnerStory);
+      await rebuilt;
+      expect(readState(container, 'story-1'), const EditStoryState());
+    });
+
     test('shouldRejectInputForDifferentStoryIdWithoutRepositoryCall', () async {
       final repository = FakeStoryRepository();
       final container = createContainer(repository);
@@ -252,6 +280,11 @@ final class FakeStoryRepository implements StoryRepository {
     }
 
     return updateStoryResult;
+  }
+
+  @override
+  Future<void> deleteStory({required String storyId}) async {
+    throw UnimplementedError();
   }
 
   @override

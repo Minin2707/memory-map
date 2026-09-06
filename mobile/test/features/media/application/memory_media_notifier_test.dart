@@ -51,6 +51,34 @@ void main() {
     });
   });
 
+  group('MemoryMediaNotifier retry', () {
+    test('shouldIgnoreCompletedRetryAfterAutoDispose', () async {
+      final retryCompleter = Completer<List<Media>>();
+      final repository = FakeMediaRepository()
+        ..mediaResult = <Media>[media(id: 'media-a')];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final provider = memoryMediaProvider(defaultMemoryId);
+      final subscription = container.listen(
+        provider,
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      await container.read(provider.future);
+      repository.getMediaCompleter = retryCompleter;
+
+      final retry = container.read(provider.notifier).retryLoad();
+      await pumpEventQueue();
+      subscription.close();
+      await pumpEventQueue();
+
+      retryCompleter.complete(<Media>[media(id: 'stale-media')]);
+      await retry;
+
+      expect(container.exists(provider), isFalse);
+    });
+  });
+
   group('MemoryMediaNotifier refresh', () {
     test('shouldKeepMediaVisibleWhileRefreshingAndReplaceFromBackend', () async {
       final refreshCompleter = Completer<List<Media>>();
@@ -93,6 +121,70 @@ void main() {
       expect(state.media, <Media>[media(id: 'media-a')]);
       expect(state.refreshFailure, const MediaRequestTimedOut());
       expect(state.isRefreshing, isFalse);
+    });
+
+    test('shouldIgnoreStaleRefreshAfterLocalUpsert', () async {
+      final refreshCompleter = Completer<List<Media>>();
+      final repository = FakeMediaRepository()
+        ..mediaResult = <Media>[media(id: 'media-a')];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await loadMemoryMedia(container);
+      repository.getMediaCompleter = refreshCompleter;
+      final notifier = container.read(
+        memoryMediaProvider(defaultMemoryId).notifier,
+      );
+
+      final refresh = notifier.refreshMedia();
+      await pumpEventQueue();
+      notifier.upsertMedia(media(id: 'media-b'));
+
+      expect(
+        readState(container).media.map((item) => item.id),
+        <String>['media-a', 'media-b'],
+      );
+      expect(readState(container).isRefreshing, isFalse);
+
+      refreshCompleter.complete(<Media>[media(id: 'media-c')]);
+      await refresh;
+
+      expect(
+        readState(container).media.map((item) => item.id),
+        <String>['media-a', 'media-b'],
+      );
+      expect(readState(container).isRefreshing, isFalse);
+    });
+
+    test('shouldIgnoreStaleRefreshAfterLocalRemoval', () async {
+      final refreshCompleter = Completer<List<Media>>();
+      final repository = FakeMediaRepository()
+        ..mediaResult = <Media>[media(id: 'media-a'), media(id: 'media-b')];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await loadMemoryMedia(container);
+      repository.getMediaCompleter = refreshCompleter;
+      final notifier = container.read(
+        memoryMediaProvider(defaultMemoryId).notifier,
+      );
+
+      final refresh = notifier.refreshMedia();
+      await pumpEventQueue();
+      notifier.removeMediaById('media-b');
+
+      expect(
+        readState(container).media.map((item) => item.id),
+        <String>['media-a'],
+      );
+      expect(readState(container).isRefreshing, isFalse);
+
+      refreshCompleter.complete(<Media>[media(id: 'media-c')]);
+      await refresh;
+
+      expect(
+        readState(container).media.map((item) => item.id),
+        <String>['media-a'],
+      );
+      expect(readState(container).isRefreshing, isFalse);
     });
   });
 

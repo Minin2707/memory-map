@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/invite/data/remote/dio_invite_remote_data_source.dart';
 import 'package:memory_map/features/invite/data/remote/invite_remote_exception.dart';
 import 'package:memory_map/features/invite/domain/invite.dart';
+import 'package:memory_map/features/story/data/dto/default_user_story_response_decoder.dart';
 import 'package:memory_map/features/story/domain/story.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
@@ -415,7 +416,10 @@ DioInviteRemoteDataSource createDataSource(FakeHttpClientAdapter adapter) {
     ),
   )..httpClientAdapter = adapter;
 
-  return DioInviteRemoteDataSource(dio);
+  return DioInviteRemoteDataSource(
+    dio,
+    userStoryResponseDecoder: const DefaultUserStoryResponseDecoder(),
+  );
 }
 
 Future<void> expectInviteStatusFailure(

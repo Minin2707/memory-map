@@ -19,9 +19,11 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
   ParticipantsNotifier(this._storyId);
 
   final String _storyId;
+  int _operationRevision = 0;
 
   @override
   Future<ParticipantsState> build() async {
+    _invalidateOperations();
     return _load(_storyId, ref.watch(storyParticipantRepositoryProvider));
   }
 
@@ -31,9 +33,15 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
     }
 
     state = const AsyncLoading<ParticipantsState>();
-    state = await AsyncValue.guard<ParticipantsState>(() async {
+    final operationRevision = _beginOperation();
+    final result = await AsyncValue.guard<ParticipantsState>(() async {
       return _load(_storyId, ref.read(storyParticipantRepositoryProvider));
     });
+    if (!_isCurrentOperation(operationRevision)) {
+      return;
+    }
+
+    state = result;
   }
 
   Future<void> refreshParticipants() async {
@@ -50,11 +58,16 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
       clearRefreshFailure: true,
     );
     state = AsyncData<ParticipantsState>(refreshingState);
+    final operationRevision = _beginOperation();
 
     try {
       final participants = await ref
           .read(storyParticipantRepositoryProvider)
           .getParticipants(_storyId);
+      if (!_isCurrentOperation(operationRevision)) {
+        return;
+      }
+
       state = AsyncData<ParticipantsState>(
         refreshingState.copyWith(
           participants: participants,
@@ -63,6 +76,10 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
         ),
       );
     } on ParticipantApplicationException catch (error) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return;
+      }
+
       state = AsyncData<ParticipantsState>(
         refreshingState.copyWith(
           isRefreshing: false,
@@ -70,6 +87,10 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
         ),
       );
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return;
+      }
+
       state = AsyncData<ParticipantsState>(
         refreshingState.copyWith(isRefreshing: false),
       );
@@ -103,9 +124,14 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
       clearLeaveFailure: true,
     );
     state = AsyncData<ParticipantsState>(leavingState);
+    final operationRevision = _beginOperation();
 
     try {
       await ref.read(storyParticipantRepositoryProvider).leaveStory(input);
+      if (!_isCurrentOperation(operationRevision)) {
+        return false;
+      }
+
       ref.read(storySummaryReconcilerProvider).removeStory(_storyId);
       state = AsyncData<ParticipantsState>(
         leavingState.copyWith(
@@ -115,6 +141,10 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
       );
       return true;
     } on ParticipantApplicationException catch (error) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return false;
+      }
+
       state = AsyncData<ParticipantsState>(
         leavingState.copyWith(
           isLeaving: false,
@@ -123,6 +153,10 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
       );
       return false;
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return false;
+      }
+
       state = AsyncData<ParticipantsState>(
         leavingState.copyWith(isLeaving: false),
       );
@@ -161,15 +195,20 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
       clearRemoveFailure: true,
     );
     state = AsyncData<ParticipantsState>(removingState);
+    final operationRevision = _beginOperation();
 
     try {
       await ref.read(storyParticipantRepositoryProvider).removeParticipant(
             input,
           );
+      if (!_isCurrentOperation(operationRevision)) {
+        return false;
+      }
+
       await ref
           .read(storySummaryReconcilerProvider)
           .reconcileAuthoritativeStory(_storyId);
-      if (!ref.mounted) {
+      if (!_isCurrentOperation(operationRevision)) {
         return false;
       }
 
@@ -185,6 +224,10 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
       );
       return true;
     } on ParticipantApplicationException catch (error) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return false;
+      }
+
       state = AsyncData<ParticipantsState>(
         removingState.copyWith(
           removeFailure: error.failure,
@@ -193,6 +236,10 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
       );
       return false;
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return false;
+      }
+
       state = AsyncData<ParticipantsState>(
         removingState.copyWith(clearRemovingParticipantUserId: true),
       );
@@ -229,6 +276,18 @@ final class ParticipantsNotifier extends AsyncNotifier<ParticipantsState> {
   }
 
   bool get _isLoading => state is AsyncLoading<ParticipantsState>;
+
+  int _beginOperation() {
+    return ++_operationRevision;
+  }
+
+  void _invalidateOperations() {
+    _operationRevision += 1;
+  }
+
+  bool _isCurrentOperation(int operationRevision) {
+    return ref.mounted && _operationRevision == operationRevision;
+  }
 
   ParticipantsState? get _currentState {
     final currentState = state;

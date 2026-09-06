@@ -67,7 +67,9 @@ import 'package:memory_map/features/playback/presentation/story_playback_route.d
 import 'package:memory_map/features/playback/presentation/story_playback_screen.dart';
 import 'package:memory_map/features/story/application/story_application_providers.dart';
 import 'package:memory_map/features/story/application/stories_notifier.dart';
+import 'package:memory_map/features/story/application/story_application_exception.dart';
 import 'package:memory_map/features/story/domain/story.dart';
+import 'package:memory_map/features/story/domain/story_failure.dart';
 import 'package:memory_map/features/story/domain/story_repository.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/update_story_input.dart';
@@ -266,8 +268,6 @@ void main() {
         profilePhotoRoute,
         profileDisplayNameRoute,
         profileLanguageRoute,
-        profilePrivacyRoute,
-        profileTermsRoute,
         profileHelpRoute,
         profileAboutRoute,
         memoryLocationPickerRoute,
@@ -279,6 +279,117 @@ void main() {
         expect(find.text('Continue with Google'), findsOneWidget);
         expect(find.text('Your stories'), findsNothing);
       }
+    });
+
+    testWidgets('shouldOpenPrivacyPolicyFromLoginAndBackWithoutGoogleLogin', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository();
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+      await tapVisibleText(tester, 'Privacy Policy');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('profile.placeholder.screen')),
+        findsOneWidget,
+      );
+      expect(find.text('Privacy Policy'), findsOneWidget);
+      expect(
+        find.text('The full privacy policy will be added before public release.'),
+        findsOneWidget,
+      );
+      expect(fakeAuthRepository.loginCalls, 0);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile.placeholder.back-action')),
+      );
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+    });
+
+    testWidgets('shouldOpenTermsOfUseFromLoginAndBackWithoutGoogleLogin', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository();
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+      await tapVisibleText(tester, 'Terms of Use');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('profile.placeholder.screen')),
+        findsOneWidget,
+      );
+      expect(find.text('Terms of Use'), findsOneWidget);
+      expect(
+        find.text('The full terms of use will be added before public release.'),
+        findsOneWidget,
+      );
+      expect(fakeAuthRepository.loginCalls, 0);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('profile.placeholder.back-action')),
+      );
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+    });
+
+    testWidgets('shouldAllowOnlyLegalProfileRoutesBeforeAuthentication', (
+      WidgetTester tester,
+    ) async {
+      await pumpApp(tester, FakeAuthRepository());
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('Continue with Google'));
+      final router = GoRouter.of(context);
+
+      router.go(profilePrivacyRoute);
+      await tester.pumpAndSettle();
+
+      expect(
+        routerLocation(
+          tester.element(
+            find.byKey(const ValueKey('profile.placeholder.screen')),
+          ),
+        ),
+        profilePrivacyRoute,
+      );
+      expect(find.text('Privacy Policy'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsNothing);
+
+      router.go(profileTermsRoute);
+      await tester.pumpAndSettle();
+
+      expect(
+        routerLocation(
+          tester.element(
+            find.byKey(const ValueKey('profile.placeholder.screen')),
+          ),
+        ),
+        profileTermsRoute,
+      );
+      expect(find.text('Terms of Use'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsNothing);
+
+      router.go(profileRoute);
+      await tester.pumpAndSettle();
+
+      expect(routerLocation(tester.element(find.text('Continue with Google'))),
+          authLoginRoute);
+      expect(find.text('Profile'), findsNothing);
+
+      router.go(profileLanguageRoute);
+      await tester.pumpAndSettle();
+
+      expect(routerLocation(tester.element(find.text('Continue with Google'))),
+          authLoginRoute);
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Language'), findsNothing);
     });
 
     testWidgets('shouldRouteUnauthenticatedAfterSessionInvalidationToLogin', (
@@ -293,6 +404,213 @@ void main() {
 
       expect(find.text('Continue with Google'), findsOneWidget);
       expect(find.text('Your stories'), findsNothing);
+    });
+  });
+
+  group('Router unknown routes', () {
+    testWidgets('shouldRecoverUnknownRouteToCheckingBeforeStartupCompletes', (
+      WidgetTester tester,
+    ) async {
+      final restoreCompleter = Completer<AuthSession?>();
+      final fakeAuthRepository = FakeAuthRepository()
+        ..restoreCompleter = restoreCompleter;
+      addTearDown(() {
+        if (!restoreCompleter.isCompleted) {
+          restoreCompleter.complete(null);
+        }
+      });
+
+      await pumpApp(tester, fakeAuthRepository);
+
+      const route = '/does-not-exist';
+      GoRouter.of(
+        tester.element(
+          find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        ),
+      ).go(route);
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        findsOneWidget,
+      );
+      expectNoRouterTechnicalError(route);
+
+      restoreCompleter.complete(null);
+    });
+
+    testWidgets('shouldRecoverUnknownRouteToCheckingWhileAuthIsLoading', (
+      WidgetTester tester,
+    ) async {
+      final restoreCompleter = Completer<AuthSession?>();
+      final fakeAuthRepository = FakeAuthRepository()
+        ..restoreCompleter = restoreCompleter;
+      addTearDown(() {
+        if (!restoreCompleter.isCompleted) {
+          restoreCompleter.complete(null);
+        }
+      });
+
+      await pumpApp(tester, fakeAuthRepository);
+      await pumpStartupBrandingAnimation(tester);
+
+      const route = '/does-not-exist';
+      GoRouter.of(
+        tester.element(
+          find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        ),
+      ).go(route);
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('auth-checking.memory-map.logo')),
+        findsOneWidget,
+      );
+      expectNoRouterTechnicalError(route);
+
+      restoreCompleter.complete(null);
+    });
+
+    testWidgets('shouldRecoverUnknownRouteToUnexpectedAuthError', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()
+        ..restoreFailure = const UnexpectedAuthException();
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      const route = '/does-not-exist';
+      GoRouter.of(tester.element(find.text('Something went wrong'))).go(route);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Something went wrong'), findsOneWidget);
+      expect(
+        routerLocation(tester.element(find.text('Something went wrong'))),
+        authUnexpectedErrorRoute,
+      );
+      expectNoRouterTechnicalError(route);
+    });
+
+    testWidgets('shouldRecoverUnknownRouteToRestoreError', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()
+        ..restoreFailure = const AuthApplicationException(
+          NetworkUnavailable(),
+        );
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      const route = '/does-not-exist';
+      GoRouter.of(
+        tester.element(find.text('Could not restore your session')),
+      ).go(route);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Could not restore your session'), findsOneWidget);
+      expect(
+        routerLocation(
+          tester.element(find.text('Could not restore your session')),
+        ),
+        authRestoreErrorRoute,
+      );
+      expectNoRouterTechnicalError(route);
+    });
+
+    testWidgets('shouldRecoverAuthenticatedUnknownRoutesToStories', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      for (final route in <String>[
+        '/does-not-exist',
+        '/stories/story-1/does-not-exist',
+        '/profile/does-not-exist',
+        '/memories/memory-1/does-not-exist',
+      ]) {
+        GoRouter.of(tester.element(find.text('Your stories'))).go(route);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Your stories'), findsOneWidget);
+        expect(
+          routerLocation(tester.element(find.text('Your stories'))),
+          storiesRoute,
+        );
+        expectNoRouterTechnicalError(route);
+      }
+    });
+
+    testWidgets('shouldRecoverUnauthenticatedUnknownRouteToLogin', (
+      WidgetTester tester,
+    ) async {
+      await pumpApp(tester, FakeAuthRepository());
+      await tester.pumpAndSettle();
+
+      const route = '/does-not-exist';
+      GoRouter.of(tester.element(find.text('Continue with Google'))).go(route);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(
+        routerLocation(tester.element(find.text('Continue with Google'))),
+        authLoginRoute,
+      );
+      expectNoRouterTechnicalError(route);
+    });
+
+    testWidgets('shouldPreservePendingInviteDuringUnknownRouteRecovery', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeInviteRepository = FakeInviteRepository()
+        ..acceptResult = acceptedInviteStory;
+      final container = await pumpApp(
+        tester,
+        fakeAuthRepository,
+        inviteRepository: fakeInviteRepository,
+      );
+      await tester.pumpAndSettle();
+      container
+          .read(pendingInviteProvider.notifier)
+          .setToken(validInviteToken);
+
+      const route = '/does-not-exist';
+      GoRouter.of(tester.element(find.text('Your stories'))).go(route);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Invitation'), findsOneWidget);
+      expect(
+        routerLocation(tester.element(find.text('Invitation'))),
+        '/invite/$validInviteToken',
+      );
+      expect(find.textContaining(validInviteToken), findsNothing);
+      expect(fakeInviteRepository.acceptCalls, 0);
+      expectNoRouterTechnicalError(route);
+    });
+
+    testWidgets('shouldRecoverRepeatedUnknownRoutesWithoutLooping', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+
+      await pumpApp(tester, fakeAuthRepository);
+      await tester.pumpAndSettle();
+
+      for (final route in <String>['/does-not-exist', '/still-missing']) {
+        GoRouter.of(tester.element(find.text('Your stories'))).go(route);
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.text('Your stories'), findsOneWidget);
+      expect(
+        routerLocation(tester.element(find.text('Your stories'))),
+        storiesRoute,
+      );
     });
   });
 
@@ -612,6 +930,124 @@ void main() {
       expect(find.text('Your stories'), findsOneWidget);
     });
 
+    testWidgets('shouldPopFromUnavailableDetailsBackToStoriesWhenPossible', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..getStoryFailures.add(
+          const StoryApplicationException(StoryNotFound()),
+        );
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+
+      expect(storyDetailsScreenFinder(), findsOneWidget);
+      expect(find.text('Could not load story'), findsOneWidget);
+      expect(find.text('Story is unavailable.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-details.error.back-action')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.error.retry-action')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('StoryApplicationException'), findsNothing);
+      expect(find.textContaining(ownerStory.story.id), findsNothing);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.error.back-action')),
+      );
+
+      expect(find.text('Your stories'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsNothing);
+    });
+
+    testWidgets('shouldFallbackFromRootUnavailableDetailsBackToStories', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository()
+        ..getStoryFailures.add(
+          const StoryApplicationException(StoryNotFound()),
+        );
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+      );
+      await tester.pumpAndSettle();
+
+      GoRouter.of(tester.element(find.text('Your stories'))).go(
+        '/stories/${ownerStory.story.id}',
+      );
+      await tester.pumpAndSettle();
+
+      expect(storyDetailsScreenFinder(), findsOneWidget);
+      expect(find.text('Could not load story'), findsOneWidget);
+      expect(find.text('Story is unavailable.'), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.error.back-action')),
+      );
+
+      expect(find.text('Your stories'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsNothing);
+      expect(
+        routerLocation(tester.element(find.text('Your stories'))),
+        storiesRoute,
+      );
+    });
+
+    testWidgets('shouldDeleteStoryFromDetailsAndReturnToStories', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final fakeStoryRepository = FakeStoryRepository();
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ownerStory.story.title));
+      await tester.pumpAndSettle();
+
+      expect(storyDetailsScreenFinder(), findsOneWidget);
+
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete-action')),
+      );
+      await tapButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete.confirm-action')),
+      );
+
+      expect(fakeStoryRepository.deleteStoryCalls, 1);
+      expect(fakeStoryRepository.receivedDeleteStoryId, ownerStory.story.id);
+      expect(find.text('Your stories'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsNothing);
+      expect(find.text(ownerStory.story.title), findsNothing);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Your stories'), findsOneWidget);
+      expect(storyDetailsScreenFinder(), findsNothing);
+    });
+
     testWidgets('shouldOpenEditFromDetailsAndCancelBackToDetails', (
       WidgetTester tester,
     ) async {
@@ -787,6 +1223,73 @@ void main() {
       }
     });
 
+    testWidgets('shouldOpenParticipantsFromViewerDetails', (
+      WidgetTester tester,
+    ) async {
+      final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
+      final viewerStory = userStory(role: StoryRole.viewer);
+      final fakeStoryRepository = FakeStoryRepository()
+        ..storiesResult = <UserStory>[viewerStory]
+        ..storyResult = viewerStory;
+      final fakeParticipantRepository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[
+          StoryParticipant(
+            userId: session.user.id,
+            displayName: 'Ada Lovelace',
+            avatarUrl: null,
+            role: StoryRole.viewer,
+            joinedAt: DateTime.utc(2026, 8, 15, 9),
+          ),
+          StoryParticipant(
+            userId: 'owner-user-id',
+            displayName: 'Story owner',
+            avatarUrl: null,
+            role: StoryRole.owner,
+            joinedAt: DateTime.utc(2026, 8, 15, 8),
+          ),
+        ];
+
+      await pumpApp(
+        tester,
+        fakeAuthRepository,
+        storyRepository: fakeStoryRepository,
+        participantRepository: fakeParticipantRepository,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(viewerStory.story.title));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('story-details.invite-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.edit-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.delete-action')),
+        findsNothing,
+      );
+
+      await scrollToStoryDetailsParticipantsViewAction(tester);
+      expect(
+        find.byKey(const ValueKey('story-details.participants.manage-action')),
+        findsNothing,
+      );
+      await tapButton(tester, storyDetailsParticipantsViewActionFinder());
+
+      expect(find.text('Participants'), findsWidgets);
+      expect(find.text('Ada Lovelace'), findsOneWidget);
+      expect(find.text('Viewer'), findsWidgets);
+      expect(find.byKey(const ValueKey('participants.leave-action')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('participants.invite-action')),
+          findsNothing);
+      expect(fakeParticipantRepository.receivedStoryIds,
+          contains(viewerStory.story.id));
+    });
+
     testWidgets('shouldOpenInviteFromDetailsWithoutCreatingInvite', (
       WidgetTester tester,
     ) async {
@@ -942,7 +1445,9 @@ void main() {
       GoRouter.of(context).go('/stories//invite');
       await tester.pumpAndSettle();
 
+      expect(find.text('Your stories'), findsOneWidget);
       expect(find.text('Invite someone close'), findsNothing);
+      expectNoRouterTechnicalError('/stories//invite');
     });
 
     testWidgets('shouldRedirectUnauthenticatedParticipantsRouteToLogin', (
@@ -3133,6 +3638,12 @@ String routerLocation(BuildContext context) {
   return GoRouter.of(context).routeInformationProvider.value.uri.toString();
 }
 
+void expectNoRouterTechnicalError(String route) {
+  expect(find.textContaining('GoException'), findsNothing);
+  expect(find.textContaining('no routes'), findsNothing);
+  expect(find.textContaining(route), findsNothing);
+}
+
 Future<void> scrollToLeaveAction(WidgetTester tester) async {
   await tester.scrollUntilVisible(
     leaveActionFinder(),
@@ -3147,6 +3658,17 @@ Future<void> scrollToStoryDetailsParticipantsAction(
 ) async {
   await tester.scrollUntilVisible(
     storyDetailsParticipantsActionFinder(),
+    120,
+    scrollable: storyDetailsScrollableFinder(),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> scrollToStoryDetailsParticipantsViewAction(
+  WidgetTester tester,
+) async {
+  await tester.scrollUntilVisible(
+    storyDetailsParticipantsViewActionFinder(),
     120,
     scrollable: storyDetailsScrollableFinder(),
   );
@@ -3285,6 +3807,10 @@ Finder storyDetailsScrollableFinder() {
 
 Finder storyDetailsParticipantsActionFinder() {
   return find.byKey(const ValueKey('story-details.participants.manage-action'));
+}
+
+Finder storyDetailsParticipantsViewActionFinder() {
+  return find.byKey(const ValueKey('story-details.participants.view-action'));
 }
 
 Finder storyDetailsMapActionFinder() {
@@ -3579,6 +4105,7 @@ final MusicTrack soundtrackTrack = MusicTrack(
 );
 
 final class FakeAuthRepository implements AuthRepository {
+  int loginCalls = 0;
   int logoutCalls = 0;
   AuthSession? restoreResult;
   Object? restoreFailure;
@@ -3605,6 +4132,8 @@ final class FakeAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> loginWithGoogle() async {
+    loginCalls += 1;
+
     final completer = loginCompleter;
     if (completer != null) {
       return completer.future;
@@ -3639,12 +4168,15 @@ final class FakeStoryRepository implements StoryRepository {
   int getStoriesCalls = 0;
   int getStoryCalls = 0;
   int updateStoryCalls = 0;
+  int deleteStoryCalls = 0;
 
   Story createResult = createdStory;
   UserStory storyResult = ownerStory;
   UserStory updateStoryResult = updatedOwnerStory;
   List<UserStory> storiesResult = <UserStory>[ownerStory];
+  final List<Object> getStoryFailures = <Object>[];
   final List<String> receivedGetStoryIds = <String>[];
+  String? receivedDeleteStoryId;
 
   @override
   Future<Story> createStory({
@@ -3659,6 +4191,10 @@ final class FakeStoryRepository implements StoryRepository {
   Future<UserStory> getStory(String storyId) async {
     getStoryCalls += 1;
     receivedGetStoryIds.add(storyId);
+    if (getStoryFailures.isNotEmpty) {
+      throw getStoryFailures.removeAt(0);
+    }
+
     if (storyId == createdStory.id) {
       return createdOwnerStory;
     }
@@ -3676,6 +4212,12 @@ final class FakeStoryRepository implements StoryRepository {
   Future<UserStory> updateStory(UpdateStoryInput input) async {
     updateStoryCalls += 1;
     return updateStoryResult;
+  }
+
+  @override
+  Future<void> deleteStory({required String storyId}) async {
+    deleteStoryCalls += 1;
+    receivedDeleteStoryId = storyId;
   }
 
   @override

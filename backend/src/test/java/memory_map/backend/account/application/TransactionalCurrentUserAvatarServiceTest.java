@@ -1,7 +1,8 @@
 package memory_map.backend.account.application;
 
 import memory_map.backend.auth.domain.AuthenticatedUser;
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupRecoveryScheduler;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.application.TransactionRollbackCoordinator;
 import memory_map.backend.media.image.ImageProcessingInput;
 import memory_map.backend.media.image.ImageProcessor;
@@ -25,6 +26,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,7 +62,10 @@ class TransactionalCurrentUserAvatarServiceTest {
         FakeStorageService storageService = new FakeStorageService();
         FakeRollbackCoordinator rollbackCoordinator =
                 new FakeRollbackCoordinator();
-        FakeCommitCoordinator commitCoordinator = new FakeCommitCoordinator();
+        FakeStorageCleanupScheduler cleanupScheduler =
+                new FakeStorageCleanupScheduler();
+        FakeStorageCleanupRecoveryScheduler recoveryScheduler =
+                new FakeStorageCleanupRecoveryScheduler();
 
         assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
                 null,
@@ -68,7 +73,8 @@ class TransactionalCurrentUserAvatarServiceTest {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("userRepository must not be null");
         assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
@@ -77,7 +83,8 @@ class TransactionalCurrentUserAvatarServiceTest {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("imageProcessor must not be null");
         assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
@@ -86,7 +93,8 @@ class TransactionalCurrentUserAvatarServiceTest {
                 null,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storageKeyFactory must not be null");
         assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
@@ -95,7 +103,8 @@ class TransactionalCurrentUserAvatarServiceTest {
                 storageKeyFactory,
                 null,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storageService must not be null");
         assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
@@ -104,7 +113,8 @@ class TransactionalCurrentUserAvatarServiceTest {
                 storageKeyFactory,
                 storageService,
                 null,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("rollbackCoordinator must not be null");
         assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
@@ -113,9 +123,20 @@ class TransactionalCurrentUserAvatarServiceTest {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
+                null,
+                recoveryScheduler
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("cleanupScheduler must not be null");
+        assertThatThrownBy(() -> new TransactionalCurrentUserAvatarService(
+                userRepository,
+                imageProcessor,
+                storageKeyFactory,
+                storageService,
+                rollbackCoordinator,
+                cleanupScheduler,
                 null
         )).isInstanceOf(NullPointerException.class)
-                .hasMessage("commitCoordinator must not be null");
+                .hasMessage("recoveryScheduler must not be null");
     }
 
     @Test
@@ -144,7 +165,8 @@ class TransactionalCurrentUserAvatarServiceTest {
         assertThat(context.storageService().deletedKeys()).isEmpty();
         assertThat(context.userRepository().updateCustomAvatarCalls()).isZero();
         assertThat(context.rollbackCoordinator().actions()).isEmpty();
-        assertThat(context.commitCoordinator().actions()).isEmpty();
+        assertThat(context.cleanupScheduler().scheduledKeys()).isEmpty();
+        assertThat(context.recoveryScheduler().scheduledKeys()).isEmpty();
     }
 
     @Test
@@ -166,11 +188,12 @@ class TransactionalCurrentUserAvatarServiceTest {
                 .isEqualTo(NEW_STORAGE_KEY);
         assertThat(context.userRepository().updatedAt())
                 .isEqualTo(CURRENT_TIME);
-        assertThat(context.commitCoordinator().actions()).isEmpty();
+        assertThat(context.cleanupScheduler().scheduledKeys()).isEmpty();
+        assertThat(context.recoveryScheduler().scheduledKeys()).isEmpty();
     }
 
     @Test
-    void shouldStoreNewAvatarAndCleanupOldAvatarAfterCommit() {
+    void shouldStoreNewAvatarAndScheduleOldAvatarCleanup() {
         TestContext context = new TestContext(userWithCustomAvatar());
 
         User updated = context.service().uploadAvatar(uploadCommand());
@@ -188,12 +211,9 @@ class TransactionalCurrentUserAvatarServiceTest {
         assertThat(context.storageService().storedObject().contentType())
                 .isEqualTo("image/jpeg");
         assertThat(context.storageService().deletedKeys()).isEmpty();
-        assertThat(context.commitCoordinator().actions()).hasSize(1);
-
-        context.commitCoordinator().actions().getFirst().run();
-
-        assertThat(context.storageService().deletedKeys())
+        assertThat(context.cleanupScheduler().scheduledKeys())
                 .containsExactly(new StorageKey(OLD_STORAGE_KEY));
+        assertThat(context.recoveryScheduler().scheduledKeys()).isEmpty();
     }
 
     @Test
@@ -207,6 +227,7 @@ class TransactionalCurrentUserAvatarServiceTest {
         rollbackCleanup.run();
         assertThat(context.storageService().deletedKeys())
                 .containsExactly(new StorageKey(NEW_STORAGE_KEY));
+        assertThat(context.recoveryScheduler().scheduledKeys()).isEmpty();
 
         context.storageService().deleteFailure =
                 new RuntimeException("cleanup failed");
@@ -216,6 +237,28 @@ class TransactionalCurrentUserAvatarServiceTest {
                         new StorageKey(NEW_STORAGE_KEY),
                         new StorageKey(NEW_STORAGE_KEY)
                 );
+        assertThat(context.recoveryScheduler().scheduledKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
+    }
+
+    @Test
+    void shouldIgnoreRecoveryFailureWhenRollbackCleanupRuns() {
+        TestContext context = new TestContext(userWithCustomAvatar());
+
+        context.service().uploadAvatar(uploadCommand());
+        Runnable rollbackCleanup =
+                context.rollbackCoordinator().actions().getFirst();
+        context.storageService().deleteFailure =
+                new RuntimeException("cleanup failed");
+        context.recoveryScheduler().failure =
+                new RuntimeException("recovery enqueue failed");
+
+        assertThatCode(rollbackCleanup::run).doesNotThrowAnyException();
+
+        assertThat(context.storageService().deletedKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
+        assertThat(context.recoveryScheduler().scheduledKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
     }
 
     @Test
@@ -232,7 +275,8 @@ class TransactionalCurrentUserAvatarServiceTest {
         assertThat(context.storageService().deletedKeys())
                 .containsExactly(new StorageKey(NEW_STORAGE_KEY));
         assertThat(context.userRepository().updateCustomAvatarCalls()).isZero();
-        assertThat(context.commitCoordinator().actions()).isEmpty();
+        assertThat(context.cleanupScheduler().scheduledKeys()).isEmpty();
+        assertThat(context.recoveryScheduler().scheduledKeys()).isEmpty();
     }
 
     @Test
@@ -254,6 +298,33 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         assertThat(context.storageService().deletedKeys())
                 .containsExactly(new StorageKey(NEW_STORAGE_KEY));
+        assertThat(context.recoveryScheduler().scheduledKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
+    }
+
+    @Test
+    void shouldSuppressRecoveryFailureWhenRollbackRegistrationCleanupFails() {
+        TestContext context = new TestContext(userWithCustomAvatar());
+        RuntimeException primary = new RuntimeException(
+                "rollback registration failed"
+        );
+        RuntimeException cleanupFailure = new RuntimeException(
+                "cleanup failed"
+        );
+        RuntimeException recoveryFailure = new RuntimeException(
+                "recovery enqueue failed"
+        );
+        context.rollbackCoordinator().failure = primary;
+        context.storageService().deleteFailure = cleanupFailure;
+        context.recoveryScheduler().failure = recoveryFailure;
+
+        assertThatThrownBy(() -> context.service().uploadAvatar(uploadCommand()))
+                .isSameAs(primary)
+                .satisfies(exception -> assertThat(exception.getSuppressed())
+                        .containsExactly(cleanupFailure, recoveryFailure));
+
+        assertThat(context.recoveryScheduler().scheduledKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
     }
 
     @Test
@@ -269,7 +340,8 @@ class TransactionalCurrentUserAvatarServiceTest {
                 .isEqualTo(OLD_STORAGE_KEY);
         assertThat(context.storageService().deletedKeys())
                 .containsExactly(new StorageKey(NEW_STORAGE_KEY));
-        assertThat(context.commitCoordinator().actions()).isEmpty();
+        assertThat(context.cleanupScheduler().scheduledKeys()).isEmpty();
+        assertThat(context.recoveryScheduler().scheduledKeys()).isEmpty();
     }
 
     @Test
@@ -289,7 +361,9 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         assertThat(context.storageService().deletedKeys())
                 .containsExactly(new StorageKey(NEW_STORAGE_KEY));
-        assertThat(context.commitCoordinator().actions()).isEmpty();
+        assertThat(context.cleanupScheduler().scheduledKeys()).isEmpty();
+        assertThat(context.recoveryScheduler().scheduledKeys())
+                .containsExactly(new StorageKey(NEW_STORAGE_KEY));
     }
 
     @Test
@@ -354,7 +428,7 @@ class TransactionalCurrentUserAvatarServiceTest {
 
         assertThat(context.userRepository().clearCustomAvatarCalls()).isZero();
         assertThat(context.storageService().deletedKeys()).isEmpty();
-        assertThat(context.commitCoordinator().actions()).isEmpty();
+        assertThat(context.cleanupScheduler().scheduledKeys()).isEmpty();
     }
 
     @Test
@@ -369,12 +443,12 @@ class TransactionalCurrentUserAvatarServiceTest {
                 .isEqualTo(1);
         assertThat(context.userRepository().updatedAt())
                 .isEqualTo(CURRENT_TIME);
-        assertThat(context.commitCoordinator().actions()).isEmpty();
+        assertThat(context.cleanupScheduler().scheduledKeys()).isEmpty();
         assertThat(context.storageService().deletedKeys()).isEmpty();
     }
 
     @Test
-    void shouldRemoveCustomAvatarAndCleanupOldAvatarAfterCommit() {
+    void shouldRemoveCustomAvatarAndScheduleOldAvatarCleanup() {
         TestContext context = new TestContext(userWithCustomAvatar());
 
         User updated = context.service().removeAvatar(removeCommand());
@@ -388,23 +462,23 @@ class TransactionalCurrentUserAvatarServiceTest {
                 .isEqualTo(CURRENT_TIME);
         assertThat(context.storageService().deletedKeys()).isEmpty();
 
-        context.commitCoordinator().actions().getFirst().run();
-
-        assertThat(context.storageService().deletedKeys())
+        assertThat(context.cleanupScheduler().scheduledKeys())
                 .containsExactly(new StorageKey(OLD_STORAGE_KEY));
     }
 
     @Test
-    void shouldSuppressOldAvatarCleanupFailureAfterRemoveCommit() {
+    void shouldPropagateOldAvatarCleanupSchedulingFailureAfterRemove() {
         TestContext context = new TestContext(userWithCustomAvatar());
-        context.storageService().deleteFailure =
-                new RuntimeException("cleanup failed");
+        RuntimeException failure = new RuntimeException("enqueue failed");
+        context.cleanupScheduler().failure = failure;
 
-        context.service().removeAvatar(removeCommand());
+        assertThatThrownBy(() -> context.service().removeAvatar(
+                removeCommand()
+        ))
+                .isSameAs(failure);
 
-        assertThatCode(context.commitCoordinator().actions().getFirst()::run)
-                .doesNotThrowAnyException();
-        assertThat(context.storageService().deletedKeys())
+        assertThat(context.storageService().deletedKeys()).isEmpty();
+        assertThat(context.cleanupScheduler().scheduledKeys())
                 .containsExactly(new StorageKey(OLD_STORAGE_KEY));
     }
 
@@ -477,7 +551,8 @@ class TransactionalCurrentUserAvatarServiceTest {
             FakeUserRepository userRepository,
             FakeStorageService storageService,
             FakeRollbackCoordinator rollbackCoordinator,
-            FakeCommitCoordinator commitCoordinator,
+            FakeStorageCleanupScheduler cleanupScheduler,
+            FakeStorageCleanupRecoveryScheduler recoveryScheduler,
             TransactionalCurrentUserAvatarService service
     ) {
         private TestContext(User user) {
@@ -485,7 +560,8 @@ class TransactionalCurrentUserAvatarServiceTest {
                     new FakeUserRepository(user),
                     new FakeStorageService(),
                     new FakeRollbackCoordinator(),
-                    new FakeCommitCoordinator()
+                    new FakeStorageCleanupScheduler(),
+                    new FakeStorageCleanupRecoveryScheduler()
             );
         }
 
@@ -493,20 +569,23 @@ class TransactionalCurrentUserAvatarServiceTest {
                 FakeUserRepository userRepository,
                 FakeStorageService storageService,
                 FakeRollbackCoordinator rollbackCoordinator,
-                FakeCommitCoordinator commitCoordinator
+                FakeStorageCleanupScheduler cleanupScheduler,
+                FakeStorageCleanupRecoveryScheduler recoveryScheduler
         ) {
             this(
                     userRepository,
                     storageService,
                     rollbackCoordinator,
-                    commitCoordinator,
+                    cleanupScheduler,
+                    recoveryScheduler,
                     new TransactionalCurrentUserAvatarService(
                             userRepository,
                             imageProcessor(),
                             new DeterministicUserAvatarStorageKeyFactory(),
                             storageService,
                             rollbackCoordinator,
-                            commitCoordinator
+                            cleanupScheduler,
+                            recoveryScheduler
                     )
             );
         }
@@ -676,18 +755,41 @@ class TransactionalCurrentUserAvatarServiceTest {
         }
     }
 
-    private static final class FakeCommitCoordinator
-            implements TransactionCommitCoordinator {
+    private static final class FakeStorageCleanupScheduler
+            implements StorageCleanupScheduler {
 
-        private final List<Runnable> actions = new ArrayList<>();
+        private final List<StorageKey> scheduledKeys = new ArrayList<>();
+        private RuntimeException failure;
 
         @Override
-        public void onCommit(Runnable action) {
-            actions.add(action);
+        public void schedule(Collection<StorageKey> storageKeys) {
+            scheduledKeys.addAll(storageKeys);
+            if (failure != null) {
+                throw failure;
+            }
         }
 
-        private List<Runnable> actions() {
-            return actions;
+        private List<StorageKey> scheduledKeys() {
+            return scheduledKeys;
+        }
+    }
+
+    private static final class FakeStorageCleanupRecoveryScheduler
+            implements StorageCleanupRecoveryScheduler {
+
+        private final List<StorageKey> scheduledKeys = new ArrayList<>();
+        private RuntimeException failure;
+
+        @Override
+        public void schedule(Collection<StorageKey> storageKeys) {
+            scheduledKeys.addAll(storageKeys);
+            if (failure != null) {
+                throw failure;
+            }
+        }
+
+        private List<StorageKey> scheduledKeys() {
+            return scheduledKeys;
         }
     }
 

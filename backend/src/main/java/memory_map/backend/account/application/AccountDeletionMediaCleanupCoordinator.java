@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface AccountDeletionMediaCleanupCoordinator {
 
-    void scheduleAfterCommitCleanup(List<StorageKey> storageKeys);
+    void scheduleCleanup(List<StorageKey> storageKeys);
 }

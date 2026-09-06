@@ -52,6 +52,18 @@ void main() {
         ),
         throwsFormatException,
       );
+      expect(
+        () => MediaDto.fromJson(
+          mediaJson(thumbnailUrl: '/api/v1/media/media-id/thumbnail?foo=bar'),
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => MediaDto.fromJson(
+          mediaJson(displayUrl: '/api/v1/media/media-id/display#fragment'),
+        ),
+        throwsFormatException,
+      );
     });
 
     test('shouldExposeSafeToString', () {

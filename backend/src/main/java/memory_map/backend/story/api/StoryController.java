@@ -5,12 +5,15 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
 import memory_map.backend.story.application.CreateStoryCommand;
 import memory_map.backend.story.application.CreateStoryUseCase;
+import memory_map.backend.story.application.DeleteStoryCommand;
+import memory_map.backend.story.application.DeleteStoryUseCase;
 import memory_map.backend.story.application.GetStoriesUseCase;
 import memory_map.backend.story.application.GetStoryUseCase;
 import memory_map.backend.story.application.UpdateStoryUseCase;
 import memory_map.backend.story.domain.Story;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,6 +36,7 @@ public class StoryController {
     private final GetStoriesUseCase getStoriesUseCase;
     private final GetStoryUseCase getStoryUseCase;
     private final UpdateStoryUseCase updateStoryUseCase;
+    private final DeleteStoryUseCase deleteStoryUseCase;
     private final CurrentAuthenticatedUserProvider
             currentAuthenticatedUserProvider;
     private final Clock clock;
@@ -42,6 +46,7 @@ public class StoryController {
             GetStoriesUseCase getStoriesUseCase,
             GetStoryUseCase getStoryUseCase,
             UpdateStoryUseCase updateStoryUseCase,
+            DeleteStoryUseCase deleteStoryUseCase,
             CurrentAuthenticatedUserProvider
                     currentAuthenticatedUserProvider,
             Clock clock
@@ -61,6 +66,10 @@ public class StoryController {
         this.updateStoryUseCase = Objects.requireNonNull(
                 updateStoryUseCase,
                 "updateStoryUseCase must not be null"
+        );
+        this.deleteStoryUseCase = Objects.requireNonNull(
+                deleteStoryUseCase,
+                "deleteStoryUseCase must not be null"
         );
         this.currentAuthenticatedUserProvider = Objects.requireNonNull(
                 currentAuthenticatedUserProvider,
@@ -137,5 +146,17 @@ public class StoryController {
                         )
                 )
         );
+    }
+
+    @DeleteMapping("/{storyId}")
+    public ResponseEntity<Void> deleteStory(@PathVariable UUID storyId) {
+        AuthenticatedUser authenticatedUser =
+                currentAuthenticatedUserProvider.getCurrentUser();
+
+        deleteStoryUseCase.deleteStory(
+                new DeleteStoryCommand(authenticatedUser, storyId)
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

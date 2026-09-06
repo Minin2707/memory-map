@@ -22,4 +22,6 @@ abstract interface class StoryRemoteDataSource {
   );
 
   Future<UserStory> removeCover(String storyId);
+
+  Future<void> deleteStory(String storyId);
 }

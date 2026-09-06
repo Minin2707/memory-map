@@ -4,13 +4,12 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.domain.MediaType;
 import memory_map.backend.media.repository.MediaFileRepository;
-import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
-import memory_map.backend.media.storage.StorageObjectWrite;
-import memory_map.backend.media.storage.StorageService;
-import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -19,8 +18,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,6 +46,8 @@ class TransactionalDeleteMediaServiceTest {
             Instant.parse("2026-01-01T10:00:00Z");
 
     private final List<String> events = new ArrayList<>();
+    private final FakeStoryRepository storyRepository =
+            new FakeStoryRepository(events);
     private final FakeMediaFileRepository mediaFileRepository =
             new FakeMediaFileRepository(events);
     private final FakeMemoryRepository memoryRepository =
@@ -55,22 +56,20 @@ class TransactionalDeleteMediaServiceTest {
             new FakeStoryParticipantRepository(events);
     private final DeleteMediaAuthorizationPolicy authorizationPolicy =
             new DeleteMediaAuthorizationPolicy();
-    private final FakeStorageService storageService =
-            new FakeStorageService(events);
-    private final FakeCommitCoordinator commitCoordinator =
-            new FakeCommitCoordinator(events);
+    private final FakeStorageCleanupScheduler cleanupScheduler =
+            new FakeStorageCleanupScheduler(events);
     private final TransactionalDeleteMediaService service =
             new TransactionalDeleteMediaService(
+                    storyRepository,
                     mediaFileRepository,
                     memoryRepository,
                     storyParticipantRepository,
                     authorizationPolicy,
-                    storageService,
-                    commitCoordinator
+                    cleanupScheduler
             );
 
     @Test
-    void shouldDeleteMediaForOwnerAndCleanupStorageAfterCommit() {
+    void shouldDeleteMediaForOwnerAndScheduleStorageCleanup() {
         arrangeCurrentMemory(AUTHOR_ID);
         arrangeCurrentParticipant(USER_ID, StoryRole.OWNER);
 
@@ -83,30 +82,19 @@ class TransactionalDeleteMediaServiceTest {
         assertThat(storyParticipantRepository.requestedUserId)
                 .isEqualTo(USER_ID);
         assertThat(mediaFileRepository.deletedId).isEqualTo(MEDIA_ID);
-        assertThat(storageService.deletedKeys).isEmpty();
-        assertThat(commitCoordinator.actions).hasSize(1);
-        assertThat(events).containsExactly(
-                "media.findById",
-                "memory.findByIdForUpdate",
-                "participant.find",
-                "media.delete",
-                "commit.register"
-        );
-
-        commitCoordinator.runFirstAction();
-
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(cleanupScheduler.storageKeys).containsExactly(
                 thumbnailKey(),
                 displayKey()
         );
         assertThat(events).containsExactly(
                 "media.findById",
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
+                "media.findById",
                 "participant.find",
                 "media.delete",
-                "commit.register",
-                "storage.delete:thumbnail",
-                "storage.delete:display"
+                "cleanup.schedule"
         );
     }
 
@@ -118,8 +106,7 @@ class TransactionalDeleteMediaServiceTest {
         service.deleteMedia(command(USER_ID));
 
         assertThat(mediaFileRepository.deletedId).isEqualTo(MEDIA_ID);
-        commitCoordinator.runFirstAction();
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(cleanupScheduler.storageKeys).containsExactly(
                 thumbnailKey(),
                 displayKey()
         );
@@ -140,7 +127,10 @@ class TransactionalDeleteMediaServiceTest {
         assertNoMetadataDeleteOrStorageWork();
         assertThat(events).containsExactly(
                 "media.findById",
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
+                "media.findById",
                 "participant.find"
         );
     }
@@ -171,7 +161,7 @@ class TransactionalDeleteMediaServiceTest {
         assertNoMetadataDeleteOrStorageWork();
         assertThat(events).containsExactly(
                 "media.findById",
-                "memory.findByIdForUpdate"
+                "memory.findById"
         );
     }
 
@@ -185,7 +175,10 @@ class TransactionalDeleteMediaServiceTest {
         assertNoMetadataDeleteOrStorageWork();
         assertThat(events).containsExactly(
                 "media.findById",
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
+                "media.findById",
                 "participant.find"
         );
     }
@@ -234,36 +227,39 @@ class TransactionalDeleteMediaServiceTest {
         arrangeCurrentParticipant(USER_ID, StoryRole.OWNER);
 
         service.deleteMedia(command(USER_ID));
-        commitCoordinator.runFirstAction();
 
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(cleanupScheduler.storageKeys).containsExactly(
                 new StorageKey("trusted-thumbnail-key"),
                 new StorageKey("trusted-display-key")
         );
     }
 
     @Test
-    void shouldNotCleanupStorageWhenCommitActionIsNotRun() {
+    void shouldNotPhysicallyCleanupStorageFromDeleteService() {
         arrangeCurrentMemory(AUTHOR_ID);
         arrangeCurrentParticipant(USER_ID, StoryRole.OWNER);
 
         service.deleteMedia(command(USER_ID));
 
         assertThat(mediaFileRepository.deletedId).isEqualTo(MEDIA_ID);
-        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupScheduler.storageKeys).containsExactly(
+                thumbnailKey(),
+                displayKey()
+        );
     }
 
     @Test
-    void shouldKeepMetadataDeletedWhenCleanupFailsAfterCommit() {
+    void shouldPropagateCleanupSchedulingFailure() {
         arrangeCurrentMemory(AUTHOR_ID);
         arrangeCurrentParticipant(USER_ID, StoryRole.OWNER);
-        storageService.failure = new RuntimeException("provider failed");
+        RuntimeException failure = new RuntimeException("enqueue failed");
+        cleanupScheduler.failure = failure;
 
-        service.deleteMedia(command(USER_ID));
-        commitCoordinator.runFirstAction();
+        assertThatThrownBy(() -> service.deleteMedia(command(USER_ID)))
+                .isSameAs(failure);
 
         assertThat(mediaFileRepository.deletedId).isEqualTo(MEDIA_ID);
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(cleanupScheduler.storageKeys).containsExactly(
                 thumbnailKey(),
                 displayKey()
         );
@@ -290,88 +286,87 @@ class TransactionalDeleteMediaServiceTest {
         assertThatThrownBy(() -> service.deleteMedia(command(USER_ID)))
                 .isSameAs(failure);
 
-        assertThat(commitCoordinator.actions).isEmpty();
-        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupScheduler.storageKeys).isEmpty();
     }
 
     @Test
-    void shouldPropagateCommitRegistrationFailureBeforeStorageCleanup() {
+    void shouldPropagateCleanupSchedulingFailureAfterMetadataDelete() {
         arrangeCurrentMemory(AUTHOR_ID);
         arrangeCurrentParticipant(USER_ID, StoryRole.OWNER);
-        RuntimeException failure = new RuntimeException(
-                "commit registration failed"
-        );
-        commitCoordinator.failure = failure;
+        RuntimeException failure = new RuntimeException("enqueue failed");
+        cleanupScheduler.failure = failure;
 
         assertThatThrownBy(() -> service.deleteMedia(command(USER_ID)))
                 .isSameAs(failure);
 
         assertThat(mediaFileRepository.deletedId).isEqualTo(MEDIA_ID);
-        assertThat(commitCoordinator.actions).isEmpty();
-        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupScheduler.storageKeys).containsExactly(
+                thumbnailKey(),
+                displayKey()
+        );
     }
 
     @Test
     void shouldRejectNullDependencies() {
         assertThatThrownBy(() -> new TransactionalDeleteMediaService(
                 null,
+                mediaFileRepository,
                 memoryRepository,
                 storyParticipantRepository,
                 authorizationPolicy,
-                storageService,
-                commitCoordinator
+                cleanupScheduler
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("storyRepository must not be null");
+
+        assertThatThrownBy(() -> new TransactionalDeleteMediaService(
+                storyRepository,
+                null,
+                memoryRepository,
+                storyParticipantRepository,
+                authorizationPolicy,
+                cleanupScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("mediaFileRepository must not be null");
 
         assertThatThrownBy(() -> new TransactionalDeleteMediaService(
+                storyRepository,
                 mediaFileRepository,
                 null,
                 storyParticipantRepository,
                 authorizationPolicy,
-                storageService,
-                commitCoordinator
+                cleanupScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("memoryRepository must not be null");
 
         assertThatThrownBy(() -> new TransactionalDeleteMediaService(
+                storyRepository,
                 mediaFileRepository,
                 memoryRepository,
                 null,
                 authorizationPolicy,
-                storageService,
-                commitCoordinator
+                cleanupScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storyParticipantRepository must not be null");
 
         assertThatThrownBy(() -> new TransactionalDeleteMediaService(
+                storyRepository,
                 mediaFileRepository,
                 memoryRepository,
                 storyParticipantRepository,
                 null,
-                storageService,
-                commitCoordinator
+                cleanupScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("authorizationPolicy must not be null");
 
         assertThatThrownBy(() -> new TransactionalDeleteMediaService(
+                storyRepository,
                 mediaFileRepository,
                 memoryRepository,
                 storyParticipantRepository,
                 authorizationPolicy,
-                null,
-                commitCoordinator
-        )).isInstanceOf(NullPointerException.class)
-                .hasMessage("storageService must not be null");
-
-        assertThatThrownBy(() -> new TransactionalDeleteMediaService(
-                mediaFileRepository,
-                memoryRepository,
-                storyParticipantRepository,
-                authorizationPolicy,
-                storageService,
                 null
         )).isInstanceOf(NullPointerException.class)
-                .hasMessage("commitCoordinator must not be null");
+                .hasMessage("cleanupScheduler must not be null");
     }
 
     @Test
@@ -429,14 +424,12 @@ class TransactionalDeleteMediaServiceTest {
         mediaFileRepository.reset();
         memoryRepository.reset();
         storyParticipantRepository.reset();
-        storageService.reset();
-        commitCoordinator.reset();
+        cleanupScheduler.reset();
     }
 
     private void assertNoMetadataDeleteOrStorageWork() {
         assertThat(mediaFileRepository.deletedId).isNull();
-        assertThat(commitCoordinator.actions).isEmpty();
-        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupScheduler.storageKeys).isEmpty();
     }
 
     private static void assertUnavailable(ThrowingAction action) {
@@ -497,6 +490,51 @@ class TransactionalDeleteMediaServiceTest {
 
     private static StorageKey thumbnailKey() {
         return new StorageKey("media/%s/thumbnail".formatted(MEDIA_ID));
+    }
+
+    private static final class FakeStoryRepository implements StoryRepository {
+
+        private final List<String> events;
+
+        private FakeStoryRepository(List<String> events) {
+            this.events = events;
+        }
+
+        @Override
+        public Story save(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story update(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            events.add("story.lock");
+            return true;
+        }
+
+        @Override
+        public Story updateCover(UUID id, StoryCoverMetadata cover) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story clearCover(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class FakeMediaFileRepository
@@ -567,7 +605,9 @@ class TransactionalDeleteMediaServiceTest {
 
         @Override
         public Optional<Memory> findById(UUID id) {
-            return Optional.empty();
+            events.add("memory.findById");
+            requestedId = id;
+            return memory;
         }
 
         @Override
@@ -673,44 +713,21 @@ class TransactionalDeleteMediaServiceTest {
         }
     }
 
-    private static final class FakeStorageService implements StorageService {
+    private static final class FakeStorageCleanupScheduler
+            implements StorageCleanupScheduler {
 
         private final List<String> events;
-        private final List<StorageKey> deletedKeys = new ArrayList<>();
+        private final List<StorageKey> storageKeys = new ArrayList<>();
         private RuntimeException failure;
 
-        private FakeStorageService(List<String> events) {
+        private FakeStorageCleanupScheduler(List<String> events) {
             this.events = events;
         }
 
         @Override
-        public void store(StorageObjectWrite object) {
-        }
-
-        @Override
-        public StoredObject read(StorageKey storageKey) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public StoredObject readRange(
-                StorageKey storageKey,
-                StorageByteRange range
-        ) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void delete(StorageKey storageKey) {
-            deletedKeys.add(storageKey);
-
-            if (Objects.equals(storageKey, thumbnailKey())) {
-                events.add("storage.delete:thumbnail");
-            } else if (Objects.equals(storageKey, displayKey())) {
-                events.add("storage.delete:display");
-            } else {
-                events.add("storage.delete:trusted");
-            }
+        public void schedule(Collection<StorageKey> storageKeys) {
+            events.add("cleanup.schedule");
+            this.storageKeys.addAll(storageKeys);
 
             if (failure != null) {
                 throw failure;
@@ -718,39 +735,7 @@ class TransactionalDeleteMediaServiceTest {
         }
 
         private void reset() {
-            deletedKeys.clear();
-            failure = null;
-        }
-    }
-
-    private static final class FakeCommitCoordinator
-            implements TransactionCommitCoordinator {
-
-        private final List<String> events;
-        private final List<Runnable> actions = new ArrayList<>();
-        private RuntimeException failure;
-
-        private FakeCommitCoordinator(List<String> events) {
-            this.events = events;
-        }
-
-        @Override
-        public void onCommit(Runnable action) {
-            events.add("commit.register");
-
-            if (failure != null) {
-                throw failure;
-            }
-
-            actions.add(action);
-        }
-
-        private void runFirstAction() {
-            actions.get(0).run();
-        }
-
-        private void reset() {
-            actions.clear();
+            storageKeys.clear();
             failure = null;
         }
     }

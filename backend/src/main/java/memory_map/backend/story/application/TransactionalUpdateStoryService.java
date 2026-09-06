@@ -33,6 +33,10 @@ public class TransactionalUpdateStoryService
     public UserStory updateStory(UpdateStoryCommand command) {
         Objects.requireNonNull(command, "command must not be null");
 
+        if (!storyRepository.lockById(command.storyId())) {
+            throw new StoryNotFoundException();
+        }
+
         UserStory current = userStoryRepository.findByStoryIdAndUserId(
                 command.storyId(),
                 command.authenticatedUser().userId()

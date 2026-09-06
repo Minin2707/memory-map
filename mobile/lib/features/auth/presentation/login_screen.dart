@@ -17,7 +17,14 @@ const _secondaryText = Color(0xFF6F7883);
 const _buttonBackground = Color(0xFF18232B);
 
 class LoginScreen extends ConsumerWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    super.key,
+    this.onPrivacyPolicy,
+    this.onTermsOfUse,
+  });
+
+  final VoidCallback? onPrivacyPolicy;
+  final VoidCallback? onTermsOfUse;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -68,6 +75,8 @@ class LoginScreen extends ConsumerWidget {
                                           .read(authNotifierProvider.notifier)
                                           .loginWithGoogle();
                                     },
+                              onPrivacyPolicy: onPrivacyPolicy,
+                              onTermsOfUse: onTermsOfUse,
                             ),
                           ),
                         ),
@@ -162,12 +171,16 @@ class _LoginContent extends StatelessWidget {
     required this.isAuthenticating,
     required this.failure,
     required this.onPressed,
+    required this.onPrivacyPolicy,
+    required this.onTermsOfUse,
   });
 
   final AppLocalizations l10n;
   final bool isAuthenticating;
   final String? failure;
   final VoidCallback? onPressed;
+  final VoidCallback? onPrivacyPolicy;
+  final VoidCallback? onTermsOfUse;
 
   @override
   Widget build(BuildContext context) {
@@ -231,7 +244,11 @@ class _LoginContent extends StatelessWidget {
           _FailureMessage(message: failure!),
         ],
         const SizedBox(height: 28),
-        _LegalFooter(l10n: l10n),
+        _LegalFooter(
+          l10n: l10n,
+          onPrivacyPolicy: onPrivacyPolicy,
+          onTermsOfUse: onTermsOfUse,
+        ),
       ],
     );
   }
@@ -374,9 +391,15 @@ class _FailureMessage extends StatelessWidget {
 }
 
 class _LegalFooter extends StatelessWidget {
-  const _LegalFooter({required this.l10n});
+  const _LegalFooter({
+    required this.l10n,
+    required this.onPrivacyPolicy,
+    required this.onTermsOfUse,
+  });
 
   final AppLocalizations l10n;
+  final VoidCallback? onPrivacyPolicy;
+  final VoidCallback? onTermsOfUse;
 
   @override
   Widget build(BuildContext context) {
@@ -393,18 +416,66 @@ class _LegalFooter extends StatelessWidget {
       height: 1.45,
     );
 
-    return Text.rich(
-      TextSpan(
-        style: baseStyle,
-        children: [
-          TextSpan(text: '${l10n.loginLegalPrefix} '),
-          TextSpan(text: l10n.privacyPolicy, style: emphasisStyle),
-          TextSpan(text: ' ${l10n.legalSeparator} '),
-          TextSpan(text: l10n.termsOfUse, style: emphasisStyle),
-          const TextSpan(text: '.'),
-        ],
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          '${l10n.loginLegalPrefix} ',
+          textAlign: TextAlign.center,
+          style: baseStyle,
+        ),
+        _LegalFooterLink(
+          label: l10n.privacyPolicy,
+          style: emphasisStyle,
+          onTap: onPrivacyPolicy,
+        ),
+        Text(
+          ' ${l10n.legalSeparator} ',
+          textAlign: TextAlign.center,
+          style: baseStyle,
+        ),
+        _LegalFooterLink(
+          label: l10n.termsOfUse,
+          style: emphasisStyle,
+          onTap: onTermsOfUse,
+        ),
+        const Text(
+          '.',
+          textAlign: TextAlign.center,
+          style: baseStyle,
+        ),
+      ],
+    );
+  }
+}
+
+class _LegalFooterLink extends StatelessWidget {
+  const _LegalFooterLink({
+    required this.label,
+    required this.style,
+    required this.onTap,
+  });
+
+  final String label;
+  final TextStyle style;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      link: true,
+      button: true,
+      enabled: onTap != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: style,
+        ),
       ),
-      textAlign: TextAlign.center,
     );
   }
 }

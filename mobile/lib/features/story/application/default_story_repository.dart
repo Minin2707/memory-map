@@ -104,6 +104,21 @@ final class DefaultStoryRepository implements StoryRepository {
     }
   }
 
+  @override
+  Future<void> deleteStory({
+    required String storyId,
+  }) async {
+    if (storyId.trim().isEmpty) {
+      throw ArgumentError('storyId must not be blank');
+    }
+
+    try {
+      await _storyRemoteDataSource.deleteStory(storyId);
+    } on StoryRemoteException catch (exception) {
+      throw StoryApplicationException(_mapFailure(exception));
+    }
+  }
+
   StoryPatchField<T> _toRemoteField<T>(StoryUpdateField<T> field) {
     if (field.isProvided) {
       return StoryPatchField<T>.provided(field.value);

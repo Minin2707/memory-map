@@ -8,3 +8,15 @@ server:
     include-stacktrace: never
     include-binding-errors: never
     include-exception: false
+
+app:
+  storage:
+    minio:
+      enabled: true
+      endpoint: ${MINIO_ENDPOINT}
+      access-key: ${MINIO_ACCESS_KEY}
+      secret-key: ${MINIO_SECRET_KEY}
+      bucket: ${MINIO_BUCKET}
+    cleanup:
+      worker-enabled: true
+      fixed-delay-millis: 30000

@@ -168,7 +168,8 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   MapLibreMarkerSynchronizer<Symbol>? _markerSynchronizer;
   PlaybackRouteSynchronizer? _routeSynchronizer;
   Future<void> _synchronizerLifecycle = Future<void>.value();
-  int _mapLifecycleGeneration = 0;
+  final PlaybackMapStyleLifecycle _mapLifecycle =
+      PlaybackMapStyleLifecycle();
 
   @override
   void initState() {
@@ -208,7 +209,7 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
 
   @override
   void dispose() {
-    _mapLifecycleGeneration += 1;
+    _mapLifecycle.dispose();
     _cameraAdapter.dispose();
     final markerSynchronizer = _markerSynchronizer;
     _markerSynchronizer = null;
@@ -227,6 +228,7 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   @override
   Widget build(BuildContext context) {
     final markerSynchronizer = _markerSynchronizer;
+    final styleCallbackGeneration = _mapLifecycle.currentGeneration;
     _startThumbnailLoads();
     final requests = _iconRequests();
     _trimIconState(requests);
@@ -250,8 +252,10 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
               playbackMapInteractionPolicy.rotateGesturesEnabled,
           tiltGesturesEnabled: playbackMapInteractionPolicy.tiltGesturesEnabled,
           onMapCreated: (controller) {
-            final generation = _mapLifecycleGeneration + 1;
-            _mapLifecycleGeneration = generation;
+            final generation = _mapLifecycle.beginControllerLifecycle();
+            if (mounted) {
+              setState(() {});
+            }
             final lifecycle = _synchronizerLifecycle.then(
               (_) => _replaceMapSynchronizers(controller, generation),
             );
@@ -259,7 +263,7 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
             unawaited(lifecycle);
           },
           onStyleLoadedCallback: () {
-            unawaited(_handleStyleLoaded(_mapLifecycleGeneration));
+            unawaited(_handleStyleLoaded(styleCallbackGeneration));
           },
         ),
         if (markerSynchronizer == null || markerSynchronizer.isLoading)
@@ -294,7 +298,7 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
 
     await previousMarkerSynchronizer?.dispose();
     await previousRouteSynchronizer?.dispose();
-    if (!mounted || generation != _mapLifecycleGeneration) {
+    if (!mounted || !_mapLifecycle.isCurrent(generation)) {
       return;
     }
 
@@ -316,8 +320,12 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   }
 
   Future<void> _handleStyleLoaded(int generation) async {
+    if (!_mapLifecycle.shouldAcceptStyleLoaded(generation)) {
+      return;
+    }
+
     await _synchronizerLifecycle;
-    if (!mounted || generation != _mapLifecycleGeneration) {
+    if (!mounted || !_mapLifecycle.shouldAcceptStyleLoaded(generation)) {
       return;
     }
 
@@ -326,7 +334,7 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
     _cameraAdapter.markStyleReady();
     if ((routeChanged || markerChanged) &&
         mounted &&
-        generation == _mapLifecycleGeneration) {
+        _mapLifecycle.shouldAcceptStyleLoaded(generation)) {
       setState(() {});
     }
   }
@@ -554,6 +562,40 @@ class _PlaybackMapViewState extends ConsumerState<PlaybackMapView> {
   bool _isRelevantIconKey(String imageKey) {
     return playbackRelevantMarkerIconKeysForTesting(_iconRequests())
         .contains(imageKey);
+  }
+}
+
+@visibleForTesting
+final class PlaybackMapStyleLifecycle {
+  int _generation = 0;
+  bool _disposed = false;
+
+  int get currentGeneration => _generation;
+
+  int beginControllerLifecycle() {
+    if (_disposed) {
+      return _generation;
+    }
+
+    _generation += 1;
+    return _generation;
+  }
+
+  bool isCurrent(int generation) {
+    return !_disposed && generation == _generation;
+  }
+
+  bool shouldAcceptStyleLoaded(int generation) {
+    return isCurrent(generation);
+  }
+
+  void dispose() {
+    if (_disposed) {
+      return;
+    }
+
+    _disposed = true;
+    _generation += 1;
   }
 }
 

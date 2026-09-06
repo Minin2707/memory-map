@@ -117,6 +117,8 @@ final class Media {
     if (uri == null ||
         uri.hasScheme ||
         uri.hasAuthority ||
+        uri.hasQuery ||
+        uri.hasFragment ||
         !value.startsWith('/api/v1/')) {
       throw ArgumentError('$fieldName must be a backend API path');
     }

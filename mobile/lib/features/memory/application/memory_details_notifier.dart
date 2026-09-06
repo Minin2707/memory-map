@@ -17,9 +17,11 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
   MemoryDetailsNotifier(this._memoryId);
 
   final String _memoryId;
+  int _refreshRevision = 0;
 
   @override
   Future<MemoryDetailsState> build() async {
+    _invalidateRefresh();
     return _load(_memoryId, ref.watch(memoryRepositoryProvider));
   }
 
@@ -29,9 +31,15 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
     }
 
     state = const AsyncLoading<MemoryDetailsState>();
-    state = await AsyncValue.guard<MemoryDetailsState>(() async {
+    final retryRevision = ++_refreshRevision;
+    final result = await AsyncValue.guard<MemoryDetailsState>(() async {
       return _load(_memoryId, ref.read(memoryRepositoryProvider));
     });
+    if (!_isCurrentRefresh(retryRevision)) {
+      return;
+    }
+
+    state = result;
   }
 
   Future<void> refreshMemory() async {
@@ -48,15 +56,24 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
       clearRefreshFailure: true,
     );
     state = AsyncData<MemoryDetailsState>(refreshingState);
+    final refreshRevision = ++_refreshRevision;
 
     try {
       final memory = await ref.read(memoryRepositoryProvider).getMemory(
             _memoryId,
           );
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<MemoryDetailsState>(
         MemoryDetailsState.loadedRead(readModel: memory),
       );
     } on MemoryApplicationException catch (error) {
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<MemoryDetailsState>(
         refreshingState.copyWith(
           isRefreshing: false,
@@ -64,6 +81,10 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
         ),
       );
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<MemoryDetailsState>(
         refreshingState.copyWith(isRefreshing: false),
       );
@@ -80,9 +101,11 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
       return;
     }
 
+    _invalidateRefresh();
     state = AsyncData<MemoryDetailsState>(
       currentState.copyWith(
         readModel: currentState.readModel!.withMemoryMutation(updatedMemory),
+        isRefreshing: false,
         clearRefreshFailure: true,
       ),
     );
@@ -97,9 +120,11 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
       return;
     }
 
+    _invalidateRefresh();
     state = AsyncData<MemoryDetailsState>(
       currentState.copyWith(
         readModel: readModel,
+        isRefreshing: false,
         clearRefreshFailure: true,
       ),
     );
@@ -123,6 +148,14 @@ final class MemoryDetailsNotifier extends AsyncNotifier<MemoryDetailsState> {
   }
 
   bool get _isLoading => state is AsyncLoading<MemoryDetailsState>;
+
+  void _invalidateRefresh() {
+    _refreshRevision += 1;
+  }
+
+  bool _isCurrentRefresh(int refreshRevision) {
+    return ref.mounted && _refreshRevision == refreshRevision;
+  }
 
   MemoryDetailsState? get _currentState {
     final currentState = state;

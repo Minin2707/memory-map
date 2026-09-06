@@ -374,6 +374,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storyDetailsPlaybackStoryAction => 'Воспроизвести историю';
 
   @override
+  String get deleteStoryAction => 'Удалить историю';
+
+  @override
+  String get deleteStoryDialogTitle => 'Удалить историю?';
+
+  @override
+  String get deleteStoryDialogBody =>
+      'История и её воспоминания будут удалены без возможности восстановления.';
+
+  @override
+  String get deleteStoryCancel => 'Отмена';
+
+  @override
+  String get deleteStoryConfirm => 'Удалить';
+
+  @override
+  String get deleteStoryDeleting => 'Удаляем историю...';
+
+  @override
   String get soundtrackTitle => 'Саундтрек';
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:memory_map/features/memory/domain/memory_location.dart';
@@ -29,8 +31,14 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
   void didUpdateWidget(LocationPickerMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedLocation != widget.selectedLocation) {
-      _syncSelectedMarker();
+      unawaited(_syncSelectedMarker(_readiness.currentGeneration));
     }
+  }
+
+  @override
+  void dispose() {
+    _readiness.dispose();
+    super.dispose();
   }
 
   @override
@@ -40,6 +48,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
     final cameraZoom = widget.selectedLocation == null
         ? widget.configuration.defaultZoom
         : widget.configuration.selectedZoom;
+    final styleCallbackGeneration = _readiness.currentGeneration;
 
     return Stack(
       fit: StackFit.expand,
@@ -53,11 +62,16 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
           compassEnabled: false,
           myLocationEnabled: false,
           onMapCreated: (controller) {
+            _readiness.beginControllerLifecycle();
             _controller = controller;
+            _selectedCircle = null;
+            if (mounted) {
+              setState(() {});
+            }
           },
           onStyleLoadedCallback: () {
-            _handleStyleLoaded();
-            _syncSelectedMarker();
+            _handleStyleLoaded(styleCallbackGeneration);
+            unawaited(_syncSelectedMarker(styleCallbackGeneration));
           },
           onMapClick: (point, coordinate) {
             widget.onPointSelected(memoryLocationFromMapLibreLatLng(coordinate));
@@ -76,19 +90,22 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
     );
   }
 
-  void _handleStyleLoaded() {
-    if (_readiness.styleLoaded || !mounted) {
+  void _handleStyleLoaded(int generation) {
+    if (!mounted) {
       return;
     }
 
-    setState(() {
-      _readiness.markStyleLoaded();
-    });
+    final changed = _readiness.markStyleLoaded(generation);
+    if (changed) {
+      setState(() {});
+    }
   }
 
-  Future<void> _syncSelectedMarker() async {
+  Future<void> _syncSelectedMarker(int generation) async {
     final controller = _controller;
-    if (!mounted || controller == null || !_readiness.styleLoaded) {
+    if (!mounted ||
+        controller == null ||
+        !_readiness.isStyleLoadedFor(generation)) {
       return;
     }
 
@@ -97,7 +114,9 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
       final existingCircle = _selectedCircle;
       if (existingCircle != null) {
         await controller.removeCircle(existingCircle as dynamic);
-        _selectedCircle = null;
+        if (mounted && _readiness.isCurrent(generation)) {
+          _selectedCircle = null;
+        }
       }
       return;
     }
@@ -112,7 +131,10 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
 
     final existingCircle = _selectedCircle;
     if (existingCircle == null) {
-      _selectedCircle = await controller.addCircle(options);
+      final circle = await controller.addCircle(options);
+      if (mounted && _readiness.isCurrent(generation)) {
+        _selectedCircle = circle;
+      }
     } else {
       await controller.updateCircle(existingCircle as dynamic, options);
     }
@@ -120,19 +142,45 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
 }
 
 class LocationPickerMapReadiness {
+  int _generation = 0;
   bool _styleLoaded = false;
+
+  int get currentGeneration => _generation;
 
   bool get styleLoaded => _styleLoaded;
 
   bool get isLoading => !_styleLoaded;
 
-  bool markStyleLoaded() {
+  int beginControllerLifecycle() {
+    _generation += 1;
+    _styleLoaded = false;
+    return _generation;
+  }
+
+  bool isCurrent(int generation) {
+    return generation == _generation;
+  }
+
+  bool isStyleLoadedFor(int generation) {
+    return isCurrent(generation) && _styleLoaded;
+  }
+
+  bool markStyleLoaded([int? generation]) {
+    if (generation != null && !isCurrent(generation)) {
+      return false;
+    }
+
     if (_styleLoaded) {
       return false;
     }
 
     _styleLoaded = true;
     return true;
+  }
+
+  void dispose() {
+    _generation += 1;
+    _styleLoaded = false;
   }
 }
 

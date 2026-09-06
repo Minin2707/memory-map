@@ -17,6 +17,8 @@ import 'package:memory_map/features/participant/application/participants_state.d
 import 'package:memory_map/features/participant/domain/participant_failure.dart';
 import 'package:memory_map/features/participant/domain/story_participant.dart';
 import 'package:memory_map/features/participant/presentation/participant_failure_message.dart';
+import 'package:memory_map/features/story/application/delete_story_notifier.dart';
+import 'package:memory_map/features/story/application/delete_story_state.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
 import 'package:memory_map/features/story/application/story_details_state.dart';
 import 'package:memory_map/features/story/domain/story.dart';
@@ -40,6 +42,7 @@ class StoryDetailsScreen extends ConsumerWidget {
     this.onCreateMemory,
     this.onMemorySelected,
     this.onPlaybackSelected,
+    this.onStoryDeleted,
     super.key,
   });
 
@@ -55,6 +58,7 @@ class StoryDetailsScreen extends ConsumerWidget {
   final VoidCallback? onCreateMemory;
   final ValueChanged<Memory>? onMemorySelected;
   final ValueChanged<UserStory>? onPlaybackSelected;
+  final ValueChanged<UserStory>? onStoryDeleted;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -115,6 +119,7 @@ class StoryDetailsScreen extends ConsumerWidget {
               child: _StoryDetailsErrorView(
                 title: l10n.unexpectedErrorTitle,
                 message: l10n.storyFailureUnknown,
+                onBack: onBack,
                 onRetry: () {
                   ref
                       .read(storyDetailsProvider(storyId).notifier)
@@ -143,6 +148,7 @@ class StoryDetailsScreen extends ConsumerWidget {
               child: _StoryDetailsErrorView(
                 title: l10n.storyDetailsLoadFailureTitle,
                 message: storyFailureMessage(l10n, loadFailure),
+                onBack: onBack,
                 onRetry: () {
                   ref
                       .read(storyDetailsProvider(storyId).notifier)
@@ -159,6 +165,12 @@ class StoryDetailsScreen extends ConsumerWidget {
     if (userStory == null) {
       return const [];
     }
+    final canDeleteStory =
+        onStoryDeleted != null && userStory.role.canDeleteStory;
+    final deleteValue = canDeleteStory
+        ? ref.watch(deleteStoryProvider(storyId))
+        : const AsyncData<DeleteStoryState>(DeleteStoryState());
+    final deleteState = deleteValue.asData?.value ?? const DeleteStoryState();
 
     return [
       if (state.isRefreshing)
@@ -201,6 +213,12 @@ class StoryDetailsScreen extends ConsumerWidget {
             onEditStory: userStory.canUpdateStoryMetadata
                 ? onEditStory
                 : null,
+            onDeleteStory: canDeleteStory
+                ? () {
+                    _confirmDeleteStory(context, ref, userStory);
+                  }
+                : null,
+            deleteEnabled: !deleteState.isDeleting,
           ),
         ),
       ),
@@ -210,9 +228,8 @@ class StoryDetailsScreen extends ConsumerWidget {
           child: _ParticipantsSummarySection(
             storyId: storyId,
             userStory: userStory,
-            onManage: userStory.canUpdateStoryMetadata
-                ? onParticipantsSelected
-                : null,
+            onOpenParticipants: onParticipantsSelected,
+            canManageParticipants: userStory.canUpdateStoryMetadata,
             onInvite: onInvite != null && userStory.canUpdateStoryMetadata
                 ? () {
                     onInvite!(userStory.role);
@@ -252,6 +269,101 @@ class StoryDetailsScreen extends ConsumerWidget {
       ),
     ];
   }
+
+  Future<void> _confirmDeleteStory(
+    BuildContext context,
+    WidgetRef ref,
+    UserStory userStory,
+  ) async {
+    final provider = deleteStoryProvider(storyId);
+    if (_isDeleting(ref.read(provider))) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+
+        return AlertDialog(
+          title: Text(l10n.deleteStoryDialogTitle),
+          content: Text(l10n.deleteStoryDialogBody),
+          actions: [
+            TextButton(
+              key: const ValueKey('story-details.delete.cancel-action'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: Text(l10n.deleteStoryCancel),
+            ),
+            FilledButton(
+              key: const ValueKey('story-details.delete.confirm-action'),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFF5D72),
+                foregroundColor: Colors.white,
+              ),
+              child: Text(l10n.deleteStoryConfirm),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!context.mounted ||
+        confirmed != true ||
+        _isDeleting(ref.read(provider))) {
+      return;
+    }
+
+    final notifier = ref.read(provider.notifier);
+    if (ref.read(provider).hasError) {
+      notifier.reset();
+    }
+
+    final success = await notifier.deleteStory();
+    if (!context.mounted) {
+      return;
+    }
+
+    if (success) {
+      onStoryDeleted?.call(userStory);
+      return;
+    }
+
+    final l10n = AppLocalizations.of(context);
+    final message = _deleteFailureMessage(l10n, ref.read(provider));
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          key: const ValueKey('story-details.delete.failure-snackbar'),
+          content: Text(message),
+        ),
+      );
+  }
+
+  bool _isDeleting(AsyncValue<DeleteStoryState> value) {
+    return value.asData?.value.isDeleting ?? false;
+  }
+
+  String _deleteFailureMessage(
+    AppLocalizations l10n,
+    AsyncValue<DeleteStoryState> deleteValue,
+  ) {
+    if (deleteValue.hasError) {
+      return l10n.storyFailureUnknown;
+    }
+
+    final failure = deleteValue.asData?.value.deleteFailure;
+    if (failure == null) {
+      return l10n.storyFailureUnknown;
+    }
+
+    return storyFailureMessage(l10n, failure);
+  }
 }
 
 class _StoryHeroSection extends ConsumerWidget {
@@ -261,6 +373,8 @@ class _StoryHeroSection extends ConsumerWidget {
     required this.onBack,
     required this.onInvite,
     required this.onEditStory,
+    required this.onDeleteStory,
+    required this.deleteEnabled,
   });
 
   final String storyId;
@@ -268,6 +382,8 @@ class _StoryHeroSection extends ConsumerWidget {
   final VoidCallback? onBack;
   final VoidCallback? onInvite;
   final ValueChanged<UserStory>? onEditStory;
+  final VoidCallback? onDeleteStory;
+  final bool deleteEnabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -284,6 +400,8 @@ class _StoryHeroSection extends ConsumerWidget {
       onBack: onBack,
       onInvite: onInvite,
       onEditStory: onEditStory,
+      onDeleteStory: onDeleteStory,
+      deleteEnabled: deleteEnabled,
     );
   }
 }
@@ -295,6 +413,8 @@ class _StoryHero extends StatelessWidget {
     required this.onBack,
     required this.onInvite,
     required this.onEditStory,
+    required this.onDeleteStory,
+    required this.deleteEnabled,
   });
 
   final UserStory userStory;
@@ -302,6 +422,8 @@ class _StoryHero extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onInvite;
   final ValueChanged<UserStory>? onEditStory;
+  final VoidCallback? onDeleteStory;
+  final bool deleteEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -381,6 +503,18 @@ class _StoryHero extends StatelessWidget {
                                 onEditStory!(userStory);
                               },
                             ),
+                          if (onDeleteStory != null) ...[
+                            const SizedBox(width: 10),
+                            GlassCircleIconButton.icon(
+                              key: const ValueKey(
+                                'story-details.delete-action',
+                              ),
+                              tooltip: l10n.deleteStoryAction,
+                              icon: Icons.delete_outline_rounded,
+                              foregroundColor: const Color(0xFFFF5D72),
+                              onPressed: deleteEnabled ? onDeleteStory : null,
+                            ),
+                          ],
                         ],
                       ),
                       const Spacer(),
@@ -654,7 +788,8 @@ class _HeroMetadataPill extends StatelessWidget {
 class _ParticipantsSummaryCard extends StatelessWidget {
   const _ParticipantsSummaryCard({
     required this.participantsValue,
-    required this.onManage,
+    required this.onOpenParticipants,
+    required this.canManageParticipants,
     required this.onInvite,
     required this.onRetry,
   });
@@ -662,7 +797,8 @@ class _ParticipantsSummaryCard extends StatelessWidget {
   static const int _previewLimit = 3;
 
   final AsyncValue<ParticipantsState> participantsValue;
-  final VoidCallback? onManage;
+  final VoidCallback? onOpenParticipants;
+  final bool canManageParticipants;
   final VoidCallback? onInvite;
   final VoidCallback onRetry;
 
@@ -690,14 +826,16 @@ class _ParticipantsSummaryCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (onManage != null)
+              if (onOpenParticipants != null)
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 148),
                   child: TextButton(
-                    key: const ValueKey(
-                      'story-details.participants.manage-action',
+                    key: ValueKey(
+                      canManageParticipants
+                          ? 'story-details.participants.manage-action'
+                          : 'story-details.participants.view-action',
                     ),
-                    onPressed: onManage,
+                    onPressed: onOpenParticipants,
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFFFF5D72),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -712,7 +850,9 @@ class _ParticipantsSummaryCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            l10n.storyDetailsParticipantsManageAction,
+                            canManageParticipants
+                                ? l10n.storyDetailsParticipantsManageAction
+                                : l10n.storyDetailsSeeAllAction,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -738,35 +878,84 @@ class _ParticipantsSummaryCard extends StatelessWidget {
   }
 }
 
-class _ParticipantsSummarySection extends ConsumerWidget {
+class _ParticipantsSummarySection extends ConsumerStatefulWidget {
   const _ParticipantsSummarySection({
     required this.storyId,
     required this.userStory,
-    required this.onManage,
+    required this.onOpenParticipants,
+    required this.canManageParticipants,
     required this.onInvite,
   });
 
   final String storyId;
   final UserStory userStory;
-  final ValueChanged<UserStory>? onManage;
+  final ValueChanged<UserStory>? onOpenParticipants;
+  final bool canManageParticipants;
   final VoidCallback? onInvite;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final participantsValue = ref.watch(storyParticipantsProvider(storyId));
+  ConsumerState<_ParticipantsSummarySection> createState() =>
+      _ParticipantsSummarySectionState();
+}
+
+class _ParticipantsSummarySectionState
+    extends ConsumerState<_ParticipantsSummarySection> {
+  @override
+  void initState() {
+    super.initState();
+    _refreshParticipantsOnEntry();
+  }
+
+  @override
+  void didUpdateWidget(_ParticipantsSummarySection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.storyId != widget.storyId) {
+      _refreshParticipantsOnEntry();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final participantsValue = ref.watch(
+      storyParticipantsProvider(widget.storyId),
+    );
 
     return _ParticipantsSummaryCard(
       participantsValue: participantsValue,
-      onManage: onManage == null
+      onOpenParticipants: widget.onOpenParticipants == null
           ? null
           : () {
-              onManage!(userStory);
+              widget.onOpenParticipants!(widget.userStory);
             },
-      onInvite: onInvite,
+      canManageParticipants: widget.canManageParticipants,
+      onInvite: widget.onInvite,
       onRetry: () {
-        ref.read(storyParticipantsProvider(storyId).notifier).retryLoad();
+        ref
+            .read(storyParticipantsProvider(widget.storyId).notifier)
+            .retryLoad();
       },
     );
+  }
+
+  void _refreshParticipantsOnEntry() {
+    final storyId = widget.storyId;
+    final provider = storyParticipantsProvider(storyId);
+    if (!ref.exists(provider)) {
+      return;
+    }
+
+    final state = ref.read(provider).asData?.value;
+    if (state == null || !state.isLoaded || state.hasActiveOperation) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.storyId != storyId) {
+        return;
+      }
+
+      ref.read(provider.notifier).refreshParticipants();
+    });
   }
 }
 
@@ -2064,11 +2253,13 @@ class _StoryDetailsErrorView extends StatelessWidget {
   const _StoryDetailsErrorView({
     required this.title,
     required this.message,
+    required this.onBack,
     required this.onRetry,
   });
 
   final String title;
   final String message;
+  final VoidCallback? onBack;
   final VoidCallback onRetry;
 
   @override
@@ -2117,11 +2308,24 @@ class _StoryDetailsErrorView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          OutlinedButton.icon(
-            key: const ValueKey('story-details.error.retry-action'),
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: Text(l10n.retry),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              OutlinedButton.icon(
+                key: const ValueKey('story-details.error.back-action'),
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: Text(l10n.storyDetailsBackLabel),
+              ),
+              OutlinedButton.icon(
+                key: const ValueKey('story-details.error.retry-action'),
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(l10n.retry),
+              ),
+            ],
           ),
         ],
       ),

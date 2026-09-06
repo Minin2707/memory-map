@@ -8,15 +8,15 @@ final class AuthUserDto {
       id: _requiredString(map, 'id'),
       displayName: _requiredString(map, 'displayName'),
       avatarUrl: _optionalString(map, 'avatarUrl'),
-      hasCustomAvatar: _optionalBool(map, 'hasCustomAvatar') ?? false,
+      hasCustomAvatar: _requiredBool(map, 'hasCustomAvatar'),
     );
   }
 
   AuthUserDto({
     required this.id,
     required this.displayName,
+    required this.hasCustomAvatar,
     this.avatarUrl,
-    this.hasCustomAvatar = false,
   }) {
     if (id.trim().isEmpty) {
       throw const FormatException('Malformed auth response');
@@ -93,15 +93,11 @@ String? _optionalString(Map<Object?, Object?> json, String key) {
   throw const FormatException('Malformed auth response');
 }
 
-bool? _optionalBool(Map<Object?, Object?> json, String key) {
+bool _requiredBool(Map<Object?, Object?> json, String key) {
   final value = json[key];
-  if (value == null) {
-    return null;
+  if (value is! bool) {
+    throw const FormatException('Malformed auth response');
   }
 
-  if (value is bool) {
-    return value;
-  }
-
-  throw const FormatException('Malformed auth response');
+  return value;
 }

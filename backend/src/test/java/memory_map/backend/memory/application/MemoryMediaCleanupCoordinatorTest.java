@@ -1,18 +1,15 @@
 package memory_map.backend.memory.application;
 
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.domain.MediaType;
 import memory_map.backend.media.repository.MediaFileRepository;
-import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
-import memory_map.backend.media.storage.StorageObjectWrite;
-import memory_map.backend.media.storage.StorageService;
-import memory_map.backend.media.storage.StoredObject;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,36 +33,29 @@ class MemoryMediaCleanupCoordinatorTest {
 
     private final FakeMediaFileRepository mediaFileRepository =
             new FakeMediaFileRepository();
-    private final FakeStorageService storageService =
-            new FakeStorageService();
-    private final FakeCommitCoordinator commitCoordinator =
-            new FakeCommitCoordinator();
+    private final FakeStorageCleanupScheduler cleanupScheduler =
+            new FakeStorageCleanupScheduler();
 
     @Test
     void shouldSkipCallbackWhenMemoryHasNoMedia() {
         StorageBackedMemoryMediaCleanupCoordinator coordinator =
                 storageBackedCoordinator();
 
-        coordinator.prepareAfterCommitCleanup(MEMORY_ID);
+        coordinator.scheduleCleanup(MEMORY_ID);
 
         assertThat(mediaFileRepository.requestedMemoryId).isEqualTo(MEMORY_ID);
-        assertThat(commitCoordinator.actions).isEmpty();
-        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupScheduler.scheduledKeys).isEmpty();
     }
 
     @Test
-    void shouldCaptureOneMediaAndCleanupThumbnailThenDisplayAfterCommit() {
+    void shouldCaptureOneMediaAndScheduleThumbnailThenDisplayCleanup() {
         mediaFileRepository.mediaFiles = List.of(mediaFile(MEDIA_ID));
         StorageBackedMemoryMediaCleanupCoordinator coordinator =
                 storageBackedCoordinator();
 
-        coordinator.prepareAfterCommitCleanup(MEMORY_ID);
+        coordinator.scheduleCleanup(MEMORY_ID);
 
-        assertThat(storageService.deletedKeys).isEmpty();
-
-        commitCoordinator.runFirstAction();
-
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(cleanupScheduler.scheduledKeys).containsExactly(
                 thumbnailKey(MEDIA_ID),
                 displayKey(MEDIA_ID)
         );
@@ -81,10 +71,9 @@ class MemoryMediaCleanupCoordinatorTest {
         StorageBackedMemoryMediaCleanupCoordinator coordinator =
                 storageBackedCoordinator();
 
-        coordinator.prepareAfterCommitCleanup(MEMORY_ID);
-        commitCoordinator.runFirstAction();
+        coordinator.scheduleCleanup(MEMORY_ID);
 
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(cleanupScheduler.scheduledKeys).containsExactly(
                 thumbnailKey(MEDIA_ID),
                 displayKey(MEDIA_ID),
                 thumbnailKey(SECOND_MEDIA_ID),
@@ -95,30 +84,23 @@ class MemoryMediaCleanupCoordinatorTest {
     }
 
     @Test
-    void shouldAttemptAllStorageKeysWhenCleanupFails() {
+    void shouldPropagateCleanupSchedulingFailure() {
         mediaFileRepository.mediaFiles = List.of(
                 mediaFile(MEDIA_ID),
-                mediaFile(SECOND_MEDIA_ID),
-                mediaFile(THIRD_MEDIA_ID)
+                mediaFile(SECOND_MEDIA_ID)
         );
-        storageService.failingKeys = List.of(
-                displayKey(MEDIA_ID),
-                thumbnailKey(THIRD_MEDIA_ID)
-        );
+        RuntimeException failure = new RuntimeException("enqueue failed");
+        cleanupScheduler.failure = failure;
         StorageBackedMemoryMediaCleanupCoordinator coordinator =
                 storageBackedCoordinator();
 
-        coordinator.prepareAfterCommitCleanup(MEMORY_ID);
-
-        assertThatCode(commitCoordinator::runFirstAction)
-                .doesNotThrowAnyException();
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThatThrownBy(() -> coordinator.scheduleCleanup(MEMORY_ID))
+                .isSameAs(failure);
+        assertThat(cleanupScheduler.scheduledKeys).containsExactly(
                 thumbnailKey(MEDIA_ID),
                 displayKey(MEDIA_ID),
                 thumbnailKey(SECOND_MEDIA_ID),
-                displayKey(SECOND_MEDIA_ID),
-                thumbnailKey(THIRD_MEDIA_ID),
-                displayKey(THIRD_MEDIA_ID)
+                displayKey(SECOND_MEDIA_ID)
         );
     }
 
@@ -129,40 +111,29 @@ class MemoryMediaCleanupCoordinatorTest {
         StorageBackedMemoryMediaCleanupCoordinator coordinator =
                 storageBackedCoordinator();
 
-        assertThatThrownBy(() -> coordinator.prepareAfterCommitCleanup(
+        assertThatThrownBy(() -> coordinator.scheduleCleanup(
                 MEMORY_ID
         ))
                 .isSameAs(failure);
 
-        assertThat(commitCoordinator.actions).isEmpty();
-        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupScheduler.scheduledKeys).isEmpty();
     }
 
     @Test
     void shouldRejectNullDependencies() {
         assertThatThrownBy(() -> new StorageBackedMemoryMediaCleanupCoordinator(
                 null,
-                storageService,
-                commitCoordinator
+                cleanupScheduler
         ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("mediaFileRepository must not be null");
 
         assertThatThrownBy(() -> new StorageBackedMemoryMediaCleanupCoordinator(
                 mediaFileRepository,
-                null,
-                commitCoordinator
-        ))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessage("storageService must not be null");
-
-        assertThatThrownBy(() -> new StorageBackedMemoryMediaCleanupCoordinator(
-                mediaFileRepository,
-                storageService,
                 null
         ))
                 .isInstanceOf(NullPointerException.class)
-                .hasMessage("commitCoordinator must not be null");
+                .hasMessage("cleanupScheduler must not be null");
     }
 
     @Test
@@ -170,7 +141,7 @@ class MemoryMediaCleanupCoordinatorTest {
         StorageBackedMemoryMediaCleanupCoordinator coordinator =
                 storageBackedCoordinator();
 
-        assertThatThrownBy(() -> coordinator.prepareAfterCommitCleanup(null))
+        assertThatThrownBy(() -> coordinator.scheduleCleanup(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("memoryId must not be null");
     }
@@ -182,7 +153,7 @@ class MemoryMediaCleanupCoordinatorTest {
                         mediaFileRepository
                 );
 
-        assertThatCode(() -> coordinator.prepareAfterCommitCleanup(MEMORY_ID))
+        assertThatCode(() -> coordinator.scheduleCleanup(MEMORY_ID))
                 .doesNotThrowAnyException();
     }
 
@@ -194,7 +165,7 @@ class MemoryMediaCleanupCoordinatorTest {
                         mediaFileRepository
                 );
 
-        assertThatThrownBy(() -> coordinator.prepareAfterCommitCleanup(
+        assertThatThrownBy(() -> coordinator.scheduleCleanup(
                 MEMORY_ID
         ))
                 .isInstanceOf(IllegalStateException.class)
@@ -213,8 +184,7 @@ class MemoryMediaCleanupCoordinatorTest {
     private StorageBackedMemoryMediaCleanupCoordinator storageBackedCoordinator() {
         return new StorageBackedMemoryMediaCleanupCoordinator(
                 mediaFileRepository,
-                storageService,
-                commitCoordinator
+                cleanupScheduler
         );
     }
 
@@ -272,50 +242,18 @@ class MemoryMediaCleanupCoordinatorTest {
         }
     }
 
-    private static final class FakeStorageService implements StorageService {
+    private static final class FakeStorageCleanupScheduler
+            implements StorageCleanupScheduler {
 
-        private final List<StorageKey> deletedKeys = new ArrayList<>();
-        private List<StorageKey> failingKeys = List.of();
-
-        @Override
-        public void store(StorageObjectWrite object) {
-        }
+        private final List<StorageKey> scheduledKeys = new ArrayList<>();
+        private RuntimeException failure;
 
         @Override
-        public StoredObject read(StorageKey storageKey) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public StoredObject readRange(
-                StorageKey storageKey,
-                StorageByteRange range
-        ) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void delete(StorageKey storageKey) {
-            deletedKeys.add(storageKey);
-
-            if (failingKeys.contains(storageKey)) {
-                throw new RuntimeException("delete failed");
+        public void schedule(Collection<StorageKey> storageKeys) {
+            scheduledKeys.addAll(storageKeys);
+            if (failure != null) {
+                throw failure;
             }
-        }
-    }
-
-    private static final class FakeCommitCoordinator
-            implements TransactionCommitCoordinator {
-
-        private final List<Runnable> actions = new ArrayList<>();
-
-        @Override
-        public void onCommit(Runnable action) {
-            actions.add(action);
-        }
-
-        private void runFirstAction() {
-            actions.get(0).run();
         }
     }
 }

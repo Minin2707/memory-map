@@ -32,6 +32,20 @@ class ParticipantsScreen extends ConsumerStatefulWidget {
 
 class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
   @override
+  void initState() {
+    super.initState();
+    _refreshParticipantsOnEntry();
+  }
+
+  @override
+  void didUpdateWidget(ParticipantsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.storyId != widget.storyId) {
+      _refreshParticipantsOnEntry();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<ParticipantsState>>(
       storyParticipantsProvider(widget.storyId),
@@ -269,6 +283,27 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
   bool _operationActive() {
     final state = ref.read(storyParticipantsProvider(storyId)).asData?.value;
     return state?.hasActiveOperation ?? false;
+  }
+
+  void _refreshParticipantsOnEntry() {
+    final storyId = widget.storyId;
+    final provider = storyParticipantsProvider(storyId);
+    if (!ref.exists(provider)) {
+      return;
+    }
+
+    final state = ref.read(provider).asData?.value;
+    if (state == null || !state.isLoaded || state.hasActiveOperation) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.storyId != storyId) {
+        return;
+      }
+
+      ref.read(provider.notifier).refreshParticipants();
+    });
   }
 
   void _onParticipantsStateChanged(

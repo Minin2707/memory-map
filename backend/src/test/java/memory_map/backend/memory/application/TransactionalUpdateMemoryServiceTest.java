@@ -3,6 +3,9 @@ package memory_map.backend.memory.application;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -74,6 +77,8 @@ class TransactionalUpdateMemoryServiceTest {
         assertThat(context.storyParticipantRepository().receivedUserId())
                 .isEqualTo(USER_ID);
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant",
                 "update Memory"
@@ -144,6 +149,8 @@ class TransactionalUpdateMemoryServiceTest {
 
         assertThat(context.memoryRepository().updateCallCount()).isZero();
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant"
         );
@@ -169,6 +176,8 @@ class TransactionalUpdateMemoryServiceTest {
 
         assertThat(context.memoryRepository().updateCallCount()).isZero();
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant"
         );
@@ -194,7 +203,7 @@ class TransactionalUpdateMemoryServiceTest {
         assertThat(context.storyParticipantRepository().findCallCount())
                 .isZero();
         assertThat(context.memoryRepository().updateCallCount()).isZero();
-        assertThat(context.calls()).containsExactly("find Memory for update");
+        assertThat(context.calls()).containsExactly("find Memory");
     }
 
     @Test
@@ -216,6 +225,8 @@ class TransactionalUpdateMemoryServiceTest {
 
         assertThat(context.memoryRepository().updateCallCount()).isZero();
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant"
         );
@@ -404,6 +415,8 @@ class TransactionalUpdateMemoryServiceTest {
         assertThat(result.updatedAt()).isEqualTo(UPDATED_AT);
         assertThat(context.memoryRepository().updateCallCount()).isZero();
         assertThat(context.calls()).containsExactly(
+                "find Memory",
+                "lock Story",
                 "find Memory for update",
                 "find StoryParticipant"
         );
@@ -574,14 +587,36 @@ class TransactionalUpdateMemoryServiceTest {
     }
 
     @Test
+    void shouldRejectNullStoryRepositoryDependency() {
+
+        TestContext context = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        );
+
+        assertThatThrownBy(() -> new TransactionalUpdateMemoryService(
+                null,
+                context.memoryRepository(),
+                context.storyParticipantRepository()
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("storyRepository must not be null");
+    }
+
+    @Test
     void shouldRejectNullMemoryRepositoryDependency() {
 
+        StoryRepository storyRepository = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        ).storyRepository();
         StoryParticipantRepository storyParticipantRepository = testContext(
                 existingMemory(AUTHOR_ID),
                 participant(StoryRole.OWNER)
         ).storyParticipantRepository();
 
         assertThatThrownBy(() -> new TransactionalUpdateMemoryService(
+                storyRepository,
                 null,
                 storyParticipantRepository
         ))
@@ -592,12 +627,17 @@ class TransactionalUpdateMemoryServiceTest {
     @Test
     void shouldRejectNullStoryParticipantRepositoryDependency() {
 
+        StoryRepository storyRepository = testContext(
+                existingMemory(AUTHOR_ID),
+                participant(StoryRole.OWNER)
+        ).storyRepository();
         MemoryRepository memoryRepository = testContext(
                 existingMemory(AUTHOR_ID),
                 participant(StoryRole.OWNER)
         ).memoryRepository();
 
         assertThatThrownBy(() -> new TransactionalUpdateMemoryService(
+                storyRepository,
                 memoryRepository,
                 null
         ))
@@ -638,14 +678,18 @@ class TransactionalUpdateMemoryServiceTest {
         List<String> calls = new ArrayList<>();
         FakeMemoryRepository memoryRepository =
                 new FakeMemoryRepository(memory, calls);
+        FakeStoryRepository storyRepository =
+                new FakeStoryRepository(calls);
         FakeStoryParticipantRepository storyParticipantRepository =
                 new FakeStoryParticipantRepository(participant, calls);
 
         return new TestContext(
                 new TransactionalUpdateMemoryService(
+                        storyRepository,
                         memoryRepository,
                         storyParticipantRepository
                 ),
+                storyRepository,
                 memoryRepository,
                 storyParticipantRepository,
                 calls
@@ -756,6 +800,8 @@ class TransactionalUpdateMemoryServiceTest {
 
             TransactionalUpdateMemoryService service,
 
+            FakeStoryRepository storyRepository,
+
             FakeMemoryRepository memoryRepository,
 
             FakeStoryParticipantRepository storyParticipantRepository,
@@ -763,6 +809,52 @@ class TransactionalUpdateMemoryServiceTest {
             List<String> calls
 
     ) {
+    }
+
+    private static final class FakeStoryRepository implements StoryRepository {
+
+        private final List<String> calls;
+        private boolean lockResult = true;
+
+        private FakeStoryRepository(List<String> calls) {
+            this.calls = calls;
+        }
+
+        @Override
+        public Story save(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story update(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            calls.add("lock Story");
+            return lockResult;
+        }
+
+        @Override
+        public Story updateCover(UUID id, StoryCoverMetadata cover) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story clearCover(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class FakeMemoryRepository
@@ -788,7 +880,9 @@ class TransactionalUpdateMemoryServiceTest {
 
         @Override
         public Optional<Memory> findById(UUID id) {
-            throw new UnsupportedOperationException();
+            calls.add("find Memory");
+            receivedMemoryId = id;
+            return memory;
         }
 
         @Override

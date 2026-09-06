@@ -34,6 +34,7 @@ public class InviteApplicationConfiguration {
 
     @Bean
     public CreateInviteUseCase createInviteUseCase(
+            StoryRepository storyRepository,
             UserStoryRepository userStoryRepository,
             InviteRepository inviteRepository,
             InviteTokenGenerator inviteTokenGenerator,
@@ -42,6 +43,7 @@ public class InviteApplicationConfiguration {
             InviteProperties inviteProperties
     ) {
         return new TransactionalCreateInviteService(
+                storyRepository,
                 userStoryRepository,
                 inviteRepository,
                 inviteTokenGenerator,

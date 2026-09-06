@@ -217,7 +217,7 @@ class TransactionalSetStorySoundtrackServiceTest {
     }
 
     @Test
-    void shouldLookupStoryThenTrackThenUpdate() {
+    void shouldLockStoryThenLookupStoryTrackAndUpdate() {
         TestContext context = testContext(
                 userStory(null, StoryRole.OWNER)
         );
@@ -226,6 +226,7 @@ class TransactionalSetStorySoundtrackServiceTest {
         context.service().setStorySoundtrack(command(TRACK_ID));
 
         assertThat(context.calls()).containsExactly(
+                "lock Story",
                 "find UserStory",
                 "find MusicTrack",
                 "update Story"
@@ -467,7 +468,8 @@ class TransactionalSetStorySoundtrackServiceTest {
 
         @Override
         public boolean lockById(UUID id) {
-            throw new UnsupportedOperationException();
+            calls.add("lock Story");
+            return true;
         }
 
         @Override

@@ -111,6 +111,13 @@ final class DioStoryRemoteDataSource implements StoryRemoteDataSource {
     );
   }
 
+  @override
+  Future<void> deleteStory(String storyId) async {
+    final response = await _delete(_storyPath(storyId));
+
+    _ensureExpectedStatus(response, 204);
+  }
+
   Future<Response<Object?>> _get(String path) async {
     try {
       return await _dio.get<Object?>(path);

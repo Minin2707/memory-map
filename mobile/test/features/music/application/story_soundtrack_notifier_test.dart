@@ -150,6 +150,48 @@ void main() {
       expect(state.soundtrack, selectedUnavailable);
       expect(state.refreshFailure, const MusicRequestTimedOut());
     });
+
+    test('shouldIgnoreCompletedRefreshAfterProviderInvalidation', () async {
+      final refreshCompleter = Completer<StorySoundtrack>();
+      final repository = FakeStorySoundtrackRepository()
+        ..getResult = StorySoundtrack.noMusic();
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        storySoundtrackProvider('story-1'),
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(storySoundtrackProvider('story-1').future);
+      repository.getCompleter = refreshCompleter;
+
+      final refresh = container
+          .read(storySoundtrackProvider('story-1').notifier)
+          .refreshSoundtrack();
+      await pumpEventQueue();
+      repository.getResult = StorySoundtrack(
+        selectedSoundtrack: trackB,
+        effectiveSoundtrack: trackB,
+      );
+      container.invalidate(storySoundtrackProvider('story-1'));
+      await pumpEventQueue();
+      final rebuilt = container.read(storySoundtrackProvider('story-1').future);
+
+      refreshCompleter.complete(
+        StorySoundtrack(
+          selectedSoundtrack: trackA,
+          effectiveSoundtrack: trackA,
+        ),
+      );
+      await refresh;
+      await rebuilt;
+
+      expect(
+        readState(container, 'story-1').soundtrack?.selectedSoundtrack,
+        trackB,
+      );
+    });
   });
 
   group('StorySoundtrackNotifier mutations', () {
@@ -391,11 +433,18 @@ final class FakeStorySoundtrackRepository
   StorySoundtrack getResult = StorySoundtrack.noMusic();
   StorySoundtrack setResult = StorySoundtrack.noMusic();
   StorySoundtrack removeResult = StorySoundtrack.noMusic();
+  Completer<StorySoundtrack>? getCompleter;
   Completer<StorySoundtrack>? setCompleter;
 
   @override
   Future<StorySoundtrack> getStorySoundtrack(String storyId) async {
     operations.add('get:$storyId');
+    final configuredCompleter = getCompleter;
+    if (configuredCompleter != null) {
+      getCompleter = null;
+      return configuredCompleter.future;
+    }
+
     if (getFailures.isNotEmpty) {
       throw getFailures.removeAt(0);
     }

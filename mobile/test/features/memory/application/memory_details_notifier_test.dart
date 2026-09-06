@@ -144,6 +144,36 @@ void main() {
       retryCompleter.complete(memoryA);
       await retry;
     });
+
+    test('shouldIgnoreCompletedRetryAfterProviderInvalidation', () async {
+      final retryCompleter = Completer<Memory>();
+      final repository = FakeMemoryRepository()..memoryResult = memoryA;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        memoryDetailsProvider(memoryA.id),
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(memoryDetailsProvider(memoryA.id).future);
+      repository.getMemoryCompleter = retryCompleter;
+
+      final retry = container
+          .read(memoryDetailsProvider(memoryA.id).notifier)
+          .retryLoad();
+      await pumpEventQueue();
+      repository.memoryResult = memoryB;
+      container.invalidate(memoryDetailsProvider(memoryA.id));
+      await pumpEventQueue();
+      final rebuilt = container.read(memoryDetailsProvider(memoryA.id).future);
+
+      retryCompleter.complete(memoryA);
+      await retry;
+      await rebuilt;
+
+      expect(readState(container, memoryA.id).memory, same(memoryB));
+    });
   });
 
   group('MemoryDetailsNotifier refresh', () {
@@ -343,8 +373,7 @@ void main() {
       expect(readState(container, memoryA.id).memory, same(memoryA));
     });
 
-    test('shouldAllowLocalReplacementDuringRefreshButRefreshResultWins',
-        () async {
+    test('shouldIgnoreStaleRefreshAfterLocalReplacement', () async {
       final refreshCompleter = Completer<Memory>();
       final repository = FakeMemoryRepository()..memoryResult = memoryA;
       final container = createContainer(repository);
@@ -364,7 +393,8 @@ void main() {
       refreshCompleter.complete(serverUpdated);
       await refresh;
 
-      expect(readState(container, memoryA.id).memory, same(serverUpdated));
+      expect(readState(container, memoryA.id).memory, same(locallyUpdated));
+      expect(readState(container, memoryA.id).isRefreshing, isFalse);
     });
 
     test('shouldPreservePreviewWhenApplyingMutationMemory', () async {

@@ -7,6 +7,8 @@ import memory_map.backend.account.application.RemoveCurrentUserAvatarCommand;
 import memory_map.backend.account.application.UploadCurrentUserAvatarCommand;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
+import memory_map.backend.media.storage.StorageException;
+import memory_map.backend.media.storage.StorageObjectNotFoundException;
 import memory_map.backend.user.domain.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,7 @@ import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
@@ -131,6 +134,66 @@ class UserAvatarControllerTest {
     }
 
     @Test
+    void shouldReturnSafeFailureForMissingAvatarStorageObject()
+            throws Exception {
+
+        avatarUseCase.failDownloadWith(new StorageObjectNotFoundException());
+
+        String response = mockMvc.perform(get("/api/v1/me/avatar/1"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        ))
+                .andExpect(jsonPath("$.title")
+                        .value("Internal Server Error"))
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.detail")
+                        .value("Avatar storage operation failed"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/v1/me/avatar"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(avatarUseCase.receivedDownloadCommand())
+                .isEqualTo(new DownloadCurrentUserAvatarCommand(
+                        new AuthenticatedUser(USER_ID)
+                ));
+        assertSafeAvatarStorageFailure(response);
+    }
+
+    @Test
+    void shouldReturnSafeFailureForAvatarStorageFailure()
+            throws Exception {
+
+        avatarUseCase.failDownloadWith(new StorageException());
+
+        String response = mockMvc.perform(get("/api/v1/me/avatar"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        ))
+                .andExpect(jsonPath("$.title")
+                        .value("Internal Server Error"))
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.detail")
+                        .value("Avatar storage operation failed"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/v1/me/avatar"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(avatarUseCase.receivedDownloadCommand())
+                .isEqualTo(new DownloadCurrentUserAvatarCommand(
+                        new AuthenticatedUser(USER_ID)
+                ));
+        assertSafeAvatarStorageFailure(response);
+    }
+
+    @Test
     void shouldRemoveCurrentUserAvatarAndFallbackToGoogleAvatar()
             throws Exception {
         mockMvc.perform(delete("/api/v1/me/avatar"))
@@ -157,6 +220,21 @@ class UserAvatarControllerTest {
                 contentType,
                 content
         );
+    }
+
+    private static void assertSafeAvatarStorageFailure(String response) {
+        assertThat(response)
+                .doesNotContain("StorageException")
+                .doesNotContain("StorageObjectNotFoundException")
+                .doesNotContain("Storage operation failed")
+                .doesNotContain("Storage object was not found")
+                .doesNotContain("users/")
+                .doesNotContain("avatar-object")
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("minio")
+                .doesNotContain("MinIO")
+                .doesNotContain("stackTrace");
     }
 
     static final class MinioEnabledInitializer
@@ -197,6 +275,7 @@ class UserAvatarControllerTest {
         private UploadCurrentUserAvatarCommand receivedUploadCommand;
         private DownloadCurrentUserAvatarCommand receivedDownloadCommand;
         private RemoveCurrentUserAvatarCommand receivedRemoveCommand;
+        private RuntimeException downloadException;
 
         @Override
         public User uploadAvatar(UploadCurrentUserAvatarCommand command) {
@@ -209,6 +288,11 @@ class UserAvatarControllerTest {
                 DownloadCurrentUserAvatarCommand command
         ) {
             receivedDownloadCommand = command;
+
+            if (downloadException != null) {
+                throw downloadException;
+            }
+
             return new DownloadedUserAvatar(
                     new ByteArrayInputStream(new byte[] {1, 2, 3}),
                     3,
@@ -234,10 +318,15 @@ class UserAvatarControllerTest {
             return receivedRemoveCommand;
         }
 
+        private void failDownloadWith(RuntimeException exception) {
+            downloadException = exception;
+        }
+
         private void reset() {
             receivedUploadCommand = null;
             receivedDownloadCommand = null;
             receivedRemoveCommand = null;
+            downloadException = null;
         }
 
         private User userWithCustomAvatar() {

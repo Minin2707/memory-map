@@ -728,6 +728,42 @@ abstract class AppLocalizations {
   /// **'Playback Story'**
   String get storyDetailsPlaybackStoryAction;
 
+  /// No description provided for @deleteStoryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete story'**
+  String get deleteStoryAction;
+
+  /// No description provided for @deleteStoryDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete story?'**
+  String get deleteStoryDialogTitle;
+
+  /// No description provided for @deleteStoryDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This story and its memories will be permanently deleted. This action cannot be undone.'**
+  String get deleteStoryDialogBody;
+
+  /// No description provided for @deleteStoryCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get deleteStoryCancel;
+
+  /// No description provided for @deleteStoryConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deleteStoryConfirm;
+
+  /// No description provided for @deleteStoryDeleting.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting story...'**
+  String get deleteStoryDeleting;
+
   /// No description provided for @soundtrackTitle.
   ///
   /// In en, this message translates to:

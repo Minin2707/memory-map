@@ -57,6 +57,10 @@ final class DioNotificationRemoteDataSource
         throw const FormatException('Malformed notification response');
       }
 
+      if (count < 0) {
+        throw const FormatException('Malformed notification response');
+      }
+
       return count;
     });
   }

@@ -227,6 +227,63 @@ void main() {
   });
 
   group('ParticipantsScreen refresh', () {
+    testWidgets('shouldRefreshCachedParticipantsOnEntry', (tester) async {
+      final repository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[ownerParticipant];
+      final container = ProviderContainer(
+        overrides: [
+          storyParticipantRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(storyParticipantsProvider(defaultStoryId).future);
+      expect(repository.getCalls, 1);
+
+      repository.participantsResult = <StoryParticipant>[
+        ownerParticipant,
+        viewerParticipant,
+      ];
+
+      await pumpScreen(tester, repository, container: container);
+
+      expect(repository.getCalls, 2);
+      expect(find.text('Anna'), findsOneWidget);
+      expect(find.text('Alex'), findsOneWidget);
+
+      await tester.pump();
+      expect(repository.getCalls, 2);
+    });
+
+    testWidgets('shouldKeepCachedParticipantsWhenEntryRefreshFails', (
+      tester,
+    ) async {
+      final repository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[ownerParticipant];
+      final container = ProviderContainer(
+        overrides: [
+          storyParticipantRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(storyParticipantsProvider(defaultStoryId).future);
+      expect(repository.getCalls, 1);
+
+      repository.getFailures.add(
+        const ParticipantApplicationException(ParticipantRequestTimedOut()),
+      );
+
+      await pumpScreen(tester, repository, container: container);
+
+      expect(repository.getCalls, 2);
+      expect(find.text('Anna'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('participants.refresh.failure-banner')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('shouldKeepContentVisibleWhileRefreshing', (tester) async {
       final refreshCompleter = Completer<List<StoryParticipant>>();
       final repository = FakeStoryParticipantRepository();
@@ -303,6 +360,33 @@ void main() {
           expect(receivedRole, isNull);
         }
       }
+    });
+
+    testWidgets('shouldRenderViewerListAndLeaveWithoutManagementActions', (
+      tester,
+    ) async {
+      final repository = FakeStoryParticipantRepository()
+        ..participantsResult = participantsWithCurrentRole(StoryRole.viewer);
+
+      await pumpScreen(
+        tester,
+        repository,
+        currentUserId: 'current-user-id',
+        onInvite: (_) {},
+        onLeftStory: () {},
+        onParticipantRemoved: (_) {},
+      );
+
+      expect(find.text('Participants'), findsWidgets);
+      expect(find.text('Current user'), findsOneWidget);
+      expect(find.text('Alex'), findsOneWidget);
+      expect(find.text('Viewer'), findsWidgets);
+      expect(leaveActionFinder(), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('participants.invite-action')),
+        findsNothing,
+      );
+      expect(removeActionFor(viewerParticipant), findsNothing);
     });
 
     testWidgets('shouldOpenLeaveConfirmationAndCancelWithoutBackendCall', (
@@ -821,19 +905,23 @@ Future<ProviderContainer> pumpScreen(
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
   media_fixtures.FakeMediaRepository? mediaRepository,
+  ProviderContainer? container,
 }) async {
-  final container = ProviderContainer(
-    overrides: [
-      storyParticipantRepositoryProvider.overrideWithValue(repository),
-      if (mediaRepository != null)
-        mediaRepositoryProvider.overrideWithValue(mediaRepository),
-    ],
-  );
-  addTearDown(container.dispose);
+  final effectiveContainer = container ??
+      ProviderContainer(
+        overrides: [
+          storyParticipantRepositoryProvider.overrideWithValue(repository),
+          if (mediaRepository != null)
+            mediaRepositoryProvider.overrideWithValue(mediaRepository),
+        ],
+      );
+  if (container == null) {
+    addTearDown(effectiveContainer.dispose);
+  }
 
   await tester.pumpWidget(
     UncontrolledProviderScope(
-      container: container,
+      container: effectiveContainer,
       child: MaterialApp(
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -860,7 +948,7 @@ Future<ProviderContainer> pumpScreen(
     await tester.pumpAndSettle();
   }
 
-  return container;
+  return effectiveContainer;
 }
 
 Future<void> pressButton(

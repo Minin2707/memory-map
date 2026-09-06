@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memory_map/features/notification/application/notification_application_exception.dart';
@@ -111,6 +113,113 @@ void main() {
         true);
     expect(unreadCount, 0);
   });
+
+  test('shouldIgnoreDelayedRefreshAfterProviderInvalidation', () async {
+    final refreshCompleter = Completer<List<NotificationItem>>();
+    final repository = FakeNotificationRepository()
+      ..notificationsResult = <NotificationItem>[
+        notificationItem(id: 'old-notification'),
+    ];
+    final container = createContainer(repository);
+    addTearDown(container.dispose);
+    final subscription = container.listen(notificationInboxProvider, (_, __) {});
+    addTearDown(subscription.close);
+    await container.read(notificationInboxProvider.future);
+    repository
+      ..getNotificationsCompleter = refreshCompleter
+      ..notificationsResult = <NotificationItem>[
+        notificationItem(id: 'new-notification'),
+      ];
+
+    final refresh = container
+        .read(notificationInboxProvider.notifier)
+        .refreshNotifications();
+    await pumpEventQueue();
+    container.invalidate(notificationInboxProvider);
+    await pumpEventQueue();
+    await container.read(notificationInboxProvider.future);
+
+    refreshCompleter.complete(<NotificationItem>[
+      notificationItem(id: 'stale-notification'),
+    ]);
+    await refresh;
+
+    final inbox = container.read(notificationInboxProvider).asData?.value;
+    expect(inbox?.notifications.single.id, 'new-notification');
+  });
+
+  test('shouldIgnoreDelayedMarkReadAfterProviderInvalidation', () async {
+    final markReadCompleter = Completer<void>();
+    final repository = FakeNotificationRepository()
+      ..unreadCount = 1
+      ..notificationsResult = <NotificationItem>[notificationItem()]
+      ..markReadCompleter = markReadCompleter;
+    final container = createContainer(repository);
+    addTearDown(container.dispose);
+    final subscription = container.listen(notificationInboxProvider, (_, __) {});
+    addTearDown(subscription.close);
+    await container.read(notificationInboxProvider.future);
+    await container.read(unreadNotificationCountProvider.future);
+    final unreadCountCallsBeforeMutationCompletion =
+        repository.getUnreadCountCalls;
+
+    final result = container
+        .read(notificationInboxProvider.notifier)
+        .markRead('notification-1');
+    await pumpEventQueue();
+    repository.notificationsResult = <NotificationItem>[
+      notificationItem(id: 'new-notification'),
+    ];
+    container.invalidate(notificationInboxProvider);
+    await pumpEventQueue();
+    await container.read(notificationInboxProvider.future);
+    markReadCompleter.complete();
+
+    expect(await result, isFalse);
+    final inbox = container.read(notificationInboxProvider).asData?.value;
+    expect(inbox?.notifications.single.id, 'new-notification');
+    expect(inbox?.notifications.single.read, isFalse);
+    expect(
+      repository.getUnreadCountCalls,
+      unreadCountCallsBeforeMutationCompletion,
+    );
+  });
+
+  test('shouldIgnoreDelayedMarkAllReadAfterProviderInvalidation', () async {
+    final markAllReadCompleter = Completer<void>();
+    final repository = FakeNotificationRepository()
+      ..unreadCount = 1
+      ..notificationsResult = <NotificationItem>[notificationItem()]
+      ..markAllReadCompleter = markAllReadCompleter;
+    final container = createContainer(repository);
+    addTearDown(container.dispose);
+    final subscription = container.listen(notificationInboxProvider, (_, __) {});
+    addTearDown(subscription.close);
+    await container.read(notificationInboxProvider.future);
+    await container.read(unreadNotificationCountProvider.future);
+    final unreadCountCallsBeforeMutationCompletion =
+        repository.getUnreadCountCalls;
+
+    final result =
+        container.read(notificationInboxProvider.notifier).markAllRead();
+    await pumpEventQueue();
+    repository.notificationsResult = <NotificationItem>[
+      notificationItem(id: 'new-notification'),
+    ];
+    container.invalidate(notificationInboxProvider);
+    await pumpEventQueue();
+    await container.read(notificationInboxProvider.future);
+    markAllReadCompleter.complete();
+
+    expect(await result, isFalse);
+    final inbox = container.read(notificationInboxProvider).asData?.value;
+    expect(inbox?.notifications.single.id, 'new-notification');
+    expect(inbox?.notifications.single.read, isFalse);
+    expect(
+      repository.getUnreadCountCalls,
+      unreadCountCallsBeforeMutationCompletion,
+    );
+  });
 }
 
 ProviderContainer createContainer(FakeNotificationRepository repository) {
@@ -152,12 +261,21 @@ final class FakeNotificationRepository implements NotificationRepository {
   int markAllReadCalls = 0;
   int unreadCount = 0;
   List<NotificationItem> notificationsResult = <NotificationItem>[];
+  Completer<List<NotificationItem>>? getNotificationsCompleter;
+  Completer<void>? markReadCompleter;
+  Completer<void>? markAllReadCompleter;
   Object? markReadFailure;
   final List<String> markReadIds = <String>[];
 
   @override
   Future<List<NotificationItem>> getNotifications({int limit = 50}) async {
     getNotificationsCalls += 1;
+    final completer = getNotificationsCompleter;
+    if (completer != null) {
+      getNotificationsCompleter = null;
+      return completer.future;
+    }
+
     return notificationsResult;
   }
 
@@ -169,6 +287,12 @@ final class FakeNotificationRepository implements NotificationRepository {
 
   @override
   Future<void> markRead(String notificationId) async {
+    final completer = markReadCompleter;
+    if (completer != null) {
+      markReadCompleter = null;
+      await completer.future;
+    }
+
     final failure = markReadFailure;
     if (failure != null) {
       throw failure;
@@ -187,6 +311,12 @@ final class FakeNotificationRepository implements NotificationRepository {
 
   @override
   Future<void> markAllRead() async {
+    final completer = markAllReadCompleter;
+    if (completer != null) {
+      markAllReadCompleter = null;
+      await completer.future;
+    }
+
     markAllReadCalls += 1;
     unreadCount = 0;
     notificationsResult = notificationsResult

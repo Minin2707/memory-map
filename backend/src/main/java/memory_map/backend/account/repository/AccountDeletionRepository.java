@@ -45,6 +45,8 @@ public interface AccountDeletionRepository {
 
     int deleteUnusedInvitesCreatedBy(UUID userId);
 
+    int deleteNotificationsByRecipientUserId(UUID userId);
+
     int deleteMemoriesByStoryIds(Collection<UUID> storyIds);
 
     int deleteStoriesByIds(Collection<UUID> storyIds);

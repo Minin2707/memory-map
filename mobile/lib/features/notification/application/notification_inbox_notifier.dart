@@ -13,8 +13,11 @@ final notificationInboxProvider =
 
 final class NotificationInboxNotifier
     extends AsyncNotifier<NotificationInboxState> {
+  int _providerGeneration = 0;
+
   @override
   Future<NotificationInboxState> build() async {
+    _providerGeneration += 1;
     return _load();
   }
 
@@ -23,8 +26,14 @@ final class NotificationInboxNotifier
       return;
     }
 
+    final providerGeneration = _providerGeneration;
     state = const AsyncLoading<NotificationInboxState>();
-    state = await AsyncValue.guard<NotificationInboxState>(_load);
+    final result = await AsyncValue.guard<NotificationInboxState>(_load);
+    if (!_isCurrentProviderGeneration(providerGeneration)) {
+      return;
+    }
+
+    state = result;
   }
 
   Future<void> refreshNotifications() async {
@@ -37,6 +46,7 @@ final class NotificationInboxNotifier
       return;
     }
 
+    final providerGeneration = _providerGeneration;
     final refreshingState = currentState.copyWith(
       isRefreshing: true,
       clearRefreshFailure: true,
@@ -48,6 +58,10 @@ final class NotificationInboxNotifier
       final notifications = await ref
           .read(notificationRepositoryProvider)
           .getNotifications(limit: 50);
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return;
+      }
+
       state = AsyncData<NotificationInboxState>(
         NotificationInboxState(notifications: notifications),
       );
@@ -55,6 +69,10 @@ final class NotificationInboxNotifier
           .read(unreadNotificationCountProvider.notifier)
           .refreshUnreadCount();
     } on NotificationApplicationException catch (error) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return;
+      }
+
       state = AsyncData<NotificationInboxState>(
         refreshingState.copyWith(
           isRefreshing: false,
@@ -62,6 +80,10 @@ final class NotificationInboxNotifier
         ),
       );
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return;
+      }
+
       state = AsyncData<NotificationInboxState>(
         refreshingState.copyWith(isRefreshing: false),
       );
@@ -87,6 +109,7 @@ final class NotificationInboxNotifier
       return true;
     }
 
+    final providerGeneration = _providerGeneration;
     final optimisticNotifications =
         List<NotificationItem>.of(currentState.notifications);
     optimisticNotifications[index] = notification.copyWith(read: true);
@@ -101,6 +124,10 @@ final class NotificationInboxNotifier
 
     try {
       await ref.read(notificationRepositoryProvider).markRead(notificationId);
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return false;
+      }
+
       state = AsyncData<NotificationInboxState>(
         optimisticState.copyWith(
           isMutating: false,
@@ -112,6 +139,10 @@ final class NotificationInboxNotifier
           .refreshUnreadCount();
       return true;
     } on NotificationApplicationException catch (error) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return false;
+      }
+
       state = AsyncData<NotificationInboxState>(
         currentState.copyWith(mutationFailure: error.failure),
       );
@@ -120,6 +151,10 @@ final class NotificationInboxNotifier
           .refreshUnreadCount();
       return false;
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return false;
+      }
+
       state = AsyncData<NotificationInboxState>(currentState);
       state = AsyncError<NotificationInboxState>(error, stackTrace);
       await ref
@@ -140,6 +175,7 @@ final class NotificationInboxNotifier
       return false;
     }
 
+    final providerGeneration = _providerGeneration;
     final optimisticNotifications = currentState.notifications
         .map((notification) => notification.copyWith(read: true))
         .toList();
@@ -154,6 +190,10 @@ final class NotificationInboxNotifier
 
     try {
       await ref.read(notificationRepositoryProvider).markAllRead();
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return false;
+      }
+
       state = AsyncData<NotificationInboxState>(
         optimisticState.copyWith(isMutating: false),
       );
@@ -162,6 +202,10 @@ final class NotificationInboxNotifier
           .refreshUnreadCount();
       return true;
     } on NotificationApplicationException catch (error) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return false;
+      }
+
       state = AsyncData<NotificationInboxState>(
         currentState.copyWith(mutationFailure: error.failure),
       );
@@ -170,6 +214,10 @@ final class NotificationInboxNotifier
           .refreshUnreadCount();
       return false;
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return false;
+      }
+
       state = AsyncData<NotificationInboxState>(currentState);
       state = AsyncError<NotificationInboxState>(error, stackTrace);
       await ref
@@ -193,4 +241,8 @@ final class NotificationInboxNotifier
   NotificationInboxState? get _currentState => state.asData?.value;
 
   bool get _isLoading => state.isLoading;
+
+  bool _isCurrentProviderGeneration(int generation) {
+    return ref.mounted && generation == _providerGeneration;
+  }
 }

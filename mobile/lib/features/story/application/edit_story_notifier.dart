@@ -15,9 +15,11 @@ final class EditStoryNotifier extends AsyncNotifier<EditStoryState> {
   EditStoryNotifier(this._storyId);
 
   final String _storyId;
+  int _operationRevision = 0;
 
   @override
   Future<EditStoryState> build() async {
+    _invalidateOperations();
     return const EditStoryState();
   }
 
@@ -36,11 +38,16 @@ final class EditStoryNotifier extends AsyncNotifier<EditStoryState> {
       clearSaveFailure: true,
     );
     state = AsyncData<EditStoryState>(savingState);
+    final operationRevision = _beginOperation();
 
     try {
       final updatedStory = await ref.read(storyRepositoryProvider).updateStory(
             input,
           );
+      if (!_isCurrentOperation(operationRevision)) {
+        return updatedStory;
+      }
+
       state = AsyncData<EditStoryState>(
         savingState.copyWith(
           isSaving: false,
@@ -49,6 +56,10 @@ final class EditStoryNotifier extends AsyncNotifier<EditStoryState> {
       );
       return updatedStory;
     } on StoryApplicationException catch (error) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return null;
+      }
+
       state = AsyncData<EditStoryState>(
         savingState.copyWith(
           isSaving: false,
@@ -57,6 +68,10 @@ final class EditStoryNotifier extends AsyncNotifier<EditStoryState> {
       );
       return null;
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return null;
+      }
+
       state = AsyncData<EditStoryState>(
         savingState.copyWith(isSaving: false),
       );
@@ -66,6 +81,18 @@ final class EditStoryNotifier extends AsyncNotifier<EditStoryState> {
   }
 
   bool get _isLoading => state is AsyncLoading<EditStoryState>;
+
+  int _beginOperation() {
+    return ++_operationRevision;
+  }
+
+  void _invalidateOperations() {
+    _operationRevision += 1;
+  }
+
+  bool _isCurrentOperation(int operationRevision) {
+    return ref.mounted && _operationRevision == operationRevision;
+  }
 
   EditStoryState? get _currentState {
     final currentState = state;

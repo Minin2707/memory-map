@@ -3,6 +3,7 @@ package memory_map.backend.media.storage.minio;
 import io.minio.BucketExistsArgs;
 import io.minio.MinioClient;
 import memory_map.backend.media.storage.StorageByteRange;
+import memory_map.backend.media.storage.StorageException;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectNotFoundException;
 import memory_map.backend.media.storage.StorageObjectWrite;
@@ -18,6 +19,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +35,8 @@ class MinioStorageServiceIntegrationTest {
 
     private static final String ACCESS_KEY = "minio";
     private static final String SECRET_KEY = "minio-password";
+    private static final String INVALID_ACCESS_KEY = "invalid-access-key";
+    private static final String INVALID_SECRET_KEY = "invalid-secret-key";
     private static final String BUCKET = "photos";
 
     @Container
@@ -61,12 +68,37 @@ class MinioStorageServiceIntegrationTest {
     }
 
     @Test
-    void shouldBootstrapPrivateBucketWhenMissing() throws Exception {
+    void shouldBootstrapBucketWhenMissing() throws Exception {
         assertThat(minioClient.bucketExists(
                 BucketExistsArgs.builder()
                         .bucket(BUCKET)
                         .build()
         )).isTrue();
+    }
+
+    @Test
+    void shouldDenyAnonymousObjectReadFromBootstrappedBucket()
+            throws Exception {
+        StorageKey key = storageKey("anonymous-denied");
+        byte[] content = new byte[] {9, 8, 7};
+        storageService.store(new StorageObjectWrite(
+                key,
+                content,
+                "image/jpeg"
+        ));
+        HttpClient anonymousClient = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(endpoint() + "/" + BUCKET + "/" + key.value()))
+                .GET()
+                .build();
+
+        HttpResponse<byte[]> response = anonymousClient.send(
+                request,
+                HttpResponse.BodyHandlers.ofByteArray()
+        );
+
+        assertThat(response.statusCode()).isEqualTo(403);
+        assertThat(response.body()).isNotEqualTo(content);
     }
 
     @Test
@@ -248,6 +280,35 @@ class MinioStorageServiceIntegrationTest {
                 .doesNotContain(SECRET_KEY);
     }
 
+    @Test
+    void shouldMapRealMinioAuthFailureToGenericStorageException() {
+        StorageKey key = storageKey("invalid-credentials");
+        storageService.store(new StorageObjectWrite(
+                key,
+                new byte[] {4, 5, 6},
+                "image/jpeg"
+        ));
+        MinioClient invalidClient = MinioClient.builder()
+                .endpoint(endpoint())
+                .credentials(INVALID_ACCESS_KEY, INVALID_SECRET_KEY)
+                .build();
+        StorageService invalidStorageService =
+                new MinioStorageService(invalidClient, BUCKET);
+
+        Throwable thrown = catchThrowable(
+                () -> invalidStorageService.read(key)
+        );
+
+        assertThat(thrown)
+                .isInstanceOf(StorageException.class)
+                .isNotInstanceOf(StorageObjectNotFoundException.class)
+                .hasMessage("Storage operation failed");
+        assertMessageDoesNotExpose(thrown, key.value());
+        assertMessageDoesNotExpose(thrown, endpoint());
+        assertMessageDoesNotExpose(thrown, SECRET_KEY);
+        assertMessageDoesNotExpose(thrown, INVALID_SECRET_KEY);
+    }
+
     private static StorageKey storageKey(String suffix) {
         return new StorageKey(
                 "media/" + UUID.randomUUID() + "/" + suffix
@@ -257,5 +318,12 @@ class MinioStorageServiceIntegrationTest {
     private static String endpoint() {
         return "http://" + minio.getHost() + ":"
                 + minio.getMappedPort(9000);
+    }
+
+    private static void assertMessageDoesNotExpose(
+            Throwable thrown,
+            String sensitiveValue
+    ) {
+        assertThat(thrown.getMessage().contains(sensitiveValue)).isFalse();
     }
 }

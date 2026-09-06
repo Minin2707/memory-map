@@ -2,6 +2,7 @@ package memory_map.backend.memory.application;
 
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -12,15 +13,21 @@ import java.util.UUID;
 
 public class TransactionalDeleteMemoryService implements DeleteMemoryUseCase {
 
+    private final StoryRepository storyRepository;
     private final MemoryRepository memoryRepository;
     private final StoryParticipantRepository storyParticipantRepository;
     private final MemoryMediaCleanupCoordinator mediaCleanupCoordinator;
 
     public TransactionalDeleteMemoryService(
+            StoryRepository storyRepository,
             MemoryRepository memoryRepository,
             StoryParticipantRepository storyParticipantRepository,
             MemoryMediaCleanupCoordinator mediaCleanupCoordinator
     ) {
+        this.storyRepository = Objects.requireNonNull(
+                storyRepository,
+                "storyRepository must not be null"
+        );
         this.memoryRepository = Objects.requireNonNull(
                 memoryRepository,
                 "memoryRepository must not be null"
@@ -40,9 +47,21 @@ public class TransactionalDeleteMemoryService implements DeleteMemoryUseCase {
     public void deleteMemory(DeleteMemoryCommand command) {
         Objects.requireNonNull(command, "command must not be null");
 
+        Memory parentIdentity = memoryRepository.findById(
+                command.memoryId()
+        ).orElseThrow(MemoryDeletionUnavailableException::new);
+
+        if (!storyRepository.lockById(parentIdentity.storyId())) {
+            throw new MemoryDeletionUnavailableException();
+        }
+
         Memory memory = memoryRepository.findByIdForUpdate(
                 command.memoryId()
         ).orElseThrow(MemoryDeletionUnavailableException::new);
+
+        if (!memory.storyId().equals(parentIdentity.storyId())) {
+            throw new MemoryDeletionUnavailableException();
+        }
 
         UUID requesterUserId = command.authenticatedUser().userId();
         StoryParticipant participant = storyParticipantRepository.find(
@@ -54,7 +73,7 @@ public class TransactionalDeleteMemoryService implements DeleteMemoryUseCase {
             throw new MemoryDeletionUnavailableException();
         }
 
-        mediaCleanupCoordinator.prepareAfterCommitCleanup(memory.id());
+        mediaCleanupCoordinator.scheduleCleanup(memory.id());
 
         if (!memoryRepository.delete(memory.id())) {
             throw new IllegalStateException(

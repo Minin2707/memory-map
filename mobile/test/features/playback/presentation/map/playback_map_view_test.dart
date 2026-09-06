@@ -41,6 +41,29 @@ void main() {
     });
   });
 
+  group('PlaybackMapView style lifecycle', () {
+    test('shouldRejectStyleCallbackFromPreviousControllerGeneration', () {
+      final lifecycle = PlaybackMapStyleLifecycle();
+
+      final firstGeneration = lifecycle.beginControllerLifecycle();
+      final secondGeneration = lifecycle.beginControllerLifecycle();
+
+      expect(lifecycle.currentGeneration, secondGeneration);
+      expect(lifecycle.shouldAcceptStyleLoaded(firstGeneration), isFalse);
+      expect(lifecycle.shouldAcceptStyleLoaded(secondGeneration), isTrue);
+    });
+
+    test('shouldRejectStyleCallbackAfterPlaybackMapDisposes', () {
+      final lifecycle = PlaybackMapStyleLifecycle();
+      final generation = lifecycle.beginControllerLifecycle();
+
+      lifecycle.dispose();
+
+      expect(lifecycle.shouldAcceptStyleLoaded(generation), isFalse);
+      expect(lifecycle.isCurrent(generation), isFalse);
+    });
+  });
+
   group('PlaybackMapView route GeoJSON boundary', () {
     test('shouldUseLongitudeLatitudeCoordinateOrderForRouteLineString', () {
       final geoJson = playbackRouteGeoJsonForTesting(<MapCoordinate>[

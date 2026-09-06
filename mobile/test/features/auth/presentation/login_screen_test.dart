@@ -107,7 +107,7 @@ void main() {
     );
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(
-      find.textContaining('By continuing', findRichText: true),
+      find.textContaining('By continuing'),
       findsOneWidget,
     );
   });
@@ -125,7 +125,7 @@ void main() {
     );
     expect(find.text('Продолжить с Google'), findsOneWidget);
     expect(
-      find.textContaining('Продолжая', findRichText: true),
+      find.textContaining('Продолжая'),
       findsOneWidget,
     );
   });
@@ -138,6 +138,54 @@ void main() {
     await tester.pump();
 
     expect(fakeRepository.loginCalls, 1);
+  });
+
+  testWidgets('shouldOpenPrivacyPolicyLinkWithoutGoogleLogin', (
+    WidgetTester tester,
+  ) async {
+    final fakeRepository = FakeAuthRepository();
+    var privacyCalls = 0;
+    var termsCalls = 0;
+
+    await pumpScreen(
+      tester,
+      fakeRepository,
+      onPrivacyPolicy: () {
+        privacyCalls += 1;
+      },
+      onTermsOfUse: () {
+        termsCalls += 1;
+      },
+    );
+    await tapVisibleText(tester, 'Privacy Policy');
+
+    expect(privacyCalls, 1);
+    expect(termsCalls, 0);
+    expect(fakeRepository.loginCalls, 0);
+  });
+
+  testWidgets('shouldOpenTermsOfUseLinkWithoutGoogleLogin', (
+    WidgetTester tester,
+  ) async {
+    final fakeRepository = FakeAuthRepository();
+    var privacyCalls = 0;
+    var termsCalls = 0;
+
+    await pumpScreen(
+      tester,
+      fakeRepository,
+      onPrivacyPolicy: () {
+        privacyCalls += 1;
+      },
+      onTermsOfUse: () {
+        termsCalls += 1;
+      },
+    );
+    await tapVisibleText(tester, 'Terms of Use');
+
+    expect(privacyCalls, 0);
+    expect(termsCalls, 1);
+    expect(fakeRepository.loginCalls, 0);
   });
 
   testWidgets('shouldShowLoadingState', (WidgetTester tester) async {
@@ -276,6 +324,8 @@ Future<void> pumpScreen(
   FakeAuthRepository fakeRepository, {
   Locale locale = const Locale('en'),
   TextScaler textScaler = TextScaler.noScaling,
+  VoidCallback? onPrivacyPolicy,
+  VoidCallback? onTermsOfUse,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -292,7 +342,10 @@ Future<void> pumpScreen(
             child: child ?? const SizedBox.shrink(),
           );
         },
-        home: const LoginScreen(),
+        home: LoginScreen(
+          onPrivacyPolicy: onPrivacyPolicy,
+          onTermsOfUse: onTermsOfUse,
+        ),
       ),
     ),
   );

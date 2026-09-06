@@ -21,6 +21,9 @@ import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.notification.application.NotificationPublisher;
+import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -30,6 +33,7 @@ import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +42,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CoordinatedUploadPhotoServiceTest {
@@ -70,6 +75,8 @@ class CoordinatedUploadPhotoServiceTest {
             );
 
     private final List<String> events = new ArrayList<>();
+    private final FakeStoryRepository storyRepository =
+            new FakeStoryRepository(events);
     private final FakeMemoryRepository memoryRepository =
             new FakeMemoryRepository(events);
     private final FakeStoryParticipantRepository storyParticipantRepository =
@@ -86,10 +93,13 @@ class CoordinatedUploadPhotoServiceTest {
             new FakeStorageService(events);
     private final FakeRollbackCoordinator rollbackCoordinator =
             new FakeRollbackCoordinator(events);
+    private final FakeStorageCleanupRecoveryScheduler recoveryScheduler =
+            new FakeStorageCleanupRecoveryScheduler(events);
     private final FakeNotificationPublisher notificationPublisher =
             new FakeNotificationPublisher(events);
     private final CoordinatedUploadPhotoService service =
             new CoordinatedUploadPhotoService(
+                    storyRepository,
                     memoryRepository,
                     storyParticipantRepository,
                     mediaFileRepository,
@@ -98,6 +108,7 @@ class CoordinatedUploadPhotoServiceTest {
                     storageKeyFactory,
                     storageService,
                     rollbackCoordinator,
+                    recoveryScheduler,
                     notificationPublisher
             );
 
@@ -121,6 +132,7 @@ class CoordinatedUploadPhotoServiceTest {
         assertStoredObject(displayKey(), DISPLAY_BYTES);
         assertStoredObject(thumbnailKey(), THUMBNAIL_BYTES);
         assertThat(rollbackCoordinator.actions).hasSize(1);
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(notificationPublisher.photosAddedCallCount).isEqualTo(1);
         assertThat(notificationPublisher.receivedMemory)
                 .isEqualTo(memory(AUTHOR_ID));
@@ -129,6 +141,8 @@ class CoordinatedUploadPhotoServiceTest {
         assertThat(notificationPublisher.receivedCreatedAt)
                 .isEqualTo(CURRENT_TIME);
         assertThat(events).containsExactly(
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
                 "participant.find",
                 "image.process",
@@ -174,6 +188,8 @@ class CoordinatedUploadPhotoServiceTest {
 
         assertNoImageStorageOrSaveWork();
         assertThat(events).containsExactly(
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
                 "participant.find"
         );
@@ -198,7 +214,7 @@ class CoordinatedUploadPhotoServiceTest {
                 .hasMessage("Photo could not be uploaded");
 
         assertNoImageStorageOrSaveWork();
-        assertThat(events).containsExactly("memory.findByIdForUpdate");
+        assertThat(events).containsExactly("memory.findById");
     }
 
     @Test
@@ -212,6 +228,8 @@ class CoordinatedUploadPhotoServiceTest {
 
         assertNoImageStorageOrSaveWork();
         assertThat(events).containsExactly(
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
                 "participant.find"
         );
@@ -232,6 +250,8 @@ class CoordinatedUploadPhotoServiceTest {
         assertThat(storageService.storedObjects).isEmpty();
         assertThat(mediaFileRepository.savedMediaFile).isNull();
         assertThat(events).containsExactly(
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
                 "participant.find",
                 "image.process"
@@ -264,8 +284,11 @@ class CoordinatedUploadPhotoServiceTest {
 
         assertThat(storageService.storedObjects).isEmpty();
         assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(mediaFileRepository.savedMediaFile).isNull();
         assertThat(events).containsExactly(
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
                 "participant.find",
                 "image.process",
@@ -290,8 +313,11 @@ class CoordinatedUploadPhotoServiceTest {
                 ).isEmpty());
 
         assertThat(storageService.deletedKeys).containsExactly(displayKey());
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(mediaFileRepository.savedMediaFile).isNull();
         assertThat(events).containsExactly(
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
                 "participant.find",
                 "image.process",
@@ -320,6 +346,35 @@ class CoordinatedUploadPhotoServiceTest {
                 .satisfies(exception -> assertThat(
                         exception.getSuppressed()
                 ).containsExactly(cleanupFailure));
+        assertThat(recoveryScheduler.scheduledKeys)
+                .containsExactly(displayKey());
+    }
+
+    @Test
+    void shouldSuppressRecoveryFailureWhenThumbnailStoreCleanupFails() {
+        arrangeCurrentMemory(AUTHOR_ID);
+        arrangeCurrentParticipant(USER_ID, StoryRole.OWNER);
+        RuntimeException thumbnailFailure = new RuntimeException(
+                "thumbnail store failed"
+        );
+        RuntimeException cleanupFailure = new RuntimeException(
+                "display cleanup failed"
+        );
+        RuntimeException recoveryFailure = new RuntimeException(
+                "recovery enqueue failed"
+        );
+        storageService.storeFailures.put(thumbnailKey(), thumbnailFailure);
+        storageService.deleteFailures.put(displayKey(), cleanupFailure);
+        recoveryScheduler.failure = recoveryFailure;
+
+        assertThatThrownBy(() -> service.uploadPhoto(command(USER_ID)))
+                .isSameAs(thumbnailFailure)
+                .satisfies(exception -> assertThat(
+                        exception.getSuppressed()
+                ).containsExactly(cleanupFailure, recoveryFailure));
+
+        assertThat(recoveryScheduler.scheduledKeys)
+                .containsExactly(displayKey());
     }
 
     @Test
@@ -332,7 +387,10 @@ class CoordinatedUploadPhotoServiceTest {
 
         assertThat(storageService.deletedKeys)
                 .containsExactly(thumbnailKey(), displayKey());
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(events).containsExactly(
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
                 "participant.find",
                 "image.process",
@@ -362,6 +420,7 @@ class CoordinatedUploadPhotoServiceTest {
         rollbackCoordinator.runFirstAction();
         assertThat(storageService.deletedKeys)
                 .containsExactly(thumbnailKey(), displayKey());
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
     }
 
     @Test
@@ -378,6 +437,7 @@ class CoordinatedUploadPhotoServiceTest {
 
         assertThat(storageService.deletedKeys)
                 .containsExactly(thumbnailKey(), displayKey());
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(mediaFileRepository.savedMediaFile).isNull();
     }
 
@@ -409,125 +469,145 @@ class CoordinatedUploadPhotoServiceTest {
                         thumbnailCleanupFailure,
                         displayCleanupFailure
                 ));
+        assertThat(recoveryScheduler.scheduledKeys)
+                .containsExactly(thumbnailKey(), displayKey());
+    }
+
+    @Test
+    void shouldRecoverFailedDeletesWhenRollbackCleanupRuns() {
+        arrangeCurrentMemory(AUTHOR_ID);
+        arrangeCurrentParticipant(USER_ID, StoryRole.OWNER);
+        storageService.deleteFailures.put(
+                thumbnailKey(),
+                new RuntimeException("thumbnail cleanup failed")
+        );
+        storageService.deleteFailures.put(
+                displayKey(),
+                new RuntimeException("display cleanup failed")
+        );
+
+        service.uploadPhoto(command(USER_ID));
+        rollbackCoordinator.runFirstAction();
+
+        assertThat(storageService.deletedKeys)
+                .containsExactly(thumbnailKey(), displayKey());
+        assertThat(recoveryScheduler.scheduledKeys)
+                .containsExactly(thumbnailKey(), displayKey());
+    }
+
+    @Test
+    void shouldIgnoreRecoveryFailuresWhenRollbackCleanupRuns() {
+        arrangeCurrentMemory(AUTHOR_ID);
+        arrangeCurrentParticipant(USER_ID, StoryRole.OWNER);
+        storageService.deleteFailures.put(
+                thumbnailKey(),
+                new RuntimeException("thumbnail cleanup failed")
+        );
+        storageService.deleteFailures.put(
+                displayKey(),
+                new RuntimeException("display cleanup failed")
+        );
+        recoveryScheduler.failure =
+                new RuntimeException("recovery enqueue failed");
+
+        service.uploadPhoto(command(USER_ID));
+
+        assertThatCode(() -> rollbackCoordinator.runFirstAction())
+                .doesNotThrowAnyException();
+        assertThat(storageService.deletedKeys)
+                .containsExactly(thumbnailKey(), displayKey());
+        assertThat(recoveryScheduler.scheduledKeys)
+                .containsExactly(thumbnailKey(), displayKey());
     }
 
     @Test
     void shouldRejectNullDependencies() {
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                null,
-                storyParticipantRepository,
-                mediaFileRepository,
-                authorizationPolicy,
-                imageProcessor,
-                storageKeyFactory,
-                storageService,
-                rollbackCoordinator,
-                notificationPublisher
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(null, memoryRepository,
+                storyParticipantRepository, mediaFileRepository,
+                authorizationPolicy, imageProcessor, storageKeyFactory,
+                storageService, rollbackCoordinator, recoveryScheduler,
+                notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("storyRepository must not be null");
+
+        assertThatThrownBy(() -> serviceWith(storyRepository, null,
+                storyParticipantRepository, mediaFileRepository,
+                authorizationPolicy, imageProcessor, storageKeyFactory,
+                storageService, rollbackCoordinator, recoveryScheduler,
+                notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("memoryRepository must not be null");
 
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                memoryRepository,
-                null,
-                mediaFileRepository,
-                authorizationPolicy,
-                imageProcessor,
-                storageKeyFactory,
-                storageService,
-                rollbackCoordinator,
-                notificationPublisher
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, null, mediaFileRepository,
+                authorizationPolicy, imageProcessor, storageKeyFactory,
+                storageService, rollbackCoordinator, recoveryScheduler,
+                notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("storyParticipantRepository must not be null");
 
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                memoryRepository,
-                storyParticipantRepository,
-                null,
-                authorizationPolicy,
-                imageProcessor,
-                storageKeyFactory,
-                storageService,
-                rollbackCoordinator,
-                notificationPublisher
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, storyParticipantRepository, null,
+                authorizationPolicy, imageProcessor, storageKeyFactory,
+                storageService, rollbackCoordinator, recoveryScheduler,
+                notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("mediaFileRepository must not be null");
 
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                memoryRepository,
-                storyParticipantRepository,
-                mediaFileRepository,
-                null,
-                imageProcessor,
-                storageKeyFactory,
-                storageService,
-                rollbackCoordinator,
-                notificationPublisher
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, storyParticipantRepository,
+                mediaFileRepository, null, imageProcessor, storageKeyFactory,
+                storageService, rollbackCoordinator, recoveryScheduler,
+                notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("authorizationPolicy must not be null");
 
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                memoryRepository,
-                storyParticipantRepository,
-                mediaFileRepository,
-                authorizationPolicy,
-                null,
-                storageKeyFactory,
-                storageService,
-                rollbackCoordinator,
-                notificationPublisher
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, storyParticipantRepository,
+                mediaFileRepository, authorizationPolicy, null,
+                storageKeyFactory, storageService, rollbackCoordinator,
+                recoveryScheduler, notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("imageProcessor must not be null");
 
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                memoryRepository,
-                storyParticipantRepository,
-                mediaFileRepository,
-                authorizationPolicy,
-                imageProcessor,
-                null,
-                storageService,
-                rollbackCoordinator,
-                notificationPublisher
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, storyParticipantRepository,
+                mediaFileRepository, authorizationPolicy, imageProcessor,
+                null, storageService, rollbackCoordinator, recoveryScheduler,
+                notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("storageKeyFactory must not be null");
 
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                memoryRepository,
-                storyParticipantRepository,
-                mediaFileRepository,
-                authorizationPolicy,
-                imageProcessor,
-                storageKeyFactory,
-                null,
-                rollbackCoordinator,
-                notificationPublisher
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, storyParticipantRepository,
+                mediaFileRepository, authorizationPolicy, imageProcessor,
+                storageKeyFactory, null, rollbackCoordinator,
+                recoveryScheduler, notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("storageService must not be null");
 
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                memoryRepository,
-                storyParticipantRepository,
-                mediaFileRepository,
-                authorizationPolicy,
-                imageProcessor,
-                storageKeyFactory,
-                storageService,
-                null,
-                notificationPublisher
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, storyParticipantRepository,
+                mediaFileRepository, authorizationPolicy, imageProcessor,
+                storageKeyFactory, storageService, null, recoveryScheduler,
+                notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("rollbackCoordinator must not be null");
 
-        assertThatThrownBy(() -> new CoordinatedUploadPhotoService(
-                memoryRepository,
-                storyParticipantRepository,
-                mediaFileRepository,
-                authorizationPolicy,
-                imageProcessor,
-                storageKeyFactory,
-                storageService,
-                rollbackCoordinator,
-                null
-        )).isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, storyParticipantRepository,
+                mediaFileRepository, authorizationPolicy, imageProcessor,
+                storageKeyFactory, storageService, rollbackCoordinator,
+                null, notificationPublisher))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("recoveryScheduler must not be null");
+
+        assertThatThrownBy(() -> serviceWith(storyRepository,
+                memoryRepository, storyParticipantRepository,
+                mediaFileRepository, authorizationPolicy, imageProcessor,
+                storageKeyFactory, storageService, rollbackCoordinator,
+                recoveryScheduler, null))
+                .isInstanceOf(NullPointerException.class)
                 .hasMessage("notificationPublisher must not be null");
     }
 
@@ -540,6 +620,34 @@ class CoordinatedUploadPhotoServiceTest {
         assertThat(events).isEmpty();
     }
 
+    private static CoordinatedUploadPhotoService serviceWith(
+            StoryRepository storyRepository,
+            MemoryRepository memoryRepository,
+            StoryParticipantRepository storyParticipantRepository,
+            MediaFileRepository mediaFileRepository,
+            PhotoUploadAuthorizationPolicy authorizationPolicy,
+            ImageProcessor imageProcessor,
+            MediaStorageKeyFactory storageKeyFactory,
+            StorageService storageService,
+            TransactionRollbackCoordinator rollbackCoordinator,
+            StorageCleanupRecoveryScheduler recoveryScheduler,
+            NotificationPublisher notificationPublisher
+    ) {
+        return new CoordinatedUploadPhotoService(
+                storyRepository,
+                memoryRepository,
+                storyParticipantRepository,
+                mediaFileRepository,
+                authorizationPolicy,
+                imageProcessor,
+                storageKeyFactory,
+                storageService,
+                rollbackCoordinator,
+                recoveryScheduler,
+                notificationPublisher
+        );
+    }
+
     private void assertDeniedRoleBeforeProcessing(StoryRole role) {
         arrangeCurrentMemory(AUTHOR_ID);
         arrangeCurrentParticipant(USER_ID, role);
@@ -550,6 +658,8 @@ class CoordinatedUploadPhotoServiceTest {
 
         assertNoImageStorageOrSaveWork();
         assertThat(events).containsExactly(
+                "memory.findById",
+                "story.lock",
                 "memory.findByIdForUpdate",
                 "participant.find"
         );
@@ -631,6 +741,51 @@ class CoordinatedUploadPhotoServiceTest {
         return new StorageKey("media/" + MEDIA_ID + "/thumbnail");
     }
 
+    private static final class FakeStoryRepository implements StoryRepository {
+
+        private final List<String> events;
+
+        private FakeStoryRepository(List<String> events) {
+            this.events = events;
+        }
+
+        @Override
+        public Story save(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story update(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            events.add("story.lock");
+            return true;
+        }
+
+        @Override
+        public Story updateCover(UUID id, StoryCoverMetadata cover) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story clearCover(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
     private static final class FakeMemoryRepository
             implements MemoryRepository {
 
@@ -644,7 +799,9 @@ class CoordinatedUploadPhotoServiceTest {
 
         @Override
         public Optional<Memory> findById(UUID id) {
-            throw new UnsupportedOperationException();
+            events.add("memory.findById");
+            requestedId = id;
+            return memory;
         }
 
         @Override
@@ -906,6 +1063,28 @@ class CoordinatedUploadPhotoServiceTest {
 
         private void runFirstAction() {
             actions.get(0).run();
+        }
+    }
+
+    private static final class FakeStorageCleanupRecoveryScheduler
+            implements StorageCleanupRecoveryScheduler {
+
+        private final List<String> events;
+        private final List<StorageKey> scheduledKeys = new ArrayList<>();
+        private RuntimeException failure;
+
+        private FakeStorageCleanupRecoveryScheduler(List<String> events) {
+            this.events = events;
+        }
+
+        @Override
+        public void schedule(Collection<StorageKey> storageKeys) {
+            events.add("recovery.schedule");
+            scheduledKeys.addAll(storageKeys);
+
+            if (failure != null) {
+                throw failure;
+            }
         }
     }
 

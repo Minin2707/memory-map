@@ -1,8 +1,7 @@
 package memory_map.backend.story.application;
 
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.storage.StorageKey;
-import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.domain.StoryCoverMetadata;
 import memory_map.backend.story.repository.StoryRepository;
@@ -12,6 +11,7 @@ import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -21,15 +21,13 @@ public class DefaultRemoveStoryCoverService
     private final StoryRepository storyRepository;
     private final StoryParticipantRepository storyParticipantRepository;
     private final UserStoryRepository userStoryRepository;
-    private final StorageService storageService;
-    private final TransactionCommitCoordinator commitCoordinator;
+    private final StorageCleanupScheduler cleanupScheduler;
 
     public DefaultRemoveStoryCoverService(
             StoryRepository storyRepository,
             StoryParticipantRepository storyParticipantRepository,
             UserStoryRepository userStoryRepository,
-            StorageService storageService,
-            TransactionCommitCoordinator commitCoordinator
+            StorageCleanupScheduler cleanupScheduler
     ) {
         this.storyRepository = Objects.requireNonNull(
                 storyRepository,
@@ -43,13 +41,9 @@ public class DefaultRemoveStoryCoverService
                 userStoryRepository,
                 "userStoryRepository must not be null"
         );
-        this.storageService = Objects.requireNonNull(
-                storageService,
-                "storageService must not be null"
-        );
-        this.commitCoordinator = Objects.requireNonNull(
-                commitCoordinator,
-                "commitCoordinator must not be null"
+        this.cleanupScheduler = Objects.requireNonNull(
+                cleanupScheduler,
+                "cleanupScheduler must not be null"
         );
     }
 
@@ -81,7 +75,7 @@ public class DefaultRemoveStoryCoverService
                 requesterUserId
         ).orElseThrow(StoryNotFoundException::new);
 
-        scheduleAfterCommitCleanup(oldCover);
+        scheduleCleanup(oldCover);
 
         return userStory;
     }
@@ -90,22 +84,14 @@ public class DefaultRemoveStoryCoverService
         return role == StoryRole.OWNER || role == StoryRole.CO_OWNER;
     }
 
-    private void scheduleAfterCommitCleanup(StoryCoverMetadata oldCover) {
+    private void scheduleCleanup(StoryCoverMetadata oldCover) {
         if (oldCover == null) {
             return;
         }
 
-        commitCoordinator.onCommit(() -> {
-            cleanupQuietly(new StorageKey(oldCover.thumbnailStorageKey()));
-            cleanupQuietly(new StorageKey(oldCover.displayStorageKey()));
-        });
-    }
-
-    private void cleanupQuietly(StorageKey key) {
-        try {
-            storageService.delete(key);
-        } catch (RuntimeException ignored) {
-            // Storage cleanup is best-effort after DB outcome is known.
-        }
+        cleanupScheduler.schedule(List.of(
+                new StorageKey(oldCover.thumbnailStorageKey()),
+                new StorageKey(oldCover.displayStorageKey())
+        ));
     }
 }

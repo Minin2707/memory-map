@@ -169,7 +169,7 @@ class TransactionalRemoveStorySoundtrackServiceTest {
     }
 
     @Test
-    void shouldLookupStoryBeforeUpdate() {
+    void shouldLockStoryBeforeLookupStoryAndUpdate() {
         TestContext context = testContext(
                 userStory(TRACK_ID, StoryRole.OWNER)
         );
@@ -177,6 +177,7 @@ class TransactionalRemoveStorySoundtrackServiceTest {
         context.service().removeStorySoundtrack(command());
 
         assertThat(context.calls()).containsExactly(
+                "lock Story",
                 "find UserStory",
                 "update Story"
         );
@@ -375,7 +376,8 @@ class TransactionalRemoveStorySoundtrackServiceTest {
 
         @Override
         public boolean lockById(UUID id) {
-            throw new UnsupportedOperationException();
+            calls.add("lock Story");
+            return true;
         }
 
         @Override

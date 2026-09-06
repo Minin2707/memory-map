@@ -4,6 +4,9 @@ import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.notification.application.NotificationPublisher;
+import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -63,6 +66,7 @@ class TransactionalCreateMemoryServiceTest {
         assertThat(context.notificationPublisher().receivedCreatedAt())
                 .isEqualTo(CURRENT_TIME);
         assertThat(context.calls()).containsExactly(
+                "lock Story",
                 "find StoryParticipant",
                 "save Memory",
                 "publish MEMORY_CREATED"
@@ -96,7 +100,10 @@ class TransactionalCreateMemoryServiceTest {
         assertThat(context.memoryRepository().saveCallCount()).isZero();
         assertThat(context.notificationPublisher().memoryCreatedCallCount())
                 .isZero();
-        assertThat(context.calls()).containsExactly("find StoryParticipant");
+        assertThat(context.calls()).containsExactly(
+                "lock Story",
+                "find StoryParticipant"
+        );
     }
 
     @Test
@@ -113,7 +120,10 @@ class TransactionalCreateMemoryServiceTest {
         assertThat(context.memoryRepository().saveCallCount()).isZero();
         assertThat(context.notificationPublisher().memoryCreatedCallCount())
                 .isZero();
-        assertThat(context.calls()).containsExactly("find StoryParticipant");
+        assertThat(context.calls()).containsExactly(
+                "lock Story",
+                "find StoryParticipant"
+        );
     }
 
     @Test
@@ -198,11 +208,27 @@ class TransactionalCreateMemoryServiceTest {
     }
 
     @Test
+    void shouldRejectNullStoryRepositoryDependency() {
+
+        TestContext context = testContext(participant(StoryRole.OWNER));
+
+        assertThatThrownBy(() -> new TransactionalCreateMemoryService(
+                null,
+                context.storyParticipantRepository(),
+                context.memoryRepository(),
+                context.notificationPublisher()
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("storyRepository must not be null");
+    }
+
+    @Test
     void shouldRejectNullStoryParticipantRepositoryDependency() {
 
         TestContext context = testContext(participant(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateMemoryService(
+                context.storyRepository(),
                 null,
                 context.memoryRepository(),
                 context.notificationPublisher()
@@ -217,6 +243,7 @@ class TransactionalCreateMemoryServiceTest {
         TestContext context = testContext(participant(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateMemoryService(
+                context.storyRepository(),
                 context.storyParticipantRepository(),
                 null,
                 context.notificationPublisher()
@@ -231,6 +258,7 @@ class TransactionalCreateMemoryServiceTest {
         TestContext context = testContext(participant(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateMemoryService(
+                context.storyRepository(),
                 context.storyParticipantRepository(),
                 context.memoryRepository(),
                 null
@@ -264,7 +292,10 @@ class TransactionalCreateMemoryServiceTest {
                 .isSameAs(failure);
 
         assertThat(context.memoryRepository().saveCallCount()).isZero();
-        assertThat(context.calls()).containsExactly("find StoryParticipant");
+        assertThat(context.calls()).containsExactly(
+                "lock Story",
+                "find StoryParticipant"
+        );
     }
 
     @Test
@@ -279,6 +310,7 @@ class TransactionalCreateMemoryServiceTest {
                 .isNotInstanceOf(MemoryCreationUnavailableException.class);
 
         assertThat(context.calls()).containsExactly(
+                "lock Story",
                 "find StoryParticipant",
                 "save Memory"
         );
@@ -290,6 +322,7 @@ class TransactionalCreateMemoryServiceTest {
         List<String> calls = new ArrayList<>();
         FakeStoryParticipantRepository storyParticipantRepository =
                 new FakeStoryParticipantRepository(calls, participant);
+        FakeStoryRepository storyRepository = new FakeStoryRepository(calls);
         FakeMemoryRepository memoryRepository =
                 new FakeMemoryRepository(calls);
         FakeNotificationPublisher notificationPublisher =
@@ -297,10 +330,12 @@ class TransactionalCreateMemoryServiceTest {
 
         return new TestContext(
                 new TransactionalCreateMemoryService(
+                        storyRepository,
                         storyParticipantRepository,
                         memoryRepository,
                         notificationPublisher
                 ),
+                storyRepository,
                 storyParticipantRepository,
                 memoryRepository,
                 notificationPublisher,
@@ -377,6 +412,8 @@ class TransactionalCreateMemoryServiceTest {
 
             TransactionalCreateMemoryService service,
 
+            FakeStoryRepository storyRepository,
+
             FakeStoryParticipantRepository storyParticipantRepository,
 
             FakeMemoryRepository memoryRepository,
@@ -386,6 +423,52 @@ class TransactionalCreateMemoryServiceTest {
             List<String> calls
 
     ) {
+    }
+
+    private static final class FakeStoryRepository implements StoryRepository {
+
+        private final List<String> calls;
+        private boolean lockResult = true;
+
+        private FakeStoryRepository(List<String> calls) {
+            this.calls = calls;
+        }
+
+        @Override
+        public Story save(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story update(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            calls.add("lock Story");
+            return lockResult;
+        }
+
+        @Override
+        public Story updateCover(UUID id, StoryCoverMetadata cover) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story clearCover(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class FakeStoryParticipantRepository

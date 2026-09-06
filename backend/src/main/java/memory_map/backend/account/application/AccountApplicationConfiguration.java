@@ -2,7 +2,8 @@ package memory_map.backend.account.application;
 
 import memory_map.backend.account.repository.AccountDeletionRepository;
 import memory_map.backend.auth.repository.RefreshTokenRepository;
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupRecoveryScheduler;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.application.TransactionRollbackCoordinator;
 import memory_map.backend.media.image.ImageProcessor;
 import memory_map.backend.media.storage.StorageService;
@@ -42,7 +43,7 @@ public class AccountApplicationConfiguration {
     public AccountDeletionMediaCleanupCoordinator
     accountDeletionMediaCleanupCoordinator(
             ObjectProvider<StorageService> storageServiceProvider,
-            ObjectProvider<TransactionCommitCoordinator> commitCoordinatorProvider
+            ObjectProvider<StorageCleanupScheduler> cleanupSchedulerProvider
     ) {
         StorageService storageService = storageServiceProvider.getIfAvailable();
 
@@ -51,8 +52,7 @@ public class AccountApplicationConfiguration {
         }
 
         return new StorageBackedAccountDeletionMediaCleanupCoordinator(
-                storageService,
-                commitCoordinatorProvider.getObject()
+                cleanupSchedulerProvider.getObject()
         );
     }
 
@@ -90,7 +90,8 @@ public class AccountApplicationConfiguration {
             UserAvatarStorageKeyFactory storageKeyFactory,
             StorageService storageService,
             TransactionRollbackCoordinator rollbackCoordinator,
-            TransactionCommitCoordinator commitCoordinator
+            StorageCleanupScheduler cleanupScheduler,
+            StorageCleanupRecoveryScheduler recoveryScheduler
     ) {
         return new TransactionalCurrentUserAvatarService(
                 userRepository,
@@ -98,7 +99,8 @@ public class AccountApplicationConfiguration {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         );
     }
 }

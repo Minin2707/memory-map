@@ -1,6 +1,6 @@
 package memory_map.backend.memory.application;
 
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.repository.MediaFileRepository;
 import memory_map.backend.media.storage.StorageByteRange;
@@ -12,11 +12,14 @@ import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryReadRepository;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.notification.application.NotificationPublisher;
+import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +38,10 @@ class MemoryApplicationConfigurationTest {
                             FakeStoryParticipantRepository::new
                     )
                     .withBean(
+                            StoryRepository.class,
+                            FakeStoryRepository::new
+                    )
+                    .withBean(
                             MemoryRepository.class,
                             FakeMemoryRepository::new
                     )
@@ -46,10 +53,7 @@ class MemoryApplicationConfigurationTest {
                             MediaFileRepository.class,
                             FakeMediaFileRepository::new
                     )
-                    .withBean(
-                            TransactionCommitCoordinator.class,
-                            FakeTransactionCommitCoordinator::new
-                    )
+                    .withBean(StorageCleanupScheduler.class, FakeStorageCleanupScheduler::new)
                     .withBean(
                             NotificationPublisher.class,
                             FakeNotificationPublisher::new
@@ -178,6 +182,35 @@ class MemoryApplicationConfigurationTest {
         }
     }
 
+    private static final class FakeStoryRepository
+            implements StoryRepository {
+
+        @Override
+        public Story save(Story story) {
+            return story;
+        }
+
+        @Override
+        public Story update(Story story) {
+            return story;
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            return false;
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            return List.of();
+        }
+    }
+
     private static final class FakeMemoryRepository
             implements MemoryRepository {
 
@@ -253,11 +286,11 @@ class MemoryApplicationConfigurationTest {
         }
     }
 
-    private static final class FakeTransactionCommitCoordinator
-            implements TransactionCommitCoordinator {
+    private static final class FakeStorageCleanupScheduler
+            implements StorageCleanupScheduler {
 
         @Override
-        public void onCommit(Runnable action) {
+        public void schedule(Collection<StorageKey> storageKeys) {
         }
     }
 

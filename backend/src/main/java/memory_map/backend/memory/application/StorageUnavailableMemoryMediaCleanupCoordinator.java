@@ -20,7 +20,7 @@ public final class StorageUnavailableMemoryMediaCleanupCoordinator
     }
 
     @Override
-    public void prepareAfterCommitCleanup(UUID memoryId) {
+    public void scheduleCleanup(UUID memoryId) {
         Objects.requireNonNull(memoryId, "memoryId must not be null");
 
         if (mediaFileRepository.findByMemoryId(memoryId).isEmpty()) {

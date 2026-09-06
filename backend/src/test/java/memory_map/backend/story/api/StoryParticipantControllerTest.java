@@ -3,6 +3,8 @@ package memory_map.backend.story.api;
 import memory_map.backend.auth.domain.AuthenticatedUser;
 import memory_map.backend.auth.security.CurrentAuthenticatedUserProvider;
 import memory_map.backend.auth.security.SecurityConfiguration;
+import memory_map.backend.media.storage.StorageException;
+import memory_map.backend.media.storage.StorageObjectNotFoundException;
 import memory_map.backend.story.application.DownloadStoryParticipantAvatarUseCase;
 import memory_map.backend.story.application.DownloadedStoryParticipantAvatar;
 import memory_map.backend.story.application.GetStoryParticipantsUseCase;
@@ -259,6 +261,90 @@ class StoryParticipantControllerTest {
     }
 
     @Test
+    void shouldReturnSafeFailureForMissingParticipantAvatarStorageObject()
+            throws Exception {
+
+        downloadStoryParticipantAvatarUseCase.failWith(
+                new StorageObjectNotFoundException()
+        );
+
+        String response = mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}/participants/"
+                                + "{participantUserId}/avatar/{version}",
+                        STORY_ID,
+                        SECOND_USER_ID,
+                        "1768039200000"
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + VALID_ACCESS_TOKEN
+                        ))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        ))
+                .andExpect(jsonPath("$.title")
+                        .value("Internal Server Error"))
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.detail")
+                        .value("Participant avatar storage operation failed"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/v1/stories/participants/avatar"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(downloadStoryParticipantAvatarUseCase.callCount())
+                .isEqualTo(1);
+        assertSafeParticipantAvatarStorageFailure(response);
+    }
+
+    @Test
+    void shouldReturnSafeFailureForParticipantAvatarStorageFailure()
+            throws Exception {
+
+        downloadStoryParticipantAvatarUseCase.failWith(
+                new StorageException()
+        );
+
+        String response = mockMvc.perform(get(
+                        "/api/v1/stories/{storyId}/participants/"
+                                + "{participantUserId}/avatar/{version}",
+                        STORY_ID,
+                        SECOND_USER_ID,
+                        "1768039200000"
+                )
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + VALID_ACCESS_TOKEN
+                        ))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        ))
+                .andExpect(jsonPath("$.title")
+                        .value("Internal Server Error"))
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.detail")
+                        .value("Participant avatar storage operation failed"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/v1/stories/participants/avatar"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(currentAuthenticatedUserProvider.callCount())
+                .isEqualTo(1);
+        assertThat(downloadStoryParticipantAvatarUseCase.callCount())
+                .isEqualTo(1);
+        assertSafeParticipantAvatarStorageFailure(response);
+    }
+
+    @Test
     void shouldRejectParticipantAvatarRequestWithoutBearerToken()
             throws Exception {
 
@@ -274,6 +360,23 @@ class StoryParticipantControllerTest {
         assertThat(currentAuthenticatedUserProvider.callCount()).isZero();
         assertThat(downloadStoryParticipantAvatarUseCase.callCount())
                 .isZero();
+    }
+
+    private static void assertSafeParticipantAvatarStorageFailure(
+            String response
+    ) {
+        assertThat(response)
+                .doesNotContain("StorageException")
+                .doesNotContain("StorageObjectNotFoundException")
+                .doesNotContain("Storage operation failed")
+                .doesNotContain("Storage object was not found")
+                .doesNotContain("users/")
+                .doesNotContain("avatar-object")
+                .doesNotContain("storageKey")
+                .doesNotContain("bucket")
+                .doesNotContain("minio")
+                .doesNotContain("MinIO")
+                .doesNotContain("stackTrace");
     }
 
     @Test
@@ -1020,6 +1123,7 @@ class StoryParticipantControllerTest {
         private AuthenticatedUser receivedAuthenticatedUser;
         private UUID receivedStoryId;
         private UUID receivedParticipantUserId;
+        private RuntimeException exception;
         private int callCount;
 
         @Override
@@ -1032,6 +1136,10 @@ class StoryParticipantControllerTest {
             receivedStoryId = storyId;
             receivedParticipantUserId = participantUserId;
             callCount++;
+
+            if (exception != null) {
+                throw exception;
+            }
 
             return new DownloadedStoryParticipantAvatar(
                     new ByteArrayInputStream(new byte[] {1, 2, 3}),
@@ -1056,10 +1164,15 @@ class StoryParticipantControllerTest {
             return callCount;
         }
 
+        private void failWith(RuntimeException exception) {
+            this.exception = exception;
+        }
+
         private void reset() {
             receivedAuthenticatedUser = null;
             receivedStoryId = null;
             receivedParticipantUserId = null;
+            exception = null;
             callCount = 0;
         }
     }

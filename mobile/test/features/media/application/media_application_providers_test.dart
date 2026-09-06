@@ -38,6 +38,49 @@ void main() {
       expect(cache.clearCalls, 1);
     });
 
+    test('shouldNotClearAuthenticatedMediaCacheWhenUserLogsIn', () async {
+      final sessionStore = InMemoryAuthSessionStore();
+      final cache = FakeAuthenticatedMediaCache();
+      final container = ProviderContainer(
+        overrides: [
+          authSessionStoreProvider.overrideWithValue(sessionStore),
+          authenticatedMediaCacheProvider.overrideWithValue(cache),
+          mediaRemoteDataSourceProvider.overrideWithValue(
+            FakeMediaRemoteDataSource(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(sessionStore.dispose);
+
+      container.read(mediaRepositoryProvider);
+      sessionStore.setSession(session);
+
+      expect(cache.clearCalls, 0);
+    });
+
+    test('shouldClearAuthenticatedMediaCacheWhenUserChanges', () async {
+      final sessionStore = InMemoryAuthSessionStore();
+      final cache = FakeAuthenticatedMediaCache();
+      final container = ProviderContainer(
+        overrides: [
+          authSessionStoreProvider.overrideWithValue(sessionStore),
+          authenticatedMediaCacheProvider.overrideWithValue(cache),
+          mediaRemoteDataSourceProvider.overrideWithValue(
+            FakeMediaRemoteDataSource(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(sessionStore.dispose);
+
+      container.read(mediaRepositoryProvider);
+      sessionStore.setSession(session);
+      sessionStore.setSession(otherUserSession);
+
+      expect(cache.clearCalls, 1);
+    });
+
     test('shouldNotClearAuthenticatedMediaCacheOnSessionRefresh', () async {
       final sessionStore = InMemoryAuthSessionStore();
       final cache = FakeAuthenticatedMediaCache();
@@ -56,6 +99,29 @@ void main() {
       container.read(mediaRepositoryProvider);
       sessionStore.setSession(session);
       sessionStore.setSession(refreshedSession);
+
+      expect(cache.clearCalls, 0);
+    });
+
+    test('shouldNotClearAuthenticatedMediaCacheOnSameUserProfileReplacement',
+        () async {
+      final sessionStore = InMemoryAuthSessionStore();
+      final cache = FakeAuthenticatedMediaCache();
+      final container = ProviderContainer(
+        overrides: [
+          authSessionStoreProvider.overrideWithValue(sessionStore),
+          authenticatedMediaCacheProvider.overrideWithValue(cache),
+          mediaRemoteDataSourceProvider.overrideWithValue(
+            FakeMediaRemoteDataSource(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(sessionStore.dispose);
+
+      container.read(mediaRepositoryProvider);
+      sessionStore.setSession(session);
+      sessionStore.setSession(profileReplacementSession);
 
       expect(cache.clearCalls, 0);
     });
@@ -79,6 +145,27 @@ final AuthSession refreshedSession = AuthSession(
   tokens: AuthTokens(
     accessToken: 'new-access-token',
     refreshToken: 'new-refresh-token',
+  ),
+);
+
+final AuthSession profileReplacementSession = AuthSession(
+  user: AuthUser(
+    id: session.user.id,
+    displayName: 'Ada Byron',
+    avatarUrl: '/api/v1/me/avatar/2',
+  ),
+  tokens: session.tokens,
+);
+
+final AuthSession otherUserSession = AuthSession(
+  user: AuthUser(
+    id: 'other-user-id',
+    displayName: 'Grace Hopper',
+    avatarUrl: null,
+  ),
+  tokens: AuthTokens(
+    accessToken: 'other-access-token',
+    refreshToken: 'other-refresh-token',
   ),
 );
 

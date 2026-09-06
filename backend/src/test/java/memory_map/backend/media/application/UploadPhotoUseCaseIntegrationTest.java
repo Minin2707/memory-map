@@ -599,6 +599,7 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
         @Bean
         @Primary
         UploadPhotoUseCase testUploadPhotoUseCase(
+                StoryRepository storyRepository,
                 MemoryRepository memoryRepository,
                 StoryParticipantRepository storyParticipantRepository,
                 MediaFileRepository mediaFileRepository,
@@ -607,9 +608,11 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
                 MediaStorageKeyFactory storageKeyFactory,
                 StorageService storageService,
                 TransactionRollbackCoordinator rollbackCoordinator,
+                StorageCleanupRecoveryScheduler recoveryScheduler,
                 NotificationPublisher notificationPublisher
         ) {
             return new CoordinatedUploadPhotoService(
+                    storyRepository,
                     memoryRepository,
                     storyParticipantRepository,
                     mediaFileRepository,
@@ -618,6 +621,7 @@ class UploadPhotoUseCaseIntegrationTest extends IntegrationTest {
                     storageKeyFactory,
                     storageService,
                     rollbackCoordinator,
+                    recoveryScheduler,
                     notificationPublisher
             );
         }

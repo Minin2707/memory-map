@@ -21,4 +21,10 @@ public final class StoryAccessPolicy {
         return role == StoryRole.OWNER
                 || role == StoryRole.CO_OWNER;
     }
+
+    public boolean canDeleteStory(StoryRole role) {
+        Objects.requireNonNull(role, "role must not be null");
+
+        return role == StoryRole.OWNER;
+    }
 }

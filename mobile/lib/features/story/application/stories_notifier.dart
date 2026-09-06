@@ -13,8 +13,11 @@ final storiesNotifierProvider =
 );
 
 final class StoriesNotifier extends AsyncNotifier<StoriesState> {
+  int _refreshRevision = 0;
+
   @override
   Future<StoriesState> build() async {
+    _invalidateRefresh();
     return _load(ref.watch(storyRepositoryProvider));
   }
 
@@ -24,9 +27,15 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
     }
 
     state = const AsyncLoading<StoriesState>();
-    state = await AsyncValue.guard<StoriesState>(() async {
+    final retryRevision = ++_refreshRevision;
+    final result = await AsyncValue.guard<StoriesState>(() async {
       return _load(ref.read(storyRepositoryProvider));
     });
+    if (!_isCurrentRefresh(retryRevision)) {
+      return;
+    }
+
+    state = result;
   }
 
   Future<void> refreshStories() async {
@@ -44,11 +53,20 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
       clearRefreshFailure: true,
     );
     state = AsyncData<StoriesState>(refreshingState);
+    final refreshRevision = ++_refreshRevision;
 
     try {
       final stories = await ref.read(storyRepositoryProvider).getStories();
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<StoriesState>(StoriesState(stories: stories));
     } on StoryApplicationException catch (error) {
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<StoriesState>(
         refreshingState.copyWith(
           isRefreshing: false,
@@ -56,6 +74,10 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
         ),
       );
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<StoriesState>(
         refreshingState.copyWith(isRefreshing: false),
       );
@@ -88,17 +110,30 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
             title: title,
             description: description,
           );
+      if (!ref.mounted) {
+        return createdStory;
+      }
     } on StoryApplicationException catch (error) {
+      if (!ref.mounted) {
+        return null;
+      }
+
+      final failedState = _currentState ?? creatingState;
       state = AsyncData<StoriesState>(
-        creatingState.copyWith(
+        failedState.copyWith(
           isCreating: false,
           createFailure: error.failure,
         ),
       );
       return null;
     } on Object catch (error, stackTrace) {
+      if (!ref.mounted) {
+        return null;
+      }
+
+      final failedState = _currentState ?? creatingState;
       state = AsyncData<StoriesState>(
-        creatingState.copyWith(isCreating: false),
+        failedState.copyWith(isCreating: false),
       );
       state = AsyncError<StoriesState>(error, stackTrace);
       return null;
@@ -108,18 +143,39 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
       final userStory = await ref.read(storyRepositoryProvider).getStory(
             createdStory.id,
           );
-      final stories = _upsertStories(creatingState.stories, userStory);
-      state = AsyncData<StoriesState>(StoriesState(stories: stories));
-    } on StoryApplicationException catch (error) {
+      if (!ref.mounted) {
+        return createdStory;
+      }
+
+      final currentCreateState = _currentState ?? creatingState;
+      final stories = _upsertStories(currentCreateState.stories, userStory);
       state = AsyncData<StoriesState>(
-        creatingState.copyWith(
+        currentCreateState.copyWith(
+          stories: stories,
+          isCreating: false,
+          clearCreateFailure: true,
+        ),
+      );
+    } on StoryApplicationException catch (error) {
+      if (!ref.mounted) {
+        return createdStory;
+      }
+
+      final failedState = _currentState ?? creatingState;
+      state = AsyncData<StoriesState>(
+        failedState.copyWith(
           isCreating: false,
           refreshFailure: error.failure,
         ),
       );
     } on Object catch (error, stackTrace) {
+      if (!ref.mounted) {
+        return createdStory;
+      }
+
+      final failedState = _currentState ?? creatingState;
       state = AsyncData<StoriesState>(
-        creatingState.copyWith(isCreating: false),
+        failedState.copyWith(isCreating: false),
       );
       state = AsyncError<StoriesState>(error, stackTrace);
     }
@@ -146,8 +202,9 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
 
     final stories = List<UserStory>.of(currentState.stories);
     stories[index] = stories[index].withStoryMutation(updatedStory.story);
+    _invalidateRefresh();
     state = AsyncData<StoriesState>(
-      currentState.copyWith(stories: stories),
+      currentState.copyWith(stories: stories, isRefreshing: false),
     );
   }
 
@@ -166,8 +223,9 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
 
     final stories = List<UserStory>.of(currentState.stories);
     stories[index] = userStory;
+    _invalidateRefresh();
     state = AsyncData<StoriesState>(
-      currentState.copyWith(stories: stories),
+      currentState.copyWith(stories: stories, isRefreshing: false),
     );
   }
 
@@ -177,9 +235,11 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
       return;
     }
 
+    _invalidateRefresh();
     state = AsyncData<StoriesState>(
       currentState.copyWith(
         stories: _upsertStories(currentState.stories, userStory),
+        isRefreshing: false,
       ),
     );
   }
@@ -197,8 +257,9 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
       return;
     }
 
+    _invalidateRefresh();
     state = AsyncData<StoriesState>(
-      currentState.copyWith(stories: stories),
+      currentState.copyWith(stories: stories, isRefreshing: false),
     );
   }
 
@@ -212,6 +273,14 @@ final class StoriesNotifier extends AsyncNotifier<StoriesState> {
   }
 
   bool get _isLoading => state is AsyncLoading<StoriesState>;
+
+  void _invalidateRefresh() {
+    _refreshRevision += 1;
+  }
+
+  bool _isCurrentRefresh(int refreshRevision) {
+    return ref.mounted && _refreshRevision == refreshRevision;
+  }
 
   List<UserStory> _upsertStories(
     List<UserStory> currentStories,

@@ -1,6 +1,7 @@
 package memory_map.backend.account.application;
 
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupRecoveryScheduler;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.application.TransactionRollbackCoordinator;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectWrite;
@@ -8,20 +9,28 @@ import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.user.domain.User;
 import memory_map.backend.user.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 public class TransactionalCurrentUserAvatarService
         implements CurrentUserAvatarUseCase {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(
+            TransactionalCurrentUserAvatarService.class
+    );
+
     private final UserRepository userRepository;
     private final UserAvatarImageProcessor imageProcessor;
     private final UserAvatarStorageKeyFactory storageKeyFactory;
     private final StorageService storageService;
     private final TransactionRollbackCoordinator rollbackCoordinator;
-    private final TransactionCommitCoordinator commitCoordinator;
+    private final StorageCleanupScheduler cleanupScheduler;
+    private final StorageCleanupRecoveryScheduler recoveryScheduler;
 
     public TransactionalCurrentUserAvatarService(
             UserRepository userRepository,
@@ -29,7 +38,8 @@ public class TransactionalCurrentUserAvatarService
             UserAvatarStorageKeyFactory storageKeyFactory,
             StorageService storageService,
             TransactionRollbackCoordinator rollbackCoordinator,
-            TransactionCommitCoordinator commitCoordinator
+            StorageCleanupScheduler cleanupScheduler,
+            StorageCleanupRecoveryScheduler recoveryScheduler
     ) {
         this.userRepository = Objects.requireNonNull(
                 userRepository,
@@ -51,9 +61,13 @@ public class TransactionalCurrentUserAvatarService
                 rollbackCoordinator,
                 "rollbackCoordinator must not be null"
         );
-        this.commitCoordinator = Objects.requireNonNull(
-                commitCoordinator,
-                "commitCoordinator must not be null"
+        this.cleanupScheduler = Objects.requireNonNull(
+                cleanupScheduler,
+                "cleanupScheduler must not be null"
+        );
+        this.recoveryScheduler = Objects.requireNonNull(
+                recoveryScheduler,
+                "recoveryScheduler must not be null"
         );
     }
 
@@ -90,7 +104,7 @@ public class TransactionalCurrentUserAvatarService
                     newStorageKey.value(),
                     command.currentTime()
             );
-            scheduleAfterCommitCleanup(previousCustomAvatarKey(lockedUser));
+            scheduleCleanup(previousCustomAvatarKey(lockedUser));
             return updated;
         } catch (RuntimeException exception) {
             cleanupWithSuppression(exception, newStorageKey);
@@ -132,7 +146,7 @@ public class TransactionalCurrentUserAvatarService
                 userId,
                 command.currentTime()
         );
-        scheduleAfterCommitCleanup(previousCustomAvatarKey(lockedUser));
+        scheduleCleanup(previousCustomAvatarKey(lockedUser));
 
         return updated;
     }
@@ -145,9 +159,9 @@ public class TransactionalCurrentUserAvatarService
         return new StorageKey(user.customAvatarStorageKey());
     }
 
-    private void scheduleAfterCommitCleanup(StorageKey storageKey) {
+    private void scheduleCleanup(StorageKey storageKey) {
         if (storageKey != null) {
-            commitCoordinator.onCommit(() -> cleanupQuietly(storageKey));
+            cleanupScheduler.schedule(List.of(storageKey));
         }
     }
 
@@ -159,14 +173,33 @@ public class TransactionalCurrentUserAvatarService
             storageService.delete(storageKey);
         } catch (RuntimeException cleanupFailure) {
             primary.addSuppressed(cleanupFailure);
+            scheduleRecoveryWithSuppression(primary, storageKey);
         }
     }
 
     private void cleanupQuietly(StorageKey storageKey) {
         try {
             storageService.delete(storageKey);
-        } catch (RuntimeException ignored) {
-            // Storage cleanup is best-effort after DB outcome is known.
+        } catch (RuntimeException cleanupFailure) {
+            try {
+                recoveryScheduler.schedule(List.of(storageKey));
+            } catch (RuntimeException recoveryFailure) {
+                LOGGER.warn(
+                        "object cleanup recovery scheduling failed: {}",
+                        recoveryFailure.getClass().getName()
+                );
+            }
+        }
+    }
+
+    private void scheduleRecoveryWithSuppression(
+            RuntimeException primary,
+            StorageKey storageKey
+    ) {
+        try {
+            recoveryScheduler.schedule(List.of(storageKey));
+        } catch (RuntimeException recoveryFailure) {
+            primary.addSuppressed(recoveryFailure);
         }
     }
 }

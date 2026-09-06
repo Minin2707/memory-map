@@ -374,6 +374,30 @@ void main() {
     });
   });
 
+  group('DioStoryRemoteDataSource delete story', () {
+    test('shouldDeleteStoryByEncodedIdWithoutBody', () async {
+      final adapter = FakeHttpClientAdapter(statusCode: 204);
+      final dataSource = createDataSource(adapter);
+
+      await dataSource.deleteStory('story/id');
+
+      expect(adapter.lastMethod, 'DELETE');
+      expect(adapter.lastPath, '/api/v1/stories/story%2Fid');
+      expect(adapter.lastBody, isNull);
+    });
+
+    test('shouldRejectBlankDeleteStoryIdWithoutNetworkCall', () async {
+      final adapter = FakeHttpClientAdapter(statusCode: 204);
+      final dataSource = createDataSource(adapter);
+
+      await expectLater(
+        dataSource.deleteStory('   '),
+        throwsA(argumentErrorWithMessage('storyId must not be blank')),
+      );
+      expect(adapter.fetchCalls, 0);
+    });
+  });
+
   group('DioStoryRemoteDataSource errors', () {
     test('shouldMap400ToValidationFailure', () async {
       await expectStoryStatusFailure(

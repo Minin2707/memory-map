@@ -17,9 +17,11 @@ final class StorySoundtrackNotifier
   StorySoundtrackNotifier(this._storyId);
 
   final String _storyId;
+  int _operationRevision = 0;
 
   @override
   Future<StorySoundtrackState> build() async {
+    _invalidateOperations();
     return _load(_storyId, ref.watch(storySoundtrackRepositoryProvider));
   }
 
@@ -29,9 +31,15 @@ final class StorySoundtrackNotifier
     }
 
     state = const AsyncLoading<StorySoundtrackState>();
-    state = await AsyncValue.guard<StorySoundtrackState>(() async {
+    final operationRevision = _beginOperation();
+    final result = await AsyncValue.guard<StorySoundtrackState>(() async {
       return _load(_storyId, ref.read(storySoundtrackRepositoryProvider));
     });
+    if (!_isCurrentOperation(operationRevision)) {
+      return;
+    }
+
+    state = result;
   }
 
   Future<void> refreshSoundtrack() async {
@@ -49,15 +57,24 @@ final class StorySoundtrackNotifier
       clearRefreshFailure: true,
     );
     state = AsyncData<StorySoundtrackState>(refreshingState);
+    final operationRevision = _beginOperation();
 
     try {
       final soundtrack = await ref
           .read(storySoundtrackRepositoryProvider)
           .getStorySoundtrack(_storyId);
+      if (!_isCurrentOperation(operationRevision)) {
+        return;
+      }
+
       state = AsyncData<StorySoundtrackState>(
         StorySoundtrackState(soundtrack: soundtrack),
       );
     } on MusicApplicationException catch (error) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return;
+      }
+
       state = AsyncData<StorySoundtrackState>(
         refreshingState.copyWith(
           isRefreshing: false,
@@ -65,6 +82,10 @@ final class StorySoundtrackNotifier
         ),
       );
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentOperation(operationRevision)) {
+        return;
+      }
+
       state = AsyncData<StorySoundtrackState>(
         refreshingState.copyWith(isRefreshing: false),
       );
@@ -184,6 +205,18 @@ final class StorySoundtrackNotifier
   }
 
   bool get _isLoading => state is AsyncLoading<StorySoundtrackState>;
+
+  int _beginOperation() {
+    return ++_operationRevision;
+  }
+
+  void _invalidateOperations() {
+    _operationRevision += 1;
+  }
+
+  bool _isCurrentOperation(int operationRevision) {
+    return ref.mounted && _operationRevision == operationRevision;
+  }
 
   StorySoundtrackState? get _currentState {
     final currentState = state;

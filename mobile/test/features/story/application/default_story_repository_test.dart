@@ -330,6 +330,29 @@ void main() {
     });
   });
 
+  group('DefaultStoryRepository delete', () {
+    test('shouldDeleteStoryById', () async {
+      final fakes = StoryRepositoryFakes();
+      final repository = fakes.createRepository();
+
+      await repository.deleteStory(storyId: 'story-id');
+
+      expect(fakes.remote.deleteStoryCalls, 1);
+      expect(fakes.remote.receivedDeleteStoryId, 'story-id');
+    });
+
+    test('shouldRejectBlankDeleteStoryIdBeforeRemoteCall', () async {
+      final fakes = StoryRepositoryFakes();
+      final repository = fakes.createRepository();
+
+      await expectLater(
+        repository.deleteStory(storyId: '   '),
+        throwsA(argumentErrorWithMessage('storyId must not be blank')),
+      );
+      expect(fakes.remote.deleteStoryCalls, 0);
+    });
+  });
+
   group('DefaultStoryRepository failure mapping', () {
     test('shouldMapKnownRemoteFailures', () async {
       final cases = <RemoteFailureCase>[
@@ -508,6 +531,7 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
   int updateStoryCalls = 0;
   int uploadCoverCalls = 0;
   int removeCoverCalls = 0;
+  int deleteStoryCalls = 0;
   Object? failure;
   CreateStoryRemoteRequest? receivedCreateRequest;
   String? receivedStoryId;
@@ -516,6 +540,7 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
   String? receivedUploadCoverStoryId;
   PreparedPhotoUpload? receivedUploadCoverPhoto;
   String? receivedRemoveCoverStoryId;
+  String? receivedDeleteStoryId;
   List<UserStory> stories = <UserStory>[userStoryFixture];
   UserStory story = userStoryFixture;
   UserStory uploadCoverResult = userStoryFixture;
@@ -580,6 +605,13 @@ final class FakeStoryRemoteDataSource implements StoryRemoteDataSource {
     _throwIfConfigured();
 
     return removeCoverResult;
+  }
+
+  @override
+  Future<void> deleteStory(String storyId) async {
+    deleteStoryCalls += 1;
+    receivedDeleteStoryId = storyId;
+    _throwIfConfigured();
   }
 
   void _throwIfConfigured() {

@@ -1,7 +1,8 @@
 package memory_map.backend.story.application;
 
 import memory_map.backend.auth.domain.AuthenticatedUser;
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupRecoveryScheduler;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.application.TransactionRollbackCoordinator;
 import memory_map.backend.media.image.ImageProcessingException;
 import memory_map.backend.media.image.ImageProcessingInput;
@@ -29,6 +30,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DefaultUploadStoryCoverServiceTest {
@@ -81,8 +84,10 @@ class DefaultUploadStoryCoverServiceTest {
             new FakeStorageService(events);
     private final FakeRollbackCoordinator rollbackCoordinator =
             new FakeRollbackCoordinator(events);
-    private final FakeCommitCoordinator commitCoordinator =
-            new FakeCommitCoordinator(events);
+    private final FakeStorageCleanupScheduler cleanupScheduler =
+            new FakeStorageCleanupScheduler(events);
+    private final FakeStorageCleanupRecoveryScheduler recoveryScheduler =
+            new FakeStorageCleanupRecoveryScheduler(events);
     private final DefaultUploadStoryCoverService service =
             new DefaultUploadStoryCoverService(
                     storyRepository,
@@ -92,7 +97,8 @@ class DefaultUploadStoryCoverServiceTest {
                     storageKeyFactory,
                     storageService,
                     rollbackCoordinator,
-                    commitCoordinator
+                    cleanupScheduler,
+                    recoveryScheduler
             );
 
     @Test
@@ -128,7 +134,8 @@ class DefaultUploadStoryCoverServiceTest {
         assertStoredObject(displayKey(), DISPLAY_BYTES);
         assertStoredObject(thumbnailKey(), THUMBNAIL_BYTES);
         assertThat(rollbackCoordinator.actions).hasSize(1);
-        assertThat(commitCoordinator.actions).isEmpty();
+        assertThat(cleanupScheduler.scheduledKeys).isEmpty();
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(storageService.deletedKeys).isEmpty();
         assertThat(events).containsExactly(
                 "story.findByIdForUpdate",
@@ -143,7 +150,7 @@ class DefaultUploadStoryCoverServiceTest {
     }
 
     @Test
-    void shouldReplaceCoverForCoOwnerAndCleanupOldAfterCommit() {
+    void shouldReplaceCoverForCoOwnerAndScheduleOldCleanup() {
         storyRepository.story = Optional.of(story(oldCover()));
         storyParticipantRepository.participant =
                 Optional.of(participant(StoryRole.CO_OWNER));
@@ -153,14 +160,11 @@ class DefaultUploadStoryCoverServiceTest {
         assertThat(result).isSameAs(userStoryRepository.userStory);
         assertThat(storyRepository.updatedCover).isEqualTo(expectedNewCover());
         assertThat(storageService.deletedKeys).isEmpty();
-        assertThat(commitCoordinator.actions).hasSize(1);
-
-        commitCoordinator.runFirstAction();
-
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(cleanupScheduler.scheduledKeys).containsExactly(
                 new StorageKey("stories/story/old/thumbnail"),
                 new StorageKey("stories/story/old/display")
         );
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
     }
 
     @Test
@@ -285,6 +289,7 @@ class DefaultUploadStoryCoverServiceTest {
                 .isSameAs(failure);
 
         assertThat(storageService.deletedKeys).containsExactly(displayKey());
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(storyRepository.updatedCover).isNull();
         assertThat(events).containsExactly(
                 "story.findByIdForUpdate",
@@ -306,6 +311,7 @@ class DefaultUploadStoryCoverServiceTest {
                 thumbnailKey(),
                 displayKey()
         );
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(events).containsExactly(
                 "story.findByIdForUpdate",
                 "participant.find",
@@ -317,6 +323,33 @@ class DefaultUploadStoryCoverServiceTest {
                 "userStory.findByStoryIdAndUserId",
                 "storage.delete:thumbnail",
                 "storage.delete:display"
+        );
+    }
+
+    @Test
+    void shouldIgnoreRecoveryFailuresWhenRollbackCleanupRuns() {
+        storageService.deleteFailures.put(
+                thumbnailKey(),
+                new RuntimeException("thumbnail cleanup failed")
+        );
+        storageService.deleteFailures.put(
+                displayKey(),
+                new RuntimeException("display cleanup failed")
+        );
+        recoveryScheduler.failure =
+                new RuntimeException("recovery enqueue failed");
+
+        service.uploadStoryCover(command());
+
+        assertThatCode(() -> rollbackCoordinator.runFirstAction())
+                .doesNotThrowAnyException();
+        assertThat(storageService.deletedKeys).containsExactly(
+                thumbnailKey(),
+                displayKey()
+        );
+        assertThat(recoveryScheduler.scheduledKeys).containsExactly(
+                thumbnailKey(),
+                displayKey()
         );
     }
 
@@ -334,6 +367,7 @@ class DefaultUploadStoryCoverServiceTest {
                 thumbnailKey(),
                 displayKey()
         );
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(storyRepository.updatedCover).isNull();
     }
 
@@ -350,7 +384,8 @@ class DefaultUploadStoryCoverServiceTest {
                 thumbnailKey(),
                 displayKey()
         );
-        assertThat(commitCoordinator.actions).isEmpty();
+        assertThat(cleanupScheduler.scheduledKeys).isEmpty();
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
         assertThat(userStoryRepository.callCount).isZero();
     }
 
@@ -366,7 +401,8 @@ class DefaultUploadStoryCoverServiceTest {
                 thumbnailKey(),
                 displayKey()
         );
-        assertThat(commitCoordinator.actions).isEmpty();
+        assertThat(cleanupScheduler.scheduledKeys).isEmpty();
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
     }
 
     @Test
@@ -381,15 +417,14 @@ class DefaultUploadStoryCoverServiceTest {
                 thumbnailKey(),
                 displayKey()
         );
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
     }
 
     @Test
-    void shouldCleanupNewObjectsIfOldCleanupRegistrationFails() {
+    void shouldCleanupNewObjectsIfOldCleanupSchedulingFails() {
         storyRepository.story = Optional.of(story(oldCover()));
-        RuntimeException failure = new RuntimeException(
-                "commit registration failed"
-        );
-        commitCoordinator.failure = failure;
+        RuntimeException failure = new RuntimeException("enqueue failed");
+        cleanupScheduler.failure = failure;
 
         assertThatThrownBy(() -> service.uploadStoryCover(command()))
                 .isSameAs(failure);
@@ -398,6 +433,11 @@ class DefaultUploadStoryCoverServiceTest {
                 thumbnailKey(),
                 displayKey()
         );
+        assertThat(cleanupScheduler.scheduledKeys).containsExactly(
+                new StorageKey("stories/story/old/thumbnail"),
+                new StorageKey("stories/story/old/display")
+        );
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
     }
 
     @Test
@@ -424,6 +464,47 @@ class DefaultUploadStoryCoverServiceTest {
                         thumbnailCleanupFailure,
                         displayCleanupFailure
                 ));
+        assertThat(recoveryScheduler.scheduledKeys).containsExactly(
+                thumbnailKey(),
+                displayKey()
+        );
+    }
+
+    @Test
+    void shouldSuppressRecoveryFailuresWhenPersistenceCleanupFails() {
+        RuntimeException persistenceFailure = new RuntimeException("db failed");
+        RuntimeException thumbnailCleanupFailure = new RuntimeException(
+                "thumbnail cleanup failed"
+        );
+        RuntimeException displayCleanupFailure = new RuntimeException(
+                "display cleanup failed"
+        );
+        RuntimeException recoveryFailure = new RuntimeException(
+                "recovery enqueue failed"
+        );
+        storyRepository.updateFailure = persistenceFailure;
+        storageService.deleteFailures.put(
+                thumbnailKey(),
+                thumbnailCleanupFailure
+        );
+        storageService.deleteFailures.put(displayKey(), displayCleanupFailure);
+        recoveryScheduler.failure = recoveryFailure;
+
+        assertThatThrownBy(() -> service.uploadStoryCover(command()))
+                .isSameAs(persistenceFailure)
+                .satisfies(exception -> assertThat(
+                        exception.getSuppressed()
+                ).containsExactly(
+                        thumbnailCleanupFailure,
+                        recoveryFailure,
+                        displayCleanupFailure,
+                        recoveryFailure
+                ));
+
+        assertThat(recoveryScheduler.scheduledKeys).containsExactly(
+                thumbnailKey(),
+                displayKey()
+        );
     }
 
     @Test
@@ -456,7 +537,8 @@ class DefaultUploadStoryCoverServiceTest {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storyRepository must not be null");
         assertThatThrownBy(() -> new DefaultUploadStoryCoverService(
@@ -467,7 +549,8 @@ class DefaultUploadStoryCoverServiceTest {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storyParticipantRepository must not be null");
         assertThatThrownBy(() -> new DefaultUploadStoryCoverService(
@@ -478,7 +561,8 @@ class DefaultUploadStoryCoverServiceTest {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("userStoryRepository must not be null");
         assertThatThrownBy(() -> new DefaultUploadStoryCoverService(
@@ -489,7 +573,8 @@ class DefaultUploadStoryCoverServiceTest {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("imageProcessor must not be null");
         assertThatThrownBy(() -> new DefaultUploadStoryCoverService(
@@ -500,7 +585,8 @@ class DefaultUploadStoryCoverServiceTest {
                 null,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storageKeyFactory must not be null");
         assertThatThrownBy(() -> new DefaultUploadStoryCoverService(
@@ -511,7 +597,8 @@ class DefaultUploadStoryCoverServiceTest {
                 storageKeyFactory,
                 null,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("storageService must not be null");
         assertThatThrownBy(() -> new DefaultUploadStoryCoverService(
@@ -522,7 +609,8 @@ class DefaultUploadStoryCoverServiceTest {
                 storageKeyFactory,
                 storageService,
                 null,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         )).isInstanceOf(NullPointerException.class)
                 .hasMessage("rollbackCoordinator must not be null");
         assertThatThrownBy(() -> new DefaultUploadStoryCoverService(
@@ -533,9 +621,22 @@ class DefaultUploadStoryCoverServiceTest {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
+                null,
+                recoveryScheduler
+        )).isInstanceOf(NullPointerException.class)
+                .hasMessage("cleanupScheduler must not be null");
+        assertThatThrownBy(() -> new DefaultUploadStoryCoverService(
+                storyRepository,
+                storyParticipantRepository,
+                userStoryRepository,
+                imageProcessor,
+                storageKeyFactory,
+                storageService,
+                rollbackCoordinator,
+                cleanupScheduler,
                 null
         )).isInstanceOf(NullPointerException.class)
-                .hasMessage("commitCoordinator must not be null");
+                .hasMessage("recoveryScheduler must not be null");
         assertThatThrownBy(() -> service.uploadStoryCover(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("command must not be null");
@@ -547,7 +648,8 @@ class DefaultUploadStoryCoverServiceTest {
         assertThat(storyRepository.updatedCover).isNull();
         assertThat(userStoryRepository.callCount).isZero();
         assertThat(rollbackCoordinator.actions).isEmpty();
-        assertThat(commitCoordinator.actions).isEmpty();
+        assertThat(cleanupScheduler.scheduledKeys).isEmpty();
+        assertThat(recoveryScheduler.scheduledKeys).isEmpty();
     }
 
     private void assertStoredObject(StorageKey key, byte[] expectedContent) {
@@ -932,30 +1034,47 @@ class DefaultUploadStoryCoverServiceTest {
         }
     }
 
-    private static final class FakeCommitCoordinator
-            implements TransactionCommitCoordinator {
+    private static final class FakeStorageCleanupScheduler
+            implements StorageCleanupScheduler {
 
         private final List<String> events;
-        private final List<Runnable> actions = new ArrayList<>();
+        private final List<StorageKey> scheduledKeys = new ArrayList<>();
         private RuntimeException failure;
 
-        private FakeCommitCoordinator(List<String> events) {
+        private FakeStorageCleanupScheduler(List<String> events) {
             this.events = events;
         }
 
         @Override
-        public void onCommit(Runnable action) {
-            events.add("commit.register");
+        public void schedule(Collection<StorageKey> storageKeys) {
+            events.add("cleanup.schedule");
+            scheduledKeys.addAll(storageKeys);
 
             if (failure != null) {
                 throw failure;
             }
+        }
+    }
 
-            actions.add(action);
+    private static final class FakeStorageCleanupRecoveryScheduler
+            implements StorageCleanupRecoveryScheduler {
+
+        private final List<String> events;
+        private final List<StorageKey> scheduledKeys = new ArrayList<>();
+        private RuntimeException failure;
+
+        private FakeStorageCleanupRecoveryScheduler(List<String> events) {
+            this.events = events;
         }
 
-        private void runFirstAction() {
-            actions.get(0).run();
+        @Override
+        public void schedule(Collection<StorageKey> storageKeys) {
+            events.add("recovery.schedule");
+            scheduledKeys.addAll(storageKeys);
+
+            if (failure != null) {
+                throw failure;
+            }
         }
     }
 }

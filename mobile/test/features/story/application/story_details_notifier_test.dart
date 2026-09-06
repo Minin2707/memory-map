@@ -148,6 +148,36 @@ void main() {
       retryCompleter.complete(ownerStory);
       await firstRetry;
     });
+
+    test('shouldIgnoreCompletedRetryAfterProviderInvalidation', () async {
+      final retryCompleter = Completer<UserStory>();
+      final repository = FakeStoryRepository()..storyResult = ownerStory;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        storyDetailsProvider('story-1'),
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(storyDetailsProvider('story-1').future);
+      repository.getStoryCompleter = retryCompleter;
+
+      final retry = container
+          .read(storyDetailsProvider('story-1').notifier)
+          .retryLoad();
+      await pumpEventQueue();
+      repository.storyResult = updatedOwnerStory;
+      container.invalidate(storyDetailsProvider('story-1'));
+      await pumpEventQueue();
+      final rebuilt = container.read(storyDetailsProvider('story-1').future);
+
+      retryCompleter.complete(ownerStory);
+      await retry;
+      await rebuilt;
+
+      expect(readState(container, 'story-1').userStory, updatedOwnerStory);
+    });
   });
 
   group('StoryDetailsNotifier refresh', () {
@@ -258,6 +288,33 @@ void main() {
           .refreshStory();
 
       expect(repository.getStoryCalls, 1);
+    });
+
+    test('shouldIgnoreStaleRefreshAfterAuthoritativeStoryUpdate', () async {
+      final refreshCompleter = Completer<UserStory>();
+      final authoritative = userStory(
+        id: ownerStory.story.id,
+        title: 'Newer authoritative story',
+      );
+      final repository = FakeStoryRepository()..storyResult = ownerStory;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storyDetailsProvider('story-1').future);
+      repository.getStoryCompleter = refreshCompleter;
+      final notifier = container.read(storyDetailsProvider('story-1').notifier);
+
+      final refresh = notifier.refreshStory();
+      await pumpEventQueue();
+      notifier.applyAuthoritativeRead(authoritative);
+
+      expect(readState(container, 'story-1').userStory, authoritative);
+      expect(readState(container, 'story-1').isRefreshing, isFalse);
+
+      refreshCompleter.complete(coOwnerStory);
+      await refresh;
+
+      expect(readState(container, 'story-1').userStory, authoritative);
+      expect(readState(container, 'story-1').isRefreshing, isFalse);
     });
   });
 
@@ -489,6 +546,11 @@ final class FakeStoryRepository implements StoryRepository {
   @override
   Future<UserStory> updateStory(UpdateStoryInput input) async {
     updateStoryCalls += 1;
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteStory({required String storyId}) async {
     throw UnimplementedError();
   }
 

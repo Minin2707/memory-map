@@ -2,6 +2,7 @@ package memory_map.backend.memory.application;
 
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
@@ -13,13 +14,19 @@ import java.util.UUID;
 
 public class TransactionalUpdateMemoryService implements UpdateMemoryUseCase {
 
+    private final StoryRepository storyRepository;
     private final MemoryRepository memoryRepository;
     private final StoryParticipantRepository storyParticipantRepository;
 
     public TransactionalUpdateMemoryService(
+            StoryRepository storyRepository,
             MemoryRepository memoryRepository,
             StoryParticipantRepository storyParticipantRepository
     ) {
+        this.storyRepository = Objects.requireNonNull(
+                storyRepository,
+                "storyRepository must not be null"
+        );
         this.memoryRepository = Objects.requireNonNull(
                 memoryRepository,
                 "memoryRepository must not be null"
@@ -35,9 +42,21 @@ public class TransactionalUpdateMemoryService implements UpdateMemoryUseCase {
     public Memory updateMemory(UpdateMemoryCommand command) {
         Objects.requireNonNull(command, "command must not be null");
 
+        Memory parentIdentity = memoryRepository.findById(
+                command.memoryId()
+        ).orElseThrow(MemoryUpdateUnavailableException::new);
+
+        if (!storyRepository.lockById(parentIdentity.storyId())) {
+            throw new MemoryUpdateUnavailableException();
+        }
+
         Memory existing = memoryRepository.findByIdForUpdate(
                 command.memoryId()
         ).orElseThrow(MemoryUpdateUnavailableException::new);
+
+        if (!existing.storyId().equals(parentIdentity.storyId())) {
+            throw new MemoryUpdateUnavailableException();
+        }
 
         UUID requesterUserId = command.authenticatedUser().userId();
         StoryParticipant participant = storyParticipantRepository.find(

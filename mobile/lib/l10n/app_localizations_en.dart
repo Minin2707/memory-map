@@ -370,6 +370,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storyDetailsPlaybackStoryAction => 'Playback Story';
 
   @override
+  String get deleteStoryAction => 'Delete story';
+
+  @override
+  String get deleteStoryDialogTitle => 'Delete story?';
+
+  @override
+  String get deleteStoryDialogBody =>
+      'This story and its memories will be permanently deleted. This action cannot be undone.';
+
+  @override
+  String get deleteStoryCancel => 'Cancel';
+
+  @override
+  String get deleteStoryConfirm => 'Delete';
+
+  @override
+  String get deleteStoryDeleting => 'Deleting story...';
+
+  @override
   String get soundtrackTitle => 'Soundtrack';
 
   @override

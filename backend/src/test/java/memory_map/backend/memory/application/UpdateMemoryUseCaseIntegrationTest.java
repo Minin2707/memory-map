@@ -6,6 +6,7 @@ import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.JdbcMemoryRepository;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.repository.JdbcStoryRepository;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
@@ -51,6 +52,9 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
     private BlockingMemoryRepository blockingMemoryRepository;
 
     @Autowired
+    private BlockingStoryRepository blockingStoryRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -94,6 +98,7 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         blockingMemoryRepository.reset();
+        blockingStoryRepository.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
@@ -377,7 +382,7 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
                 EVENT_DATE
         );
         ExecutorService executor = Executors.newFixedThreadPool(2);
-        blockingMemoryRepository.blockFirstFindByIdForUpdate();
+        blockingStoryRepository.blockFirstLock();
 
         try {
             Future<Memory> first = executor.submit(() ->
@@ -394,7 +399,7 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
                     ))
             );
 
-            blockingMemoryRepository.awaitFirstLockAcquired();
+            blockingStoryRepository.awaitFirstLockAcquired();
 
             Future<Memory> second = executor.submit(() ->
                     updateMemoryUseCase.updateMemory(command(
@@ -410,11 +415,11 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
                     ))
             );
 
-            blockingMemoryRepository.awaitSecondLockAttemptStarted();
+            blockingStoryRepository.awaitSecondLockAttemptStarted();
             assertThatThrownBy(() -> second.get(250, TimeUnit.MILLISECONDS))
                     .isInstanceOf(TimeoutException.class);
 
-            blockingMemoryRepository.releaseFirstTransaction();
+            blockingStoryRepository.releaseFirstTransaction();
 
             Memory firstResult = first.get(10, TimeUnit.SECONDS);
             Memory secondResult = second.get(10, TimeUnit.SECONDS);
@@ -429,7 +434,7 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
             assertThat(persisted.description()).isEqualTo("D1");
             assertThat(persisted.updatedAt()).isEqualTo(SECOND_CURRENT_TIME);
         } finally {
-            blockingMemoryRepository.releaseFirstTransaction();
+            blockingStoryRepository.releaseFirstTransaction();
             executor.shutdownNow();
         }
     }
@@ -669,6 +674,102 @@ class UpdateMemoryUseCaseIntegrationTest extends IntegrationTest {
                 JdbcMemoryRepository delegate
         ) {
             return new BlockingMemoryRepository(delegate);
+        }
+
+        @Bean
+        @Primary
+        BlockingStoryRepository blockingStoryRepository(
+                JdbcStoryRepository delegate
+        ) {
+            return new BlockingStoryRepository(delegate);
+        }
+    }
+
+    static final class BlockingStoryRepository implements StoryRepository {
+
+        private final StoryRepository delegate;
+        private final AtomicInteger lockCalls = new AtomicInteger();
+        private volatile CountDownLatch firstLockAcquired =
+                new CountDownLatch(0);
+        private volatile CountDownLatch releaseFirstTransaction =
+                new CountDownLatch(0);
+        private volatile CountDownLatch secondLockAttemptStarted =
+                new CountDownLatch(0);
+        private volatile boolean blockFirstLock;
+
+        private BlockingStoryRepository(StoryRepository delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Story save(Story story) {
+            return delegate.save(story);
+        }
+
+        @Override
+        public Story update(Story story) {
+            return delegate.update(story);
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            return delegate.findById(id);
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            if (!blockFirstLock) {
+                return delegate.lockById(id);
+            }
+
+            int call = lockCalls.incrementAndGet();
+
+            if (call == 1) {
+                boolean locked = delegate.lockById(id);
+                firstLockAcquired.countDown();
+                await(releaseFirstTransaction);
+
+                return locked;
+            }
+
+            if (call == 2) {
+                secondLockAttemptStarted.countDown();
+            }
+
+            return delegate.lockById(id);
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            return delegate.findByOwnerId(ownerId);
+        }
+
+        private void blockFirstLock() {
+            lockCalls.set(0);
+            firstLockAcquired = new CountDownLatch(1);
+            releaseFirstTransaction = new CountDownLatch(1);
+            secondLockAttemptStarted = new CountDownLatch(1);
+            blockFirstLock = true;
+        }
+
+        private void awaitFirstLockAcquired() {
+            await(firstLockAcquired);
+        }
+
+        private void awaitSecondLockAttemptStarted() {
+            await(secondLockAttemptStarted);
+        }
+
+        private void releaseFirstTransaction() {
+            releaseFirstTransaction.countDown();
+        }
+
+        private void reset() {
+            blockFirstLock = false;
+            lockCalls.set(0);
+            firstLockAcquired = new CountDownLatch(0);
+            releaseFirstTransaction = new CountDownLatch(0);
+            secondLockAttemptStarted = new CountDownLatch(0);
         }
     }
 

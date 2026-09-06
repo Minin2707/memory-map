@@ -153,6 +153,56 @@ void main() {
 
       expect(repository.getAvailableTracksCalls, 1);
     });
+
+    test('shouldIgnoreDelayedRetryAfterProviderInvalidation', () async {
+      final retryCompleter = Completer<List<MusicTrack>>();
+      final repository = FakeMusicRepository()
+        ..tracksResult = <MusicTrack>[trackA];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(musicCatalogProvider, (_, __) {});
+      addTearDown(subscription.close);
+      await container.read(musicCatalogProvider.future);
+      repository.getCompleter = retryCompleter;
+
+      final retry = container.read(musicCatalogProvider.notifier).retryLoad();
+      await pumpEventQueue();
+      repository.tracksResult = <MusicTrack>[trackB];
+      container.invalidate(musicCatalogProvider);
+      await pumpEventQueue();
+      await container.read(musicCatalogProvider.future);
+
+      retryCompleter.complete(<MusicTrack>[trackOld]);
+      await retry;
+
+      expect(readState(container).tracks, <MusicTrack>[trackB]);
+    });
+
+    test('shouldIgnoreDelayedRefreshAfterProviderInvalidation', () async {
+      final refreshCompleter = Completer<List<MusicTrack>>();
+      final repository = FakeMusicRepository()
+        ..tracksResult = <MusicTrack>[trackA];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(musicCatalogProvider, (_, __) {});
+      addTearDown(subscription.close);
+      await container.read(musicCatalogProvider.future);
+      repository
+        ..getCompleter = refreshCompleter
+        ..tracksResult = <MusicTrack>[trackB];
+
+      final refresh =
+          container.read(musicCatalogProvider.notifier).refreshCatalog();
+      await pumpEventQueue();
+      container.invalidate(musicCatalogProvider);
+      await pumpEventQueue();
+      await container.read(musicCatalogProvider.future);
+
+      refreshCompleter.complete(<MusicTrack>[trackOld]);
+      await refresh;
+
+      expect(readState(container).tracks, <MusicTrack>[trackB]);
+    });
   });
 
   group('MusicCatalogNotifier security', () {
@@ -205,6 +255,13 @@ final MusicTrack trackB = MusicTrack(
   title: 'Walk',
   artist: 'Ikson',
   durationSeconds: 180,
+);
+
+final MusicTrack trackOld = MusicTrack(
+  id: 'track-old',
+  title: 'Old generation',
+  artist: 'Stale session',
+  durationSeconds: 90,
 );
 
 final class FakeMusicRepository implements MusicRepository {

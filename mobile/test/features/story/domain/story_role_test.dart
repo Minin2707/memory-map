@@ -21,5 +21,12 @@ void main() {
       expect(StoryRole.editor.canUpdateStoryMetadata, isFalse);
       expect(StoryRole.viewer.canUpdateStoryMetadata, isFalse);
     });
+
+    test('shouldAllowOnlyOwnerToDeleteStoryInUi', () {
+      expect(StoryRole.owner.canDeleteStory, isTrue);
+      expect(StoryRole.coOwner.canDeleteStory, isFalse);
+      expect(StoryRole.editor.canDeleteStory, isFalse);
+      expect(StoryRole.viewer.canDeleteStory, isFalse);
+    });
   });
 }

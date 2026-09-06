@@ -253,7 +253,7 @@ class TransactionalUpdateStoryServiceTest {
     }
 
     @Test
-    void shouldLookupBeforeUpdate() {
+    void shouldLockStoryBeforeLookupAndUpdate() {
 
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
@@ -263,6 +263,7 @@ class TransactionalUpdateStoryServiceTest {
         ));
 
         assertThat(context.calls()).containsExactly(
+                "lock Story",
                 "find UserStory",
                 "update Story"
         );
@@ -473,7 +474,8 @@ class TransactionalUpdateStoryServiceTest {
 
         @Override
         public boolean lockById(UUID id) {
-            throw new UnsupportedOperationException();
+            calls.add("lock Story");
+            return true;
         }
 
         @Override

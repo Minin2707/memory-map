@@ -104,6 +104,53 @@ void main() {
       );
       expect(controller.state.toString(), isNot(contains('private-token')));
     });
+
+    test('shouldNotSetAudioSourceAfterDisposeBeforeSessionLookupCompletes',
+        () async {
+      final currentSessionCompleter = Completer<AuthSession?>();
+      final sessions = FakeAuthorizedSessionManager()
+        ..currentSessionCompleter = currentSessionCompleter;
+      final player = FakeJustAudioPlayerPort();
+      final controller = createController(sessions, player);
+
+      final prepare = controller.prepare(storyId: 'story-1');
+      await pumpEventQueue();
+
+      expect(sessions.operations, <String>['getCurrent']);
+
+      await controller.dispose();
+      currentSessionCompleter.complete(session('current-token'));
+      await prepare;
+      await pumpEventQueue();
+
+      expect(sessions.operations, <String>['getCurrent']);
+      expect(player.latestUri, isNull);
+      expect(player.operations, <String>['dispose']);
+      expect(controller.state, PlaybackAudioState.preparing());
+    });
+
+    test('shouldNotSetAudioSourceAfterDisposeBeforeRefreshCompletes',
+        () async {
+      final refreshCompleter = Completer<AuthSession>();
+      final sessions = FakeAuthorizedSessionManager()
+        ..refreshSessionCompleter = refreshCompleter;
+      final player = FakeJustAudioPlayerPort();
+      final controller = createController(sessions, player);
+
+      final prepare = controller.prepare(storyId: 'story-1');
+      await pumpEventQueue();
+
+      expect(sessions.operations, <String>['getCurrent', 'refresh']);
+
+      await controller.dispose();
+      refreshCompleter.complete(session('refreshed-token'));
+      await prepare;
+      await pumpEventQueue();
+
+      expect(player.latestUri, isNull);
+      expect(player.operations, <String>['dispose']);
+      expect(controller.state, PlaybackAudioState.preparing());
+    });
   });
 
   group('JustAudioPlaybackAudioController controls', () {
@@ -246,6 +293,24 @@ void main() {
         'dispose',
       ]);
     });
+
+    test('shouldKeepControlsInertAfterDispose', () async {
+      final player = FakeJustAudioPlayerPort();
+      final controller = await preparedController(player: player);
+
+      await controller.dispose();
+      await controller.play();
+      await controller.pause();
+      await controller.stop();
+      await controller.restart();
+      await controller.setVolume(0.5);
+
+      expect(player.operations, <String>[
+        'setAudioSource',
+        'dispose',
+      ]);
+      expect(player.disposeCalls, 1);
+    });
   });
 }
 
@@ -286,11 +351,18 @@ final class FakeAuthorizedSessionManager
   final List<String> operations = <String>[];
   AuthSession? currentSession = session('current-token');
   AuthSession refreshedSession = session('refreshed-token');
+  Completer<AuthSession?>? currentSessionCompleter;
+  Completer<AuthSession>? refreshSessionCompleter;
   Object? refreshFailure;
 
   @override
   Future<AuthSession?> getCurrentSession() async {
     operations.add('getCurrent');
+    final completer = currentSessionCompleter;
+    if (completer != null) {
+      return completer.future;
+    }
+
     return currentSession;
   }
 
@@ -300,6 +372,11 @@ final class FakeAuthorizedSessionManager
     final configuredFailure = refreshFailure;
     if (configuredFailure != null) {
       throw configuredFailure;
+    }
+
+    final completer = refreshSessionCompleter;
+    if (completer != null) {
+      return completer.future;
     }
 
     return refreshedSession;

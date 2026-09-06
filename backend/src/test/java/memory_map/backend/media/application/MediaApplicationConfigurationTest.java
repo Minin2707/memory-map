@@ -6,6 +6,7 @@ import memory_map.backend.media.image.ImageProcessor;
 import memory_map.backend.media.image.ProcessedPhoto;
 import memory_map.backend.media.repository.AuthorizedMediaDownloadRepository;
 import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.repository.StorageCleanupTaskRepository;
 import memory_map.backend.media.storage.MediaStorageKeyFactory;
 import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
@@ -15,11 +16,17 @@ import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.notification.application.NotificationPublisher;
+import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,7 +38,19 @@ class MediaApplicationConfigurationTest {
     private final ApplicationContextRunner contextRunner =
             new ApplicationContextRunner()
                     .withUserConfiguration(
-                            MediaApplicationConfiguration.class
+                            MediaApplicationConfiguration.class,
+                            StorageCleanupSchedulingConfiguration.class
+                    )
+                    .withBean(
+                            Clock.class,
+                            () -> Clock.fixed(
+                                    Instant.parse("2026-01-01T10:00:00Z"),
+                                    ZoneOffset.UTC
+                            )
+                    )
+                    .withBean(
+                            StoryRepository.class,
+                            FakeStoryRepository::new
                     )
                     .withBean(MemoryRepository.class, FakeMemoryRepository::new)
                     .withBean(
@@ -45,6 +64,10 @@ class MediaApplicationConfigurationTest {
                     .withBean(
                             AuthorizedMediaDownloadRepository.class,
                             FakeAuthorizedMediaDownloadRepository::new
+                    )
+                    .withBean(
+                            StorageCleanupTaskRepository.class,
+                            FakeStorageCleanupTaskRepository::new
                     )
                     .withBean(ImageProcessor.class, FakeImageProcessor::new)
                     .withBean(
@@ -65,6 +88,15 @@ class MediaApplicationConfigurationTest {
                     .hasSingleBean(TransactionRollbackCoordinator.class);
             assertThat(context)
                     .hasSingleBean(TransactionCommitCoordinator.class);
+            assertThat(context).hasSingleBean(StorageCleanupScheduler.class);
+            assertThat(context.getBean(StorageCleanupScheduler.class))
+                    .isInstanceOf(TransactionalStorageCleanupScheduler.class);
+            assertThat(context)
+                    .hasSingleBean(StorageCleanupRecoveryScheduler.class);
+            assertThat(context.getBean(StorageCleanupRecoveryScheduler.class))
+                    .isInstanceOf(
+                            TransactionalStorageCleanupRecoveryScheduler.class
+                    );
             assertThat(context).hasSingleBean(ListMemoryMediaUseCase.class);
             assertThat(context.getBean(ListMemoryMediaUseCase.class))
                     .isInstanceOf(TransactionalListMemoryMediaService.class);
@@ -79,6 +111,8 @@ class MediaApplicationConfigurationTest {
                         .doesNotHaveBean(UploadPhotoUseCase.class)
                         .doesNotHaveBean(DownloadMediaUseCase.class)
                         .doesNotHaveBean(DeleteMediaUseCase.class)
+                        .doesNotHaveBean(StorageCleanupProcessor.class)
+                        .doesNotHaveBean(StorageCleanupWorker.class)
         );
     }
 
@@ -104,6 +138,48 @@ class MediaApplicationConfigurationTest {
                             .isInstanceOf(
                                     TransactionalDeleteMediaService.class
                             );
+                    assertThat(context)
+                            .hasSingleBean(StorageCleanupProcessor.class);
+                    assertThat(context.getBean(StorageCleanupProcessor.class))
+                            .isInstanceOf(
+                                    TransactionalStorageCleanupProcessor.class
+                            );
+                    assertThat(context)
+                            .doesNotHaveBean(StorageCleanupWorker.class);
+                });
+    }
+
+    @Test
+    void shouldNotRegisterStorageCleanupWorkerWhenExplicitlyDisabled() {
+
+        contextRunner
+                .withBean(FakeStorageService.class, FakeStorageService::new)
+                .withPropertyValues(
+                        "app.storage.minio.enabled=true",
+                        "app.storage.cleanup.worker-enabled=false"
+                )
+                .run(context ->
+                        assertThat(context)
+                                .hasSingleBean(StorageCleanupProcessor.class)
+                                .doesNotHaveBean(StorageCleanupWorker.class)
+                );
+    }
+
+    @Test
+    void shouldRegisterStorageCleanupWorkerWhenEnabled() {
+
+        contextRunner
+                .withBean(FakeStorageService.class, FakeStorageService::new)
+                .withPropertyValues(
+                        "app.storage.minio.enabled=true",
+                        "app.storage.cleanup.worker-enabled=true",
+                        "app.storage.cleanup.fixed-delay-millis=30000"
+                )
+                .run(context -> {
+                    assertThat(context)
+                            .hasSingleBean(StorageCleanupProcessor.class);
+                    assertThat(context)
+                            .hasSingleBean(StorageCleanupWorker.class);
                 });
     }
 
@@ -154,6 +230,35 @@ class MediaApplicationConfigurationTest {
         @Override
         public boolean delete(UUID id) {
             return false;
+        }
+    }
+
+    private static final class FakeStoryRepository
+            implements StoryRepository {
+
+        @Override
+        public Story save(Story story) {
+            return story;
+        }
+
+        @Override
+        public Story update(Story story) {
+            return story;
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            return false;
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            return List.of();
         }
     }
 
@@ -229,6 +334,37 @@ class MediaApplicationConfigurationTest {
                 UUID requesterUserId
         ) {
             return Optional.empty();
+        }
+    }
+
+    private static final class FakeStorageCleanupTaskRepository
+            implements StorageCleanupTaskRepository {
+
+        @Override
+        public void enqueue(StorageKey storageKey, Instant currentTime) {
+        }
+
+        @Override
+        public void enqueueAll(
+                Collection<StorageKey> storageKeys,
+                Instant currentTime
+        ) {
+        }
+
+        @Override
+        public List<StorageCleanupTask> findDueForUpdate(
+                Instant currentTime,
+                int limit
+        ) {
+            return List.of();
+        }
+
+        @Override
+        public void markFailed(UUID taskId, Instant nextAttemptAt) {
+        }
+
+        @Override
+        public void delete(UUID taskId) {
         }
     }
 

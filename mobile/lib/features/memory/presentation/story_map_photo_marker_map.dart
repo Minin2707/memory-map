@@ -118,11 +118,20 @@ final class StoryMapMarkerIconCompositionLimiter {
       _queuedKeys.remove(pending.imageKey);
       _activeCount += 1;
       unawaited(
-        pending.runner().whenComplete(() {
-          _activeCount -= 1;
-          _drain();
-        }),
+        _runPending(pending),
       );
+    }
+  }
+
+  Future<void> _runPending(_PendingStoryMapMarkerIconComposition pending) async {
+    try {
+      await pending.runner();
+    } catch (_) {
+      // The limiter owns scheduling only; icon composition failures are
+      // handled by callers and must not consume a slot forever.
+    } finally {
+      _activeCount -= 1;
+      _drain();
     }
   }
 }
@@ -284,7 +293,11 @@ class _StoryMapPhotoMarkerMapState
       final bytes = await ref
           .read(mediaRepositoryProvider)
           .getThumbnailByPath(thumbnailPath);
-      if (!mounted || !_currentThumbnailPaths().contains(thumbnailPath)) {
+      if (!storyMapShouldCommitThumbnailLoadForTesting(
+        mounted: mounted,
+        thumbnailPath: thumbnailPath,
+        currentThumbnailPaths: _currentThumbnailPaths(),
+      )) {
         return;
       }
 
@@ -293,7 +306,11 @@ class _StoryMapPhotoMarkerMapState
         _thumbnailBytesByPath[thumbnailPath] = bytes;
       });
     } catch (_) {
-      if (!mounted || !_currentThumbnailPaths().contains(thumbnailPath)) {
+      if (!storyMapShouldCommitThumbnailLoadForTesting(
+        mounted: mounted,
+        thumbnailPath: thumbnailPath,
+        currentThumbnailPaths: _currentThumbnailPaths(),
+      )) {
         return;
       }
 
@@ -342,7 +359,12 @@ class _StoryMapPhotoMarkerMapState
       if (!mounted) {
         return;
       }
-      if (!_isRelevantIconKey(request.imageKey)) {
+      if (!storyMapShouldCommitIconBytesForTesting(
+        mounted: mounted,
+        imageKey: request.imageKey,
+        relevantIconKeys:
+            storyMapRelevantMarkerIconKeysForTesting(_iconRequests()),
+      )) {
         setState(() {
           _pendingIconKeys.remove(request.imageKey);
         });
@@ -393,6 +415,24 @@ class _StoryMapPhotoMarkerMapState
     return storyMapRelevantMarkerIconKeysForTesting(_iconRequests())
         .contains(imageKey);
   }
+}
+
+@visibleForTesting
+bool storyMapShouldCommitThumbnailLoadForTesting({
+  required bool mounted,
+  required String thumbnailPath,
+  required Set<String> currentThumbnailPaths,
+}) {
+  return mounted && currentThumbnailPaths.contains(thumbnailPath);
+}
+
+@visibleForTesting
+bool storyMapShouldCommitIconBytesForTesting({
+  required bool mounted,
+  required String imageKey,
+  required Set<String> relevantIconKeys,
+}) {
+  return mounted && relevantIconKeys.contains(imageKey);
 }
 
 @visibleForTesting

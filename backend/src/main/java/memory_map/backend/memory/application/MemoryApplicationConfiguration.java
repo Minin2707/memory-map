@@ -1,11 +1,12 @@
 package memory_map.backend.memory.application;
 
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.repository.MediaFileRepository;
 import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.memory.repository.MemoryReadRepository;
 import memory_map.backend.notification.application.NotificationPublisher;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
@@ -16,11 +17,13 @@ public class MemoryApplicationConfiguration {
 
     @Bean
     public CreateMemoryUseCase createMemoryUseCase(
+            StoryRepository storyRepository,
             StoryParticipantRepository storyParticipantRepository,
             MemoryRepository memoryRepository,
             NotificationPublisher notificationPublisher
     ) {
         return new TransactionalCreateMemoryService(
+                storyRepository,
                 storyParticipantRepository,
                 memoryRepository,
                 notificationPublisher
@@ -43,10 +46,12 @@ public class MemoryApplicationConfiguration {
 
     @Bean
     public UpdateMemoryUseCase updateMemoryUseCase(
+            StoryRepository storyRepository,
             MemoryRepository memoryRepository,
             StoryParticipantRepository storyParticipantRepository
     ) {
         return new TransactionalUpdateMemoryService(
+                storyRepository,
                 memoryRepository,
                 storyParticipantRepository
         );
@@ -54,11 +59,13 @@ public class MemoryApplicationConfiguration {
 
     @Bean
     public DeleteMemoryUseCase deleteMemoryUseCase(
+            StoryRepository storyRepository,
             MemoryRepository memoryRepository,
             StoryParticipantRepository storyParticipantRepository,
             MemoryMediaCleanupCoordinator mediaCleanupCoordinator
     ) {
         return new TransactionalDeleteMemoryService(
+                storyRepository,
                 memoryRepository,
                 storyParticipantRepository,
                 mediaCleanupCoordinator
@@ -69,7 +76,7 @@ public class MemoryApplicationConfiguration {
     public MemoryMediaCleanupCoordinator memoryMediaCleanupCoordinator(
             MediaFileRepository mediaFileRepository,
             ObjectProvider<StorageService> storageServiceProvider,
-            ObjectProvider<TransactionCommitCoordinator> commitCoordinatorProvider
+            ObjectProvider<StorageCleanupScheduler> cleanupSchedulerProvider
     ) {
         StorageService storageService = storageServiceProvider.getIfAvailable();
 
@@ -81,8 +88,7 @@ public class MemoryApplicationConfiguration {
 
         return new StorageBackedMemoryMediaCleanupCoordinator(
                 mediaFileRepository,
-                storageService,
-                commitCoordinatorProvider.getObject()
+                cleanupSchedulerProvider.getObject()
         );
     }
 }

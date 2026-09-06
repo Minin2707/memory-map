@@ -24,6 +24,7 @@ import 'package:memory_map/features/music/domain/music_track.dart';
 import 'package:memory_map/features/music/domain/story_soundtrack.dart';
 import 'package:memory_map/features/music/domain/story_soundtrack_repository.dart';
 import 'package:memory_map/features/participant/application/participant_application_providers.dart';
+import 'package:memory_map/features/participant/application/participants_notifier.dart';
 import 'package:memory_map/features/participant/domain/leave_story_input.dart';
 import 'package:memory_map/features/participant/domain/participant_failure.dart';
 import 'package:memory_map/features/participant/domain/remove_story_participant_input.dart';
@@ -209,6 +210,75 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('shouldRefreshCachedParticipantsSummaryOnEntry', (
+      WidgetTester tester,
+    ) async {
+      final storyRepository = FakeStoryRepository()..storyResult = ownerStory;
+      final participantRepository = FakeStoryParticipantRepository()
+        ..participantsResult = <StoryParticipant>[
+          participant(
+            userId: 'anna-user-id',
+            displayName: 'Anna',
+            role: StoryRole.owner,
+          ),
+        ];
+      final container = ProviderContainer(
+        overrides: [
+          storyRepositoryProvider.overrideWithValue(storyRepository),
+          mediaRepositoryProvider.overrideWithValue(
+            media_fixtures.FakeMediaRepository(),
+          ),
+          memoryRepositoryProvider.overrideWithValue(FakeMemoryRepository()),
+          storyParticipantRepositoryProvider.overrideWithValue(
+            participantRepository,
+          ),
+          storySoundtrackRepositoryProvider.overrideWithValue(
+            FakeStorySoundtrackRepository(),
+          ),
+        ],
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        container.dispose();
+      });
+
+      await container.read(storyParticipantsProvider('story-1').future);
+      expect(participantRepository.getParticipantsCalls, 1);
+
+      participantRepository.participantsResult = <StoryParticipant>[
+        participant(
+          userId: 'anna-user-id',
+          displayName: 'Anna',
+          role: StoryRole.owner,
+        ),
+        participant(
+          userId: 'alex-user-id',
+          displayName: 'Alex Lane',
+          role: StoryRole.coOwner,
+        ),
+      ];
+
+      await pumpScreen(
+        tester,
+        storyRepository,
+        participantRepository: participantRepository,
+        container: container,
+      );
+
+      await scrollDownUntilFound(
+        tester,
+        find.byKey(const ValueKey('story-details.participants-summary')),
+      );
+
+      expect(participantRepository.getParticipantsCalls, 2);
+      expect(find.text('Anna'), findsOneWidget);
+      expect(find.text('Alex Lane'), findsOneWidget);
+
+      await tester.pump();
+      expect(participantRepository.getParticipantsCalls, 2);
     });
 
     testWidgets(
@@ -911,18 +981,22 @@ void main() {
       }
     });
 
-    testWidgets('shouldKeepParticipantsSummaryReadonlyForEditorAndViewer', (
+    testWidgets('shouldShowParticipantsSummaryViewActionForEditorAndViewer', (
       WidgetTester tester,
     ) async {
       for (final role in <StoryRole>[StoryRole.editor, StoryRole.viewer]) {
+        UserStory? selectedStory;
+        final story = userStory(role: role);
         await pumpScreen(
           tester,
-          FakeStoryRepository()..storyResult = userStory(role: role),
+          FakeStoryRepository()..storyResult = story,
           participantRepository: FakeStoryParticipantRepository()
             ..participantsResult = <StoryParticipant>[
               participant(displayName: 'Anna', role: role),
             ],
-          onParticipantsSelected: (_) {},
+          onParticipantsSelected: (userStory) {
+            selectedStory = userStory;
+          },
           onInvite: (_) {},
         );
 
@@ -937,9 +1011,29 @@ void main() {
           findsNothing,
         );
         expect(
+          find.byKey(const ValueKey('story-details.participants.view-action')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(
+              const ValueKey('story-details.participants.view-action'),
+            ),
+            matching: find.text('See all'),
+          ),
+          findsOneWidget,
+        );
+        expect(
           find.byKey(const ValueKey('story-details.participants.invite-action')),
           findsNothing,
         );
+
+        await pressButton(
+          tester,
+          find.byKey(const ValueKey('story-details.participants.view-action')),
+        );
+
+        expect(selectedStory, story);
       }
     });
 
@@ -1010,6 +1104,181 @@ void main() {
           findsNothing,
         );
       }
+    });
+
+    testWidgets('shouldShowDeleteStoryOnlyForOwner', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storyResult = ownerStory,
+        onStoryDeleted: (_) {},
+      );
+
+      expect(
+        find.byKey(const ValueKey('story-details.delete-action')),
+        findsOneWidget,
+      );
+
+      for (final role in <StoryRole>[
+        StoryRole.coOwner,
+        StoryRole.editor,
+        StoryRole.viewer,
+      ]) {
+        await pumpScreen(
+          tester,
+          FakeStoryRepository()..storyResult = userStory(role: role),
+          onStoryDeleted: (_) {},
+        );
+
+        expect(
+          find.byKey(const ValueKey('story-details.delete-action')),
+          findsNothing,
+        );
+      }
+    });
+
+    testWidgets('shouldCancelDeleteStoryWithoutCallingRepository', (
+      WidgetTester tester,
+    ) async {
+      UserStory? deletedStory;
+      final repository = FakeStoryRepository()..storyResult = ownerStory;
+      await pumpScreen(
+        tester,
+        repository,
+        onStoryDeleted: (story) {
+          deletedStory = story;
+        },
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete-action')),
+      );
+
+      expect(find.text('Delete story?'), findsOneWidget);
+      expect(
+        find.text(
+          'This story and its memories will be permanently deleted. '
+          'This action cannot be undone.',
+        ),
+        findsOneWidget,
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete.cancel-action')),
+      );
+
+      expect(repository.deleteStoryCalls, 0);
+      expect(deletedStory, isNull);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+    });
+
+    testWidgets('shouldConfirmDeleteStoryAndNotifyParent', (
+      WidgetTester tester,
+    ) async {
+      UserStory? deletedStory;
+      final repository = FakeStoryRepository()..storyResult = ownerStory;
+      await pumpScreen(
+        tester,
+        repository,
+        storyId: ownerStory.story.id,
+        onStoryDeleted: (story) {
+          deletedStory = story;
+        },
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete-action')),
+      );
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete.confirm-action')),
+      );
+
+      expect(repository.deleteStoryCalls, 1);
+      expect(repository.receivedDeleteStoryId, ownerStory.story.id);
+      expect(deletedStory, ownerStory);
+    });
+
+    testWidgets('shouldPreventDuplicateDeleteStorySubmitWhileDeleting', (
+      WidgetTester tester,
+    ) async {
+      final completer = Completer<void>();
+      UserStory? deletedStory;
+      final repository = FakeStoryRepository()
+        ..storyResult = ownerStory
+        ..deleteCompleter = completer;
+      await pumpScreen(
+        tester,
+        repository,
+        onStoryDeleted: (story) {
+          deletedStory = story;
+        },
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete-action')),
+      );
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete.confirm-action')),
+        settle: false,
+      );
+      await tester.pump();
+
+      expect(repository.deleteStoryCalls, 1);
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete-action')),
+        settle: false,
+      );
+
+      expect(repository.deleteStoryCalls, 1);
+
+      completer.complete();
+      await tester.pumpAndSettle();
+      expect(deletedStory, ownerStory);
+    });
+
+    testWidgets('shouldRenderSafeDeleteStoryFailureAndStayOnDetails', (
+      WidgetTester tester,
+    ) async {
+      UserStory? deletedStory;
+      final repository = FakeStoryRepository()
+        ..storyResult = ownerStory
+        ..deleteFailure = const StoryApplicationException(StoryNotFound());
+      await pumpScreen(
+        tester,
+        repository,
+        onStoryDeleted: (story) {
+          deletedStory = story;
+        },
+      );
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete-action')),
+      );
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.delete.confirm-action')),
+      );
+
+      expect(repository.deleteStoryCalls, 1);
+      expect(deletedStory, isNull);
+      expect(find.text(ownerStory.story.title), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-details.delete.failure-snackbar')),
+        findsOneWidget,
+      );
+      expect(find.text('Story is unavailable.'), findsOneWidget);
+      expect(find.textContaining('StoryApplicationException'), findsNothing);
+      expect(find.textContaining(ownerStory.story.id), findsNothing);
     });
 
     testWidgets('shouldShowAddMemoryForWritableRolesOnly', (
@@ -1160,6 +1429,44 @@ void main() {
       expect(find.text('Story is unavailable.'), findsOneWidget);
       expect(find.textContaining('not authorized'), findsNothing);
       expect(find.textContaining('private-story-id'), findsNothing);
+    });
+
+    testWidgets('shouldShowBackAndRetryForUnavailableStory', (
+      WidgetTester tester,
+    ) async {
+      var backCalls = 0;
+      final repository = FakeStoryRepository()
+        ..getStoryFailures.add(
+          const StoryApplicationException(StoryNotFound()),
+        );
+      await pumpScreen(
+        tester,
+        repository,
+        onBack: () {
+          backCalls += 1;
+        },
+      );
+
+      expect(find.text('Could not load story'), findsOneWidget);
+      expect(find.text('Story is unavailable.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('story-details.error.back-action')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('story-details.error.retry-action')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('StoryApplicationException'), findsNothing);
+      expect(find.textContaining('story-1'), findsNothing);
+
+      await pressButton(
+        tester,
+        find.byKey(const ValueKey('story-details.error.back-action')),
+      );
+
+      expect(backCalls, 1);
+      expect(repository.getStoryCalls, 1);
     });
 
     testWidgets('shouldRenderUnexpectedFailureSafely', (
@@ -1393,35 +1700,44 @@ Future<ProviderContainer> pumpScreen(
   VoidCallback? onCreateMemory,
   ValueChanged<Memory>? onMemorySelected,
   ValueChanged<UserStory>? onPlaybackSelected,
+  ValueChanged<UserStory>? onStoryDeleted,
   media_fixtures.FakeMediaRepository? mediaRepository,
   FakeMemoryRepository? memoryRepository,
   FakeStoryParticipantRepository? participantRepository,
   FakeStorySoundtrackRepository? soundtrackRepository,
   TextScaler textScaler = TextScaler.noScaling,
   bool settle = true,
+  ProviderContainer? container,
 }) async {
-  final container = ProviderContainer(
-    overrides: [
-      storyRepositoryProvider.overrideWithValue(repository),
-      mediaRepositoryProvider.overrideWithValue(
-        mediaRepository ?? media_fixtures.FakeMediaRepository(),
-      ),
-      memoryRepositoryProvider.overrideWithValue(
-        memoryRepository ?? FakeMemoryRepository(),
-      ),
-      storyParticipantRepositoryProvider.overrideWithValue(
-        participantRepository ?? FakeStoryParticipantRepository(),
-      ),
-      storySoundtrackRepositoryProvider.overrideWithValue(
-        soundtrackRepository ?? FakeStorySoundtrackRepository(),
-      ),
-    ],
-  );
-  addTearDown(container.dispose);
+  final effectiveContainer = container ??
+      ProviderContainer(
+        overrides: [
+          storyRepositoryProvider.overrideWithValue(repository),
+          mediaRepositoryProvider.overrideWithValue(
+            mediaRepository ?? media_fixtures.FakeMediaRepository(),
+          ),
+          memoryRepositoryProvider.overrideWithValue(
+            memoryRepository ?? FakeMemoryRepository(),
+          ),
+          storyParticipantRepositoryProvider.overrideWithValue(
+            participantRepository ?? FakeStoryParticipantRepository(),
+          ),
+          storySoundtrackRepositoryProvider.overrideWithValue(
+            soundtrackRepository ?? FakeStorySoundtrackRepository(),
+          ),
+        ],
+      );
+  if (container == null) {
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      effectiveContainer.dispose();
+    });
+  }
 
   await tester.pumpWidget(
     UncontrolledProviderScope(
-      container: container,
+      container: effectiveContainer,
       child: MaterialApp(
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -1445,6 +1761,7 @@ Future<ProviderContainer> pumpScreen(
           onCreateMemory: onCreateMemory,
           onMemorySelected: onMemorySelected,
           onPlaybackSelected: onPlaybackSelected,
+          onStoryDeleted: onStoryDeleted,
         ),
       ),
     ),
@@ -1454,7 +1771,7 @@ Future<ProviderContainer> pumpScreen(
     await tester.pumpAndSettle();
   }
 
-  return container;
+  return effectiveContainer;
 }
 
 Future<void> pressButton(
@@ -1637,10 +1954,14 @@ final class FakeStoryRepository implements StoryRepository {
   int getStoriesCalls = 0;
   int getStoryCalls = 0;
   int updateStoryCalls = 0;
+  int deleteStoryCalls = 0;
 
   UserStory storyResult = ownerStory;
   final List<Object> getStoryFailures = <Object>[];
   Completer<UserStory>? getStoryCompleter;
+  String? receivedDeleteStoryId;
+  Object? deleteFailure;
+  Completer<void>? deleteCompleter;
 
   @override
   Future<Story> createStory({
@@ -1678,6 +1999,22 @@ final class FakeStoryRepository implements StoryRepository {
   Future<UserStory> updateStory(UpdateStoryInput input) async {
     updateStoryCalls += 1;
     throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteStory({required String storyId}) async {
+    deleteStoryCalls += 1;
+    receivedDeleteStoryId = storyId;
+
+    final failure = deleteFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    final completer = deleteCompleter;
+    if (completer != null) {
+      await completer.future;
+    }
   }
 
   @override

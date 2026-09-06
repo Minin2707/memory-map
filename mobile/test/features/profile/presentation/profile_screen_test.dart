@@ -254,6 +254,35 @@ void main() {
       expect(accountRepository.updateDisplayNameCalls, 0);
     });
 
+    testWidgets('shouldShowControlCharacterDisplayNameErrorInEditor', (
+      WidgetTester tester,
+    ) async {
+      final accountRepository = FakeAccountRepository();
+
+      await pumpProfileScreen(
+        tester,
+        FakeAuthRepository(),
+        accountRepository: accountRepository,
+      );
+
+      await tap(
+        tester,
+        find.byKey(const ValueKey('profile.display-name-action')),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('profile.display-name.input')),
+        'Ada\u0085Lovelace',
+      );
+      await tester.pump();
+
+      expect(find.text('Display name must stay on one line.'), findsOneWidget);
+      final saveButton = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('profile.display-name.save-action')),
+      );
+      expect(saveButton.onPressed, isNull);
+      expect(accountRepository.updateDisplayNameCalls, 0);
+    });
+
     testWidgets('shouldCancelDisplayNameEditWithoutSendingRequest', (
       WidgetTester tester,
     ) async {

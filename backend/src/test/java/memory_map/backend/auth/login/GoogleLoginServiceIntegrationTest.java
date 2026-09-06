@@ -69,10 +69,14 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
             Instant.parse("2026-01-01T10:00:00.123456Z");
     private static final Instant UPDATED_AT =
             Instant.parse("2026-01-02T10:00:00.123456Z");
+    private static final Instant CUSTOM_AVATAR_UPDATED_AT =
+            Instant.parse("2026-01-03T10:00:00.123456Z");
     private static final Instant CURRENT_TIME =
             Instant.parse("2026-01-10T10:00:00.123456Z");
     private static final Instant EXPIRES_AT =
             Instant.parse("2026-02-01T10:00:00.123456Z");
+    private static final String CUSTOM_AVATAR_STORAGE_KEY =
+            "avatars/00000000-0000-0000-0000-000000000002/custom-avatar.jpg";
     private static final String CLEAN_DATABASE_SQL = """
         TRUNCATE TABLE users
         RESTART IDENTITY CASCADE
@@ -224,6 +228,52 @@ class GoogleLoginServiceIntegrationTest extends IntegrationTest {
         assertThat(loadedExistingUser.displayNameCustomized()).isTrue();
         assertThat(loadedExistingUser.avatarUrl())
                 .isEqualTo("https://example.com/new.png");
+    }
+
+    @Test
+    void shouldRefreshGoogleAvatarFallbackWithoutRemovingExistingCustomAvatar() {
+
+        User existingUser = saveUser(
+                EXISTING_USER_ID,
+                GOOGLE_SUBJECT,
+                "Persisted Name",
+                "https://example.com/old-google-avatar.png",
+                BASE_TIME,
+                UPDATED_AT
+        );
+        User customAvatarUser = userRepository.updateCustomAvatar(
+                existingUser.id(),
+                CUSTOM_AVATAR_STORAGE_KEY,
+                CUSTOM_AVATAR_UPDATED_AT
+        );
+        googleIdentityVerifier.identity(
+                new GoogleIdentity(
+                        GOOGLE_SUBJECT,
+                        "Persisted Name",
+                        "https://example.com/new-google-avatar.png"
+                )
+        );
+
+        GoogleLoginResult result = loginService.login(
+                GOOGLE_ID_TOKEN,
+                NEW_USER_ID,
+                NEW_REFRESH_TOKEN_ID,
+                CURRENT_TIME
+        );
+
+        User loadedExistingUser = userRepository
+                .findById(EXISTING_USER_ID)
+                .orElseThrow();
+
+        assertThat(userRepository.findById(NEW_USER_ID)).isEmpty();
+        assertThat(loadedExistingUser.avatarUrl())
+                .isEqualTo("https://example.com/new-google-avatar.png");
+        assertThat(loadedExistingUser.customAvatarStorageKey())
+                .isEqualTo(customAvatarUser.customAvatarStorageKey());
+        assertThat(loadedExistingUser.customAvatarUpdatedAt())
+                .isEqualTo(customAvatarUser.customAvatarUpdatedAt());
+        assertThat(loadedExistingUser.hasCustomAvatar()).isTrue();
+        assertThat(result.user()).isEqualTo(loadedExistingUser);
     }
 
     @Test

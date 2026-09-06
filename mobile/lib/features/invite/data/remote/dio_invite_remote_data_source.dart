@@ -5,21 +5,29 @@ import 'package:memory_map/features/invite/data/dto/invite_dto.dart';
 import 'package:memory_map/features/invite/data/remote/invite_remote_data_source.dart';
 import 'package:memory_map/features/invite/data/remote/invite_remote_exception.dart';
 import 'package:memory_map/features/invite/domain/invite.dart';
-import 'package:memory_map/features/story/data/dto/user_story_dto.dart';
+import 'package:memory_map/features/story/application/story_application_providers.dart';
+import 'package:memory_map/features/story/application/user_story_response_decoder.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
 
 final inviteRemoteDataSourceProvider = Provider<InviteRemoteDataSource>((ref) {
-  return DioInviteRemoteDataSource(ref.watch(authorizedDioProvider));
+  return DioInviteRemoteDataSource(
+    ref.watch(authorizedDioProvider),
+    userStoryResponseDecoder: ref.watch(userStoryResponseDecoderProvider),
+  );
 });
 
 final class DioInviteRemoteDataSource implements InviteRemoteDataSource {
-  const DioInviteRemoteDataSource(this._dio);
+  const DioInviteRemoteDataSource(
+    this._dio, {
+    required UserStoryResponseDecoder userStoryResponseDecoder,
+  }) : _userStoryResponseDecoder = userStoryResponseDecoder;
 
   static const String _storiesPath = '/api/v1/stories';
   static const String _invitesPath = '/api/v1/invites';
 
   final Dio _dio;
+  final UserStoryResponseDecoder _userStoryResponseDecoder;
 
   @override
   Future<Invite> createInvite(String storyId, StoryRole targetRole) async {
@@ -44,7 +52,7 @@ final class DioInviteRemoteDataSource implements InviteRemoteDataSource {
     _ensureExpectedStatus(response, 200);
 
     return _mapResponse(
-      () => UserStoryDto.fromJson(response.data).toDomain(),
+      () => _userStoryResponseDecoder.decode(response.data),
     );
   }
 

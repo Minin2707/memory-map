@@ -3,6 +3,7 @@ package memory_map.backend.invite.application;
 import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.invite.repository.InviteRepository;
 import memory_map.backend.story.application.UserStory;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.story.repository.UserStoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 public class TransactionalCreateInviteService implements CreateInviteUseCase {
 
+    private final StoryRepository storyRepository;
     private final UserStoryRepository userStoryRepository;
     private final InviteRepository inviteRepository;
     private final InviteTokenGenerator inviteTokenGenerator;
@@ -22,6 +24,7 @@ public class TransactionalCreateInviteService implements CreateInviteUseCase {
     private final InviteProperties inviteProperties;
 
     public TransactionalCreateInviteService(
+            StoryRepository storyRepository,
             UserStoryRepository userStoryRepository,
             InviteRepository inviteRepository,
             InviteTokenGenerator inviteTokenGenerator,
@@ -29,6 +32,10 @@ public class TransactionalCreateInviteService implements CreateInviteUseCase {
             InviteLinkFactory inviteLinkFactory,
             InviteProperties inviteProperties
     ) {
+        this.storyRepository = Objects.requireNonNull(
+                storyRepository,
+                "storyRepository must not be null"
+        );
         this.userStoryRepository = Objects.requireNonNull(
                 userStoryRepository,
                 "userStoryRepository must not be null"
@@ -59,6 +66,10 @@ public class TransactionalCreateInviteService implements CreateInviteUseCase {
     @Transactional
     public CreatedInvite createInvite(CreateInviteCommand command) {
         Objects.requireNonNull(command, "command must not be null");
+
+        if (!storyRepository.lockById(command.storyId())) {
+            throw new InviteCreationUnavailableException();
+        }
 
         UserStory userStory = userStoryRepository.findByStoryIdAndUserId(
                 command.storyId(),

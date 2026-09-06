@@ -127,6 +127,12 @@ public class JdbcAccountDeletionRepository
               AND used_at IS NULL
             """;
 
+    private static final String DELETE_NOTIFICATIONS_BY_RECIPIENT_USER_ID_SQL =
+            """
+            DELETE FROM notifications
+            WHERE recipient_user_id = :userId
+            """;
+
     private static final String DELETE_MEMORIES_BY_STORY_IDS_SQL = """
             DELETE FROM memories
             WHERE story_id IN (:storyIds)
@@ -283,6 +289,15 @@ public class JdbcAccountDeletionRepository
     @Override
     public int deleteUnusedInvitesCreatedBy(UUID userId) {
         return jdbcClient.sql(DELETE_UNUSED_INVITES_CREATED_BY_SQL)
+                .param("userId", userId)
+                .update();
+    }
+
+    @Override
+    public int deleteNotificationsByRecipientUserId(UUID userId) {
+        Objects.requireNonNull(userId, "userId must not be null");
+
+        return jdbcClient.sql(DELETE_NOTIFICATIONS_BY_RECIPIENT_USER_ID_SQL)
                 .param("userId", userId)
                 .update();
     }

@@ -170,6 +170,37 @@ void main() {
       retryCompleter.complete(<Memory>[memoryA]);
       await retry;
     });
+
+    test('shouldIgnoreCompletedRetryAfterProviderInvalidation', () async {
+      final retryCompleter = Completer<List<Memory>>();
+      final repository = FakeMemoryRepository()
+        ..memoriesResult = <Memory>[memoryA];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        storyMemoriesProvider('story-1'),
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(storyMemoriesProvider('story-1').future);
+      repository.getCompleter = retryCompleter;
+
+      final retry = container
+          .read(storyMemoriesProvider('story-1').notifier)
+          .retryLoad();
+      await pumpEventQueue();
+      repository.memoriesResult = <Memory>[memoryB];
+      container.invalidate(storyMemoriesProvider('story-1'));
+      await pumpEventQueue();
+      final rebuilt = container.read(storyMemoriesProvider('story-1').future);
+
+      retryCompleter.complete(<Memory>[memoryC]);
+      await retry;
+      await rebuilt;
+
+      expect(readState(container, 'story-1').memories, <Memory>[memoryB]);
+    });
   });
 
   group('StoryMemoriesNotifier refresh', () {
@@ -622,7 +653,7 @@ void main() {
       expect(state.refreshFailure, const MemoryNetworkUnavailable());
     });
 
-    test('shouldAllowLocalUpsertDuringRefreshButRefreshResultWins', () async {
+    test('shouldIgnoreStaleRefreshAfterLocalUpsert', () async {
       final refreshCompleter = Completer<List<Memory>>();
       final repository = FakeMemoryRepository()
         ..memoriesResult = <Memory>[memoryA];
@@ -640,11 +671,40 @@ void main() {
         memoryA,
         memoryB,
       ]);
+      expect(readState(container, 'story-1').isRefreshing, isFalse);
 
       refreshCompleter.complete(<Memory>[memoryC]);
       await refresh;
 
-      expect(readState(container, 'story-1').memories, <Memory>[memoryC]);
+      expect(readState(container, 'story-1').memories, <Memory>[
+        memoryA,
+        memoryB,
+      ]);
+      expect(readState(container, 'story-1').isRefreshing, isFalse);
+    });
+
+    test('shouldIgnoreStaleRefreshAfterLocalRemoval', () async {
+      final refreshCompleter = Completer<List<Memory>>();
+      final repository = FakeMemoryRepository()
+        ..memoriesResult = <Memory>[memoryA, memoryB];
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(storyMemoriesProvider('story-1').future);
+      repository.getCompleter = refreshCompleter;
+      final notifier = container.read(storyMemoriesProvider('story-1').notifier);
+
+      final refresh = notifier.refreshMemories();
+      await pumpEventQueue();
+      notifier.removeMemoryById(memoryB.id);
+
+      expect(readState(container, 'story-1').memories, <Memory>[memoryA]);
+      expect(readState(container, 'story-1').isRefreshing, isFalse);
+
+      refreshCompleter.complete(<Memory>[memoryC]);
+      await refresh;
+
+      expect(readState(container, 'story-1').memories, <Memory>[memoryA]);
+      expect(readState(container, 'story-1').isRefreshing, isFalse);
     });
   });
 

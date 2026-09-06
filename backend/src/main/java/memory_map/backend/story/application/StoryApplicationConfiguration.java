@@ -1,9 +1,11 @@
 package memory_map.backend.story.application;
 
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupRecoveryScheduler;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.application.TransactionRollbackCoordinator;
 import memory_map.backend.media.image.ImageProcessor;
 import memory_map.backend.media.storage.StorageService;
+import memory_map.backend.story.repository.StoryDeletionRepository;
 import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.story.repository.StoryParticipantViewRepository;
 import memory_map.backend.story.repository.UserStoryRepository;
@@ -87,7 +89,8 @@ public class StoryApplicationConfiguration {
             StoryCoverStorageKeyFactory storageKeyFactory,
             StorageService storageService,
             TransactionRollbackCoordinator rollbackCoordinator,
-            TransactionCommitCoordinator commitCoordinator
+            StorageCleanupScheduler cleanupScheduler,
+            StorageCleanupRecoveryScheduler recoveryScheduler
     ) {
         return new DefaultUploadStoryCoverService(
                 storyRepository,
@@ -97,7 +100,8 @@ public class StoryApplicationConfiguration {
                 storageKeyFactory,
                 storageService,
                 rollbackCoordinator,
-                commitCoordinator
+                cleanupScheduler,
+                recoveryScheduler
         );
     }
 
@@ -111,15 +115,13 @@ public class StoryApplicationConfiguration {
             StoryRepository storyRepository,
             StoryParticipantRepository storyParticipantRepository,
             UserStoryRepository userStoryRepository,
-            StorageService storageService,
-            TransactionCommitCoordinator commitCoordinator
+            StorageCleanupScheduler cleanupScheduler
     ) {
         return new DefaultRemoveStoryCoverService(
                 storyRepository,
                 storyParticipantRepository,
                 userStoryRepository,
-                storageService,
-                commitCoordinator
+                cleanupScheduler
         );
     }
 
@@ -169,6 +171,22 @@ public class StoryApplicationConfiguration {
         return new TransactionalUpdateStoryService(
                 userStoryRepository,
                 storyRepository
+        );
+    }
+
+    @Bean
+    public DeleteStoryUseCase deleteStoryUseCase(
+            StoryRepository storyRepository,
+            StoryParticipantRepository storyParticipantRepository,
+            StoryDeletionRepository storyDeletionRepository,
+            StorageCleanupScheduler cleanupScheduler
+    ) {
+        return new TransactionalDeleteStoryService(
+                storyRepository,
+                storyParticipantRepository,
+                storyDeletionRepository,
+                cleanupScheduler,
+                new StoryAccessPolicy()
         );
     }
 

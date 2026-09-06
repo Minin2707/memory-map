@@ -5,6 +5,8 @@ import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.invite.repository.InviteRepository;
 import memory_map.backend.story.application.UserStory;
 import memory_map.backend.story.domain.Story;
+import memory_map.backend.story.domain.StoryCoverMetadata;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.story.repository.UserStoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import org.junit.jupiter.api.Test;
@@ -77,6 +79,7 @@ class TransactionalCreateInviteServiceTest {
                 .isEqualTo(TOKEN_HASH)
                 .isNotEqualTo(RAW_TOKEN);
         assertThat(context.calls()).containsExactly(
+                "lock Story",
                 "find UserStory",
                 "generate token",
                 "hash token",
@@ -200,11 +203,30 @@ class TransactionalCreateInviteServiceTest {
     }
 
     @Test
+    void shouldRejectNullStoryRepositoryDependency() {
+
+        TestContext context = testContext(userStory(StoryRole.OWNER));
+
+        assertThatThrownBy(() -> new TransactionalCreateInviteService(
+                null,
+                context.userStoryRepository(),
+                context.inviteRepository(),
+                context.tokenGenerator(),
+                context.tokenHasher(),
+                context.linkFactory(),
+                context.inviteProperties()
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("storyRepository must not be null");
+    }
+
+    @Test
     void shouldRejectNullUserStoryRepositoryDependency() {
 
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateInviteService(
+                context.storyRepository(),
                 null,
                 context.inviteRepository(),
                 context.tokenGenerator(),
@@ -222,6 +244,7 @@ class TransactionalCreateInviteServiceTest {
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateInviteService(
+                context.storyRepository(),
                 context.userStoryRepository(),
                 null,
                 context.tokenGenerator(),
@@ -239,6 +262,7 @@ class TransactionalCreateInviteServiceTest {
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateInviteService(
+                context.storyRepository(),
                 context.userStoryRepository(),
                 context.inviteRepository(),
                 null,
@@ -256,6 +280,7 @@ class TransactionalCreateInviteServiceTest {
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateInviteService(
+                context.storyRepository(),
                 context.userStoryRepository(),
                 context.inviteRepository(),
                 context.tokenGenerator(),
@@ -273,6 +298,7 @@ class TransactionalCreateInviteServiceTest {
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateInviteService(
+                context.storyRepository(),
                 context.userStoryRepository(),
                 context.inviteRepository(),
                 context.tokenGenerator(),
@@ -290,6 +316,7 @@ class TransactionalCreateInviteServiceTest {
         TestContext context = testContext(userStory(StoryRole.OWNER));
 
         assertThatThrownBy(() -> new TransactionalCreateInviteService(
+                context.storyRepository(),
                 context.userStoryRepository(),
                 context.inviteRepository(),
                 context.tokenGenerator(),
@@ -384,6 +411,7 @@ class TransactionalCreateInviteServiceTest {
 
         assertThat(context.inviteRepository().saveCallCount()).isEqualTo(1);
         assertThat(context.calls()).containsExactly(
+                "lock Story",
                 "find UserStory",
                 "generate token",
                 "hash token",
@@ -455,6 +483,7 @@ class TransactionalCreateInviteServiceTest {
         List<String> calls = new ArrayList<>();
         FakeUserStoryRepository userStoryRepository =
                 new FakeUserStoryRepository(calls, userStory);
+        FakeStoryRepository storyRepository = new FakeStoryRepository(calls);
         FakeInviteRepository inviteRepository =
                 new FakeInviteRepository(calls);
         FakeInviteTokenGenerator tokenGenerator =
@@ -470,6 +499,7 @@ class TransactionalCreateInviteServiceTest {
 
         return new TestContext(
                 new TransactionalCreateInviteService(
+                        storyRepository,
                         userStoryRepository,
                         inviteRepository,
                         tokenGenerator,
@@ -477,6 +507,7 @@ class TransactionalCreateInviteServiceTest {
                         linkFactory,
                         inviteProperties
                 ),
+                storyRepository,
                 userStoryRepository,
                 inviteRepository,
                 tokenGenerator,
@@ -557,6 +588,8 @@ class TransactionalCreateInviteServiceTest {
 
             TransactionalCreateInviteService service,
 
+            FakeStoryRepository storyRepository,
+
             FakeUserStoryRepository userStoryRepository,
 
             FakeInviteRepository inviteRepository,
@@ -572,6 +605,51 @@ class TransactionalCreateInviteServiceTest {
             List<String> calls
 
     ) {
+    }
+
+    private static final class FakeStoryRepository implements StoryRepository {
+
+        private final List<String> calls;
+
+        private FakeStoryRepository(List<String> calls) {
+            this.calls = calls;
+        }
+
+        @Override
+        public Story save(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story update(Story story) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Story> findById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean lockById(UUID id) {
+            calls.add("lock Story");
+            return true;
+        }
+
+        @Override
+        public Story updateCover(UUID id, StoryCoverMetadata cover) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Story clearCover(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Story> findByOwnerId(UUID ownerId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class FakeUserStoryRepository

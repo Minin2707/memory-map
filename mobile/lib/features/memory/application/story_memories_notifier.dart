@@ -19,9 +19,11 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
   StoryMemoriesNotifier(this._storyId);
 
   final String _storyId;
+  int _refreshRevision = 0;
 
   @override
   Future<StoryMemoriesState> build() async {
+    _invalidateRefresh();
     return _load(_storyId, ref.watch(memoryRepositoryProvider));
   }
 
@@ -31,9 +33,15 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
     }
 
     state = const AsyncLoading<StoryMemoriesState>();
-    state = await AsyncValue.guard<StoryMemoriesState>(() async {
+    final retryRevision = ++_refreshRevision;
+    final result = await AsyncValue.guard<StoryMemoriesState>(() async {
       return _load(_storyId, ref.read(memoryRepositoryProvider));
     });
+    if (!_isCurrentRefresh(retryRevision)) {
+      return;
+    }
+
+    state = result;
   }
 
   Future<void> refreshMemories() async {
@@ -50,15 +58,24 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
       clearRefreshFailure: true,
     );
     state = AsyncData<StoryMemoriesState>(refreshingState);
+    final refreshRevision = ++_refreshRevision;
 
     try {
       final memories = await ref
           .read(memoryRepositoryProvider)
           .getMemories(_storyId);
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<StoryMemoriesState>(
         StoryMemoriesState(memoryReadModels: memories),
       );
     } on MemoryApplicationException catch (error) {
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<StoryMemoriesState>(
         refreshingState.copyWith(
           isRefreshing: false,
@@ -66,6 +83,10 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
         ),
       );
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentRefresh(refreshRevision)) {
+        return;
+      }
+
       state = AsyncData<StoryMemoriesState>(
         refreshingState.copyWith(isRefreshing: false),
       );
@@ -110,8 +131,12 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
     memories.add(readModel);
     memories.sort(compareMemoryReadModelsCanonical);
 
+    _invalidateRefresh();
     state = AsyncData<StoryMemoriesState>(
-      currentState.copyWith(memoryReadModels: memories),
+      currentState.copyWith(
+        memoryReadModels: memories,
+        isRefreshing: false,
+      ),
     );
   }
 
@@ -128,8 +153,12 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
       return;
     }
 
+    _invalidateRefresh();
     state = AsyncData<StoryMemoriesState>(
-      currentState.copyWith(memoryReadModels: memories),
+      currentState.copyWith(
+        memoryReadModels: memories,
+        isRefreshing: false,
+      ),
     );
   }
 
@@ -165,6 +194,14 @@ final class StoryMemoriesNotifier extends AsyncNotifier<StoryMemoriesState> {
   }
 
   bool get _isLoading => state is AsyncLoading<StoryMemoriesState>;
+
+  void _invalidateRefresh() {
+    _refreshRevision += 1;
+  }
+
+  bool _isCurrentRefresh(int refreshRevision) {
+    return ref.mounted && _refreshRevision == refreshRevision;
+  }
 
   StoryMemoriesState? get _currentState {
     final currentState = state;

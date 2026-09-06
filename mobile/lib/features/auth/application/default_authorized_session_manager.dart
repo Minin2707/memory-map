@@ -59,7 +59,8 @@ final class DefaultAuthorizedSessionManager
   @override
   Future<void> invalidateCurrentSession(AuthSession currentSession) async {
     final storedSession = _authSessionStore.session;
-    if (storedSession != null && storedSession != currentSession) {
+    if (storedSession != null &&
+        storedSession.user.id != currentSession.user.id) {
       return;
     }
 

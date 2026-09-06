@@ -23,4 +23,8 @@ abstract interface class StoryRepository {
   Future<UserStory> removeStoryCover({
     required String storyId,
   });
+
+  Future<void> deleteStory({
+    required String storyId,
+  });
 }

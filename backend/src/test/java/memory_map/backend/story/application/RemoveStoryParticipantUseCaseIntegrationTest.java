@@ -2,6 +2,19 @@ package memory_map.backend.story.application;
 
 import memory_map.backend.IntegrationTest;
 import memory_map.backend.auth.domain.AuthenticatedUser;
+import memory_map.backend.invite.application.CreateInviteCommand;
+import memory_map.backend.invite.application.CreateInviteUseCase;
+import memory_map.backend.invite.application.InviteCreationUnavailableException;
+import memory_map.backend.invite.repository.InviteRepository;
+import memory_map.backend.memory.application.CreateMemoryCommand;
+import memory_map.backend.memory.application.CreateMemoryUseCase;
+import memory_map.backend.memory.application.MemoryCreationUnavailableException;
+import memory_map.backend.memory.application.MemoryUpdateUnavailableException;
+import memory_map.backend.memory.application.PatchField;
+import memory_map.backend.memory.application.UpdateMemoryCommand;
+import memory_map.backend.memory.application.UpdateMemoryUseCase;
+import memory_map.backend.memory.domain.Memory;
+import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.repository.JdbcStoryRepository;
 import memory_map.backend.story.repository.StoryRepository;
@@ -23,6 +36,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,6 +60,18 @@ class RemoveStoryParticipantUseCaseIntegrationTest extends IntegrationTest {
     private RemoveStoryParticipantUseCase removeStoryParticipantUseCase;
 
     @Autowired
+    private CreateMemoryUseCase createMemoryUseCase;
+
+    @Autowired
+    private UpdateMemoryUseCase updateMemoryUseCase;
+
+    @Autowired
+    private UpdateStoryUseCase updateStoryUseCase;
+
+    @Autowired
+    private CreateInviteUseCase createInviteUseCase;
+
+    @Autowired
     private StoryRepository storyRepository;
 
     @Autowired
@@ -53,6 +79,12 @@ class RemoveStoryParticipantUseCaseIntegrationTest extends IntegrationTest {
 
     @Autowired
     private StoryParticipantRepository storyParticipantRepository;
+
+    @Autowired
+    private MemoryRepository memoryRepository;
+
+    @Autowired
+    private InviteRepository inviteRepository;
 
     @Autowired
     private FailingStoryParticipantRepository
@@ -76,12 +108,23 @@ class RemoveStoryParticipantUseCaseIntegrationTest extends IntegrationTest {
             UUID.fromString("00000000-0000-0000-0000-000000000011");
     private static final UUID OTHER_STORY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000012");
+    private static final UUID MEMORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000021");
+    private static final UUID SECOND_MEMORY_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000022");
+    private static final UUID INVITE_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000031");
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
+    private static final Instant UPDATED_AT =
+            Instant.parse("2026-01-04T10:00:00.123456Z");
+    private static final Instant CURRENT_TIME =
+            Instant.parse("2026-01-10T10:00:00.123456Z");
     private static final Instant TARGET_JOINED_AT =
             Instant.parse("2026-01-02T10:00:00.123456Z");
     private static final Instant OTHER_JOINED_AT =
             Instant.parse("2026-01-03T10:00:00.123456Z");
+    private static final LocalDate EVENT_DATE = LocalDate.of(2024, 5, 20);
     private static final String CLEAN_DATABASE_SQL = """
         TRUNCATE TABLE users
         RESTART IDENTITY CASCADE
@@ -591,6 +634,303 @@ class RemoveStoryParticipantUseCaseIntegrationTest extends IntegrationTest {
         }
     }
 
+    @Test
+    void shouldDenyMemoryUpdateWhenParticipantRemovalWinsStoryLock()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User target = saveUser(TARGET_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER, BASE_TIME);
+        saveParticipant(
+                story.id(),
+                target.id(),
+                StoryRole.EDITOR,
+                TARGET_JOINED_AT
+        );
+        Memory memory = saveMemory(story.id(), target.id());
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        blockingStoryRepository.blockFirstLock();
+
+        try {
+            Future<Void> removal = executor.submit(() -> {
+                removeStoryParticipantUseCase.removeParticipant(command(
+                        owner.id(),
+                        story.id(),
+                        target.id()
+                ));
+
+                return null;
+            });
+
+            blockingStoryRepository.awaitFirstLockAcquired();
+
+            Future<Memory> update = executor.submit(() ->
+                    updateMemoryUseCase.updateMemory(updateMemoryTitleCommand(
+                            target.id(),
+                            memory.id(),
+                            "Stale update"
+                    )));
+
+            blockingStoryRepository.awaitSecondLockAttemptStarted();
+            assertThatThrownBy(() -> update.get(250, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            blockingStoryRepository.releaseFirstTransaction();
+
+            assertThat(removal.get(10, TimeUnit.SECONDS)).isNull();
+            assertThatThrownBy(() -> update.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .satisfies(exception -> assertThat(
+                            exception.getCause()
+                    ).isInstanceOf(MemoryUpdateUnavailableException.class));
+
+            assertThat(storyParticipantRepository.find(story.id(), target.id()))
+                    .isEmpty();
+            assertThat(memoryRepository.findById(memory.id())).contains(memory);
+        } finally {
+            blockingStoryRepository.releaseFirstTransaction();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldAllowMemoryUpdateWhenItWinsStoryLockBeforeRemoval()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User target = saveUser(TARGET_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER, BASE_TIME);
+        saveParticipant(
+                story.id(),
+                target.id(),
+                StoryRole.EDITOR,
+                TARGET_JOINED_AT
+        );
+        Memory memory = saveMemory(story.id(), target.id());
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        blockingStoryRepository.blockFirstLock();
+
+        try {
+            Future<Memory> update = executor.submit(() ->
+                    updateMemoryUseCase.updateMemory(updateMemoryTitleCommand(
+                            target.id(),
+                            memory.id(),
+                            "Fresh update"
+                    )));
+
+            blockingStoryRepository.awaitFirstLockAcquired();
+
+            Future<Void> removal = executor.submit(() -> {
+                removeStoryParticipantUseCase.removeParticipant(command(
+                        owner.id(),
+                        story.id(),
+                        target.id()
+                ));
+
+                return null;
+            });
+
+            blockingStoryRepository.awaitSecondLockAttemptStarted();
+            assertThatThrownBy(() -> removal.get(250, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            blockingStoryRepository.releaseFirstTransaction();
+
+            Memory updated = update.get(10, TimeUnit.SECONDS);
+            assertThat(removal.get(10, TimeUnit.SECONDS)).isNull();
+
+            assertThat(updated.title()).isEqualTo("Fresh update");
+            assertThat(memoryRepository.findById(
+                    memory.id()
+            ).orElseThrow().title())
+                    .isEqualTo("Fresh update");
+            assertThat(storyParticipantRepository.find(story.id(), target.id()))
+                    .isEmpty();
+        } finally {
+            blockingStoryRepository.releaseFirstTransaction();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldDenyMemoryCreationWhenParticipantRemovalWinsStoryLock()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User target = saveUser(TARGET_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER, BASE_TIME);
+        saveParticipant(
+                story.id(),
+                target.id(),
+                StoryRole.EDITOR,
+                TARGET_JOINED_AT
+        );
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        blockingStoryRepository.blockFirstLock();
+
+        try {
+            Future<Void> removal = executor.submit(() -> {
+                removeStoryParticipantUseCase.removeParticipant(command(
+                        owner.id(),
+                        story.id(),
+                        target.id()
+                ));
+
+                return null;
+            });
+
+            blockingStoryRepository.awaitFirstLockAcquired();
+
+            Future<Memory> create = executor.submit(() ->
+                    createMemoryUseCase.createMemory(createMemoryCommand(
+                            target.id(),
+                            story.id(),
+                            SECOND_MEMORY_ID
+                    )));
+
+            blockingStoryRepository.awaitSecondLockAttemptStarted();
+            assertThatThrownBy(() -> create.get(250, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            blockingStoryRepository.releaseFirstTransaction();
+
+            assertThat(removal.get(10, TimeUnit.SECONDS)).isNull();
+            assertThatThrownBy(() -> create.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .satisfies(exception -> assertThat(
+                            exception.getCause()
+                    ).isInstanceOf(MemoryCreationUnavailableException.class));
+
+            assertThat(storyParticipantRepository.find(story.id(), target.id()))
+                    .isEmpty();
+            assertThat(memoryRepository.findById(SECOND_MEMORY_ID)).isEmpty();
+        } finally {
+            blockingStoryRepository.releaseFirstTransaction();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldDenyStoryUpdateWhenParticipantRemovalWinsStoryLock()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User target = saveUser(TARGET_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER, BASE_TIME);
+        saveParticipant(
+                story.id(),
+                target.id(),
+                StoryRole.CO_OWNER,
+                TARGET_JOINED_AT
+        );
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        blockingStoryRepository.blockFirstLock();
+
+        try {
+            Future<Void> removal = executor.submit(() -> {
+                removeStoryParticipantUseCase.removeParticipant(command(
+                        owner.id(),
+                        story.id(),
+                        target.id()
+                ));
+
+                return null;
+            });
+
+            blockingStoryRepository.awaitFirstLockAcquired();
+
+            Future<UserStory> update = executor.submit(() ->
+                    updateStoryUseCase.updateStory(updateStoryTitleCommand(
+                            target.id(),
+                            story.id(),
+                            "Stale Story"
+                    )));
+
+            blockingStoryRepository.awaitSecondLockAttemptStarted();
+            assertThatThrownBy(() -> update.get(250, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            blockingStoryRepository.releaseFirstTransaction();
+
+            assertThat(removal.get(10, TimeUnit.SECONDS)).isNull();
+            assertThatThrownBy(() -> update.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .satisfies(exception -> assertThat(
+                            exception.getCause()
+                    ).isInstanceOf(StoryNotFoundException.class));
+
+            assertThat(storyParticipantRepository.find(story.id(), target.id()))
+                    .isEmpty();
+            assertThat(storyRepository.findById(story.id())).contains(story);
+        } finally {
+            blockingStoryRepository.releaseFirstTransaction();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldDenyInviteCreationWhenParticipantRemovalWinsStoryLock()
+            throws Exception {
+
+        User owner = saveUser(OWNER_ID);
+        User target = saveUser(TARGET_ID);
+        Story story = saveStory(STORY_ID, owner.id());
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER, BASE_TIME);
+        saveParticipant(
+                story.id(),
+                target.id(),
+                StoryRole.CO_OWNER,
+                TARGET_JOINED_AT
+        );
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        blockingStoryRepository.blockFirstLock();
+
+        try {
+            Future<Void> removal = executor.submit(() -> {
+                removeStoryParticipantUseCase.removeParticipant(command(
+                        owner.id(),
+                        story.id(),
+                        target.id()
+                ));
+
+                return null;
+            });
+
+            blockingStoryRepository.awaitFirstLockAcquired();
+
+            Future<?> invite = executor.submit(() ->
+                    createInviteUseCase.createInvite(createInviteCommand(
+                            target.id(),
+                            story.id(),
+                            INVITE_ID
+                    )));
+
+            blockingStoryRepository.awaitSecondLockAttemptStarted();
+            assertThatThrownBy(() -> invite.get(250, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            blockingStoryRepository.releaseFirstTransaction();
+
+            assertThat(removal.get(10, TimeUnit.SECONDS)).isNull();
+            assertThatThrownBy(() -> invite.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .satisfies(exception -> assertThat(
+                            exception.getCause()
+                    ).isInstanceOf(InviteCreationUnavailableException.class));
+
+            assertThat(storyParticipantRepository.find(story.id(), target.id()))
+                    .isEmpty();
+            assertThat(inviteRepository.findById(INVITE_ID)).isEmpty();
+        } finally {
+            blockingStoryRepository.releaseFirstTransaction();
+            executor.shutdownNow();
+        }
+    }
+
     private User saveUser(UUID userId) {
         return userRepository.save(new User(
                 userId,
@@ -631,6 +971,25 @@ class RemoveStoryParticipantUseCaseIntegrationTest extends IntegrationTest {
         return participant;
     }
 
+    private Memory saveMemory(UUID storyId, UUID createdBy) {
+        Memory memory = new Memory(
+                MEMORY_ID,
+                storyId,
+                createdBy,
+                "First trip",
+                "A spring walk",
+                "Tbilisi",
+                41.715137,
+                44.827096,
+                EVENT_DATE,
+                BASE_TIME,
+                UPDATED_AT
+        );
+        memoryRepository.save(memory);
+
+        return memory;
+    }
+
     private static RemoveStoryParticipantCommand command(
             UUID actorId,
             UUID storyId,
@@ -640,6 +999,71 @@ class RemoveStoryParticipantUseCaseIntegrationTest extends IntegrationTest {
                 new AuthenticatedUser(actorId),
                 storyId,
                 targetId
+        );
+    }
+
+    private static UpdateMemoryCommand updateMemoryTitleCommand(
+            UUID userId,
+            UUID memoryId,
+            String title
+    ) {
+        return new UpdateMemoryCommand(
+                new AuthenticatedUser(userId),
+                memoryId,
+                PatchField.provided(title),
+                PatchField.notProvided(),
+                PatchField.notProvided(),
+                PatchField.notProvided(),
+                PatchField.notProvided(),
+                PatchField.notProvided(),
+                CURRENT_TIME
+        );
+    }
+
+    private static CreateMemoryCommand createMemoryCommand(
+            UUID userId,
+            UUID storyId,
+            UUID memoryId
+    ) {
+        return new CreateMemoryCommand(
+                new AuthenticatedUser(userId),
+                storyId,
+                memoryId,
+                "New memory",
+                "A new chapter",
+                "Tbilisi",
+                41.715137,
+                44.827096,
+                EVENT_DATE,
+                CURRENT_TIME
+        );
+    }
+
+    private static UpdateStoryCommand updateStoryTitleCommand(
+            UUID userId,
+            UUID storyId,
+            String title
+    ) {
+        return new UpdateStoryCommand(
+                new AuthenticatedUser(userId),
+                storyId,
+                UpdateStoryField.provided(title),
+                UpdateStoryField.notProvided(),
+                CURRENT_TIME
+        );
+    }
+
+    private static CreateInviteCommand createInviteCommand(
+            UUID userId,
+            UUID storyId,
+            UUID inviteId
+    ) {
+        return new CreateInviteCommand(
+                new AuthenticatedUser(userId),
+                storyId,
+                inviteId,
+                StoryRole.VIEWER,
+                CURRENT_TIME
         );
     }
 

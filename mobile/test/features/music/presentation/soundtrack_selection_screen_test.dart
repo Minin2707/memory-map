@@ -447,6 +447,11 @@ final class FakeStoryRepository implements StoryRepository {
   }
 
   @override
+  Future<void> deleteStory({required String storyId}) async {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<UserStory> uploadStoryCover({
     required String storyId,
     required PreparedPhotoUpload photo,

@@ -11,8 +11,11 @@ final musicCatalogProvider =
 );
 
 final class MusicCatalogNotifier extends AsyncNotifier<MusicCatalogState> {
+  int _providerGeneration = 0;
+
   @override
   Future<MusicCatalogState> build() async {
+    _providerGeneration += 1;
     return _load(ref.watch(musicRepositoryProvider));
   }
 
@@ -21,10 +24,16 @@ final class MusicCatalogNotifier extends AsyncNotifier<MusicCatalogState> {
       return;
     }
 
+    final providerGeneration = _providerGeneration;
     state = const AsyncLoading<MusicCatalogState>();
-    state = await AsyncValue.guard<MusicCatalogState>(() async {
+    final result = await AsyncValue.guard<MusicCatalogState>(() async {
       return _load(ref.read(musicRepositoryProvider));
     });
+    if (!_isCurrentProviderGeneration(providerGeneration)) {
+      return;
+    }
+
+    state = result;
   }
 
   Future<void> refreshCatalog() async {
@@ -36,6 +45,7 @@ final class MusicCatalogNotifier extends AsyncNotifier<MusicCatalogState> {
       return;
     }
 
+    final providerGeneration = _providerGeneration;
     final refreshingState = currentState.copyWith(
       isRefreshing: true,
       clearRefreshFailure: true,
@@ -45,10 +55,18 @@ final class MusicCatalogNotifier extends AsyncNotifier<MusicCatalogState> {
     try {
       final tracks = await ref.read(musicRepositoryProvider)
           .getAvailableTracks();
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return;
+      }
+
       state = AsyncData<MusicCatalogState>(
         MusicCatalogState(tracks: tracks),
       );
     } on MusicApplicationException catch (error) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return;
+      }
+
       state = AsyncData<MusicCatalogState>(
         refreshingState.copyWith(
           isRefreshing: false,
@@ -56,6 +74,10 @@ final class MusicCatalogNotifier extends AsyncNotifier<MusicCatalogState> {
         ),
       );
     } on Object catch (error, stackTrace) {
+      if (!_isCurrentProviderGeneration(providerGeneration)) {
+        return;
+      }
+
       state = AsyncData<MusicCatalogState>(
         refreshingState.copyWith(isRefreshing: false),
       );
@@ -74,6 +96,10 @@ final class MusicCatalogNotifier extends AsyncNotifier<MusicCatalogState> {
   }
 
   bool get _isLoading => state is AsyncLoading<MusicCatalogState>;
+
+  bool _isCurrentProviderGeneration(int generation) {
+    return ref.mounted && generation == _providerGeneration;
+  }
 
   MusicCatalogState? get _currentState {
     final currentState = state;

@@ -41,13 +41,14 @@ final class PrivateMediaDiskCache implements AuthenticatedMediaCache {
       return active;
     }
 
-    final future = _getOrFetchUnshared(backendPath, fetch);
-    _inFlight[backendPath] = future;
-    return future.whenComplete(() {
-      if (identical(_inFlight[backendPath], future)) {
+    late final Future<Uint8List> trackedFuture;
+    trackedFuture = _getOrFetchUnshared(backendPath, fetch).whenComplete(() {
+      if (identical(_inFlight[backendPath], trackedFuture)) {
         _inFlight.remove(backendPath);
       }
     });
+    _inFlight[backendPath] = trackedFuture;
+    return trackedFuture;
   }
 
   @override
@@ -78,24 +79,36 @@ final class PrivateMediaDiskCache implements AuthenticatedMediaCache {
       cacheFile = File(
         '${directory.path}${Platform.pathSeparator}$fileName',
       );
+      _throwIfInvalidated(requestGeneration);
       final cachedBytes = await _readCachedBytes(cacheFile);
+      _throwIfInvalidated(requestGeneration);
       if (cachedBytes != null) {
         return cachedBytes;
       }
+    } on _PrivateMediaCacheInvalidatedException {
+      rethrow;
     } on Object {
       cacheFile = null;
     }
 
     final bytes = await fetch();
+    _throwIfInvalidated(requestGeneration);
     if (!_isSupportedCompressedImage(bytes)) {
       return bytes;
     }
 
     if (cacheFile != null && requestGeneration == _clearGeneration) {
       await _writeAndEvict(cacheFile, bytes);
+      _throwIfInvalidated(requestGeneration);
     }
 
     return bytes;
+  }
+
+  void _throwIfInvalidated(int requestGeneration) {
+    if (requestGeneration != _clearGeneration) {
+      throw const _PrivateMediaCacheInvalidatedException();
+    }
   }
 
   Future<Uint8List?> _readCachedBytes(File file) async {
@@ -203,7 +216,9 @@ final class PrivateMediaCachePathPolicy {
       return false;
     }
 
-    return _isMemoryMediaPath(backendPath) || _isStoryCoverPath(backendPath);
+    return _isMemoryMediaPath(backendPath) ||
+        _isStoryCoverPath(backendPath) ||
+        _isStoryParticipantAvatarPath(backendPath);
   }
 
   bool _isMemoryMediaPath(String backendPath) {
@@ -224,6 +239,20 @@ final class PrivateMediaCachePathPolicy {
     }
 
     return RegExp(r'^[0-9]+$').hasMatch(segments[6]);
+  }
+
+  bool _isStoryParticipantAvatarPath(String backendPath) {
+    final segments = Uri(path: backendPath).pathSegments;
+    if (segments.length != 8 ||
+        segments[0] != 'api' ||
+        segments[1] != 'v1' ||
+        segments[2] != 'stories' ||
+        segments[4] != 'participants' ||
+        segments[6] != 'avatar') {
+      return false;
+    }
+
+    return RegExp(r'^[0-9]+$').hasMatch(segments[7]);
   }
 }
 
@@ -275,4 +304,11 @@ final class _CacheEntry {
   final File file;
   final int size;
   final DateTime lastAccessed;
+}
+
+final class _PrivateMediaCacheInvalidatedException implements Exception {
+  const _PrivateMediaCacheInvalidatedException();
+
+  @override
+  String toString() => 'Private media cache request invalidated';
 }

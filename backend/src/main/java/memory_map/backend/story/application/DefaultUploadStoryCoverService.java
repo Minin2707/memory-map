@@ -1,6 +1,7 @@
 package memory_map.backend.story.application;
 
-import memory_map.backend.media.application.TransactionCommitCoordinator;
+import memory_map.backend.media.application.StorageCleanupRecoveryScheduler;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.application.TransactionRollbackCoordinator;
 import memory_map.backend.media.image.ImageProcessor;
 import memory_map.backend.media.image.ProcessedPhoto;
@@ -14,14 +15,21 @@ import memory_map.backend.story.repository.UserStoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.domain.StoryRole;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 public class DefaultUploadStoryCoverService
         implements UploadStoryCoverUseCase {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(
+            DefaultUploadStoryCoverService.class
+    );
 
     private final StoryRepository storyRepository;
     private final StoryParticipantRepository storyParticipantRepository;
@@ -30,7 +38,8 @@ public class DefaultUploadStoryCoverService
     private final StoryCoverStorageKeyFactory storageKeyFactory;
     private final StorageService storageService;
     private final TransactionRollbackCoordinator rollbackCoordinator;
-    private final TransactionCommitCoordinator commitCoordinator;
+    private final StorageCleanupScheduler cleanupScheduler;
+    private final StorageCleanupRecoveryScheduler recoveryScheduler;
 
     public DefaultUploadStoryCoverService(
             StoryRepository storyRepository,
@@ -40,7 +49,8 @@ public class DefaultUploadStoryCoverService
             StoryCoverStorageKeyFactory storageKeyFactory,
             StorageService storageService,
             TransactionRollbackCoordinator rollbackCoordinator,
-            TransactionCommitCoordinator commitCoordinator
+            StorageCleanupScheduler cleanupScheduler,
+            StorageCleanupRecoveryScheduler recoveryScheduler
     ) {
         this.storyRepository = Objects.requireNonNull(
                 storyRepository,
@@ -70,9 +80,13 @@ public class DefaultUploadStoryCoverService
                 rollbackCoordinator,
                 "rollbackCoordinator must not be null"
         );
-        this.commitCoordinator = Objects.requireNonNull(
-                commitCoordinator,
-                "commitCoordinator must not be null"
+        this.cleanupScheduler = Objects.requireNonNull(
+                cleanupScheduler,
+                "cleanupScheduler must not be null"
+        );
+        this.recoveryScheduler = Objects.requireNonNull(
+                recoveryScheduler,
+                "recoveryScheduler must not be null"
         );
     }
 
@@ -145,7 +159,7 @@ public class DefaultUploadStoryCoverService
                     storyId,
                     requesterUserId
             ).orElseThrow(StoryNotFoundException::new);
-            scheduleAfterCommitCleanup(oldCover);
+            scheduleCleanup(oldCover);
 
             return userStory;
         } catch (RuntimeException exception) {
@@ -197,6 +211,7 @@ public class DefaultUploadStoryCoverService
             storageService.delete(key);
         } catch (RuntimeException cleanupFailure) {
             primary.addSuppressed(cleanupFailure);
+            scheduleRecoveryWithSuppression(primary, key);
         }
     }
 
@@ -205,22 +220,40 @@ public class DefaultUploadStoryCoverService
         cleanupQuietly(keys.display());
     }
 
-    private void scheduleAfterCommitCleanup(StoryCoverMetadata oldCover) {
+    private void scheduleCleanup(StoryCoverMetadata oldCover) {
         if (oldCover == null) {
             return;
         }
 
-        commitCoordinator.onCommit(() -> {
-            cleanupQuietly(new StorageKey(oldCover.thumbnailStorageKey()));
-            cleanupQuietly(new StorageKey(oldCover.displayStorageKey()));
-        });
+        cleanupScheduler.schedule(List.of(
+                new StorageKey(oldCover.thumbnailStorageKey()),
+                new StorageKey(oldCover.displayStorageKey())
+        ));
     }
 
     private void cleanupQuietly(StorageKey key) {
         try {
             storageService.delete(key);
-        } catch (RuntimeException ignored) {
-            // Storage cleanup is best-effort after DB outcome is known.
+        } catch (RuntimeException cleanupFailure) {
+            try {
+                recoveryScheduler.schedule(List.of(key));
+            } catch (RuntimeException recoveryFailure) {
+                LOGGER.warn(
+                        "object cleanup recovery scheduling failed: {}",
+                        recoveryFailure.getClass().getName()
+                );
+            }
+        }
+    }
+
+    private void scheduleRecoveryWithSuppression(
+            RuntimeException primary,
+            StorageKey key
+    ) {
+        try {
+            recoveryScheduler.schedule(List.of(key));
+        } catch (RuntimeException recoveryFailure) {
+            primary.addSuppressed(recoveryFailure);
         }
     }
 }

@@ -13,15 +13,24 @@ import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
 import memory_map.backend.notification.application.NotificationPublisher;
+import memory_map.backend.story.repository.StoryRepository;
 import memory_map.backend.storyparticipant.domain.StoryParticipant;
 import memory_map.backend.storyparticipant.repository.StoryParticipantRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(
+            CoordinatedUploadPhotoService.class
+    );
+
+    private final StoryRepository storyRepository;
     private final MemoryRepository memoryRepository;
     private final StoryParticipantRepository storyParticipantRepository;
     private final MediaFileRepository mediaFileRepository;
@@ -30,9 +39,11 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
     private final MediaStorageKeyFactory storageKeyFactory;
     private final StorageService storageService;
     private final TransactionRollbackCoordinator rollbackCoordinator;
+    private final StorageCleanupRecoveryScheduler recoveryScheduler;
     private final NotificationPublisher notificationPublisher;
 
     public CoordinatedUploadPhotoService(
+            StoryRepository storyRepository,
             MemoryRepository memoryRepository,
             StoryParticipantRepository storyParticipantRepository,
             MediaFileRepository mediaFileRepository,
@@ -41,8 +52,13 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
             MediaStorageKeyFactory storageKeyFactory,
             StorageService storageService,
             TransactionRollbackCoordinator rollbackCoordinator,
+            StorageCleanupRecoveryScheduler recoveryScheduler,
             NotificationPublisher notificationPublisher
     ) {
+        this.storyRepository = Objects.requireNonNull(
+                storyRepository,
+                "storyRepository must not be null"
+        );
         this.memoryRepository = Objects.requireNonNull(
                 memoryRepository,
                 "memoryRepository must not be null"
@@ -75,6 +91,10 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
                 rollbackCoordinator,
                 "rollbackCoordinator must not be null"
         );
+        this.recoveryScheduler = Objects.requireNonNull(
+                recoveryScheduler,
+                "recoveryScheduler must not be null"
+        );
         this.notificationPublisher = Objects.requireNonNull(
                 notificationPublisher,
                 "notificationPublisher must not be null"
@@ -86,9 +106,21 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
     public MediaFile uploadPhoto(UploadPhotoCommand command) {
         Objects.requireNonNull(command, "command must not be null");
 
+        Memory parentIdentity = memoryRepository.findById(
+                command.memoryId()
+        ).orElseThrow(PhotoUploadUnavailableException::new);
+
+        if (!storyRepository.lockById(parentIdentity.storyId())) {
+            throw new PhotoUploadUnavailableException();
+        }
+
         Memory memory = memoryRepository.findByIdForUpdate(
                 command.memoryId()
         ).orElseThrow(PhotoUploadUnavailableException::new);
+
+        if (!memory.storyId().equals(parentIdentity.storyId())) {
+            throw new PhotoUploadUnavailableException();
+        }
 
         UUID requesterUserId = command.authenticatedUser().userId();
         StoryParticipant participant = storyParticipantRepository.find(
@@ -161,6 +193,7 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
             storageService.delete(displayKey);
         } catch (RuntimeException cleanupFailure) {
             primary.addSuppressed(cleanupFailure);
+            scheduleRecoveryWithSuppression(primary, displayKey);
         }
     }
 
@@ -180,6 +213,7 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
             storageService.delete(key);
         } catch (RuntimeException cleanupFailure) {
             primary.addSuppressed(cleanupFailure);
+            scheduleRecoveryWithSuppression(primary, key);
         }
     }
 
@@ -191,8 +225,26 @@ public class CoordinatedUploadPhotoService implements UploadPhotoUseCase {
     private void cleanupQuietly(StorageKey key) {
         try {
             storageService.delete(key);
-        } catch (RuntimeException ignored) {
-            // Transaction rollback cleanup is best-effort after DB outcome is known.
+        } catch (RuntimeException cleanupFailure) {
+            try {
+                recoveryScheduler.schedule(List.of(key));
+            } catch (RuntimeException recoveryFailure) {
+                LOGGER.warn(
+                        "object cleanup recovery scheduling failed: {}",
+                        recoveryFailure.getClass().getName()
+                );
+            }
+        }
+    }
+
+    private void scheduleRecoveryWithSuppression(
+            RuntimeException primary,
+            StorageKey key
+    ) {
+        try {
+            recoveryScheduler.schedule(List.of(key));
+        } catch (RuntimeException recoveryFailure) {
+            primary.addSuppressed(recoveryFailure);
         }
     }
 }

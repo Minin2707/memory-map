@@ -10,7 +10,9 @@ import memory_map.backend.invite.domain.Invite;
 import memory_map.backend.invite.repository.InviteRepository;
 import memory_map.backend.media.domain.MediaFile;
 import memory_map.backend.media.domain.MediaType;
+import memory_map.backend.media.application.StorageCleanupScheduler;
 import memory_map.backend.media.repository.MediaFileRepository;
+import memory_map.backend.media.repository.StorageCleanupTaskRepository;
 import memory_map.backend.media.storage.StorageByteRange;
 import memory_map.backend.media.storage.StorageKey;
 import memory_map.backend.media.storage.StorageObjectWrite;
@@ -18,6 +20,9 @@ import memory_map.backend.media.storage.StorageService;
 import memory_map.backend.media.storage.StoredObject;
 import memory_map.backend.memory.domain.Memory;
 import memory_map.backend.memory.repository.MemoryRepository;
+import memory_map.backend.notification.domain.Notification;
+import memory_map.backend.notification.domain.NotificationType;
+import memory_map.backend.notification.repository.NotificationRepository;
 import memory_map.backend.story.domain.Story;
 import memory_map.backend.story.domain.StoryCoverMetadata;
 import memory_map.backend.story.repository.StoryRepository;
@@ -39,6 +44,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -74,6 +80,9 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
     private UserStoryRepository userStoryRepository;
 
     @Autowired
@@ -81,6 +90,9 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
 
     @Autowired
     private TestStorageService storageService;
+
+    @Autowired
+    private TestStorageCleanupScheduler cleanupScheduler;
 
     @Autowired
     private JdbcClient jdbcClient;
@@ -111,6 +123,10 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
             UUID.fromString("00000000-0000-0000-0000-000000000051");
     private static final UUID MUSIC_TRACK_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000061");
+    private static final UUID RECEIVED_NOTIFICATION_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000071");
+    private static final UUID ACTOR_NOTIFICATION_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000072");
     private static final Instant BASE_TIME =
             Instant.parse("2026-01-01T10:00:00.123456Z");
     private static final Instant CURRENT_TIME =
@@ -118,13 +134,14 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
     private static final LocalDate EVENT_DATE =
             LocalDate.of(2024, 5, 20);
     private static final String CLEAN_DATABASE_SQL = """
-        TRUNCATE TABLE users, music_tracks
+        TRUNCATE TABLE users, music_tracks, storage_cleanup_tasks
         RESTART IDENTITY CASCADE
         """;
 
     @BeforeEach
     void cleanDatabase() {
         storageService.reset();
+        cleanupScheduler.reset();
         jdbcClient.sql(CLEAN_DATABASE_SQL).update();
     }
 
@@ -155,7 +172,8 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
         assertThat(tombstone.deletedAt()).isEqualTo(CURRENT_TIME);
         assertThat(userRepository.existsActiveById(user.id())).isFalse();
         assertThat(loadedToken.revokedAt()).isEqualTo(CURRENT_TIME);
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactly(
                 new StorageKey(
                         "users/%s/avatar/avatar-object".formatted(user.id())
                 )
@@ -163,11 +181,21 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void shouldDeleteSoleParticipantOwnedStoryGraphAndCleanupMediaAfterCommit() {
+    void shouldDeleteSoleParticipantOwnedStoryGraphAndScheduleStorageCleanup() {
 
         User user = saveUser(USER_ID, "google-subject-123");
+        userRepository.updateCustomAvatar(
+                user.id(),
+                "users/%s/avatar/avatar-object".formatted(user.id()),
+                BASE_TIME
+        );
         UUID soundtrackId = saveMusicTrack();
-        Story story = saveStory(STORY_ID, user.id(), soundtrackId);
+        Story story = saveStory(
+                STORY_ID,
+                user.id(),
+                soundtrackId,
+                coverMetadata(STORY_ID, "deleted-cover")
+        );
         saveParticipant(story.id(), user.id(), StoryRole.OWNER);
         Memory memory = saveMemory(MEMORY_ID, story.id(), user.id());
         MediaFile mediaFile = saveMediaFile(MEDIA_ID, memory.id());
@@ -180,9 +208,15 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
         assertThat(mediaFileRepository.findById(mediaFile.id())).isEmpty();
         assertThat(inviteRepository.findById(INVITE_ID)).isEmpty();
         assertThat(musicTrackCount(soundtrackId)).isEqualTo(1);
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 new StorageKey(mediaFile.thumbnailStorageKey()),
-                new StorageKey(mediaFile.displayStorageKey())
+                new StorageKey(mediaFile.displayStorageKey()),
+                new StorageKey(story.cover().thumbnailStorageKey()),
+                new StorageKey(story.cover().displayStorageKey()),
+                new StorageKey(
+                        "users/%s/avatar/avatar-object".formatted(user.id())
+                )
         );
     }
 
@@ -225,7 +259,7 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void shouldCleanupOnlyCoversForPhysicallyDeletedStoriesAfterCommit() {
+    void shouldScheduleOnlyCoversForPhysicallyDeletedStories() {
 
         User owner = saveUser(OWNER_ID, "owner-google-subject");
         User coOwner = saveUser(CO_OWNER_ID, "co-owner-google-subject");
@@ -265,7 +299,8 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
 
         assertThat(transferred.ownerId()).isEqualTo(coOwner.id());
         assertThat(transferred.cover()).isEqualTo(survivingWithCover.cover());
-        assertThat(storageService.deletedKeys).containsExactly(
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).containsExactlyInAnyOrder(
                 new StorageKey(deletedWithCover.cover().thumbnailStorageKey()),
                 new StorageKey(deletedWithCover.cover().displayStorageKey())
         );
@@ -318,7 +353,91 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
         assertThat(transferred.soundtrackId()).isEqualTo(soundtrackId);
         assertThat(transferred.cover()).isEqualTo(story.cover());
         assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).isEmpty();
         assertThat(userStoryRepository.findByUserId(owner.id())).isEmpty();
+    }
+
+    @Test
+    void shouldRollbackAccountDeletionWhenCleanupSchedulingFails() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User coOwner = saveUser(CO_OWNER_ID, "co-owner-google-subject");
+        userRepository.updateCustomAvatar(
+                owner.id(),
+                "users/%s/avatar/avatar-object".formatted(owner.id()),
+                BASE_TIME
+        );
+        RefreshToken refreshToken = saveRefreshToken(owner.id());
+        Story deletedStory = saveStory(
+                STORY_ID,
+                owner.id(),
+                null,
+                coverMetadata(STORY_ID, "deleted-cover")
+        );
+        Story survivingStory = saveStory(
+                OTHER_STORY_ID,
+                owner.id(),
+                null,
+                coverMetadata(OTHER_STORY_ID, "surviving-cover")
+        );
+        saveParticipant(deletedStory.id(), owner.id(), StoryRole.OWNER);
+        saveParticipant(survivingStory.id(), owner.id(), StoryRole.OWNER);
+        saveParticipant(
+                survivingStory.id(),
+                coOwner.id(),
+                StoryRole.CO_OWNER
+        );
+        Memory memory = saveMemory(MEMORY_ID, deletedStory.id(), owner.id());
+        MediaFile mediaFile = saveMediaFile(MEDIA_ID, memory.id());
+        saveNotification(
+                RECEIVED_NOTIFICATION_ID,
+                owner.id(),
+                coOwner.id(),
+                survivingStory.id()
+        );
+
+        cleanupScheduler.failure = new RuntimeException("enqueue failed");
+
+        assertThatThrownBy(() -> deleteCurrentAccountUseCase
+                .deleteCurrentAccount(command(owner.id())))
+                .isSameAs(cleanupScheduler.failure);
+
+        assertThat(userRepository.findById(owner.id()).orElseThrow()
+                .deletedAt())
+                .isNull();
+        assertThat(refreshTokenRepository.findById(refreshToken.id())
+                .orElseThrow()
+                .revokedAt())
+                .isNull();
+        assertThat(storyRepository.findById(deletedStory.id()))
+                .contains(deletedStory);
+        assertThat(storyRepository.findById(survivingStory.id())
+                .orElseThrow()
+                .ownerId())
+                .isEqualTo(owner.id());
+        assertThat(storyParticipantRepository.find(
+                survivingStory.id(),
+                owner.id()
+        )).isPresent();
+        assertThat(storyParticipantRepository.find(
+                survivingStory.id(),
+                coOwner.id()
+        ).orElseThrow().role()).isEqualTo(StoryRole.CO_OWNER);
+        assertThat(memoryRepository.findById(memory.id())).contains(memory);
+        assertThat(mediaFileRepository.findById(mediaFile.id()))
+                .contains(mediaFile);
+        assertThat(notificationExists(RECEIVED_NOTIFICATION_ID)).isTrue();
+        assertThat(cleanupScheduler.requestedKeys).containsExactlyInAnyOrder(
+                new StorageKey(mediaFile.thumbnailStorageKey()),
+                new StorageKey(mediaFile.displayStorageKey()),
+                new StorageKey(deletedStory.cover().thumbnailStorageKey()),
+                new StorageKey(deletedStory.cover().displayStorageKey()),
+                new StorageKey(
+                        "users/%s/avatar/avatar-object".formatted(owner.id())
+                )
+        );
+        assertThat(cleanupTaskKeys()).isEmpty();
+        assertThat(storageService.deletedKeys).isEmpty();
     }
 
     @Test
@@ -365,6 +484,46 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
 
         assertThat(inviteRepository.findById(INVITE_ID)).isEmpty();
         assertThat(storyRepository.findById(story.id())).contains(story);
+    }
+
+    @Test
+    void shouldDeleteReceivedNotificationsButPreserveNotificationsWhereDeletedUserIsActor() {
+
+        User owner = saveUser(OWNER_ID, "owner-google-subject");
+        User deletingUser = saveUser(USER_ID, "google-subject-123");
+        Story story = saveStory(STORY_ID, owner.id(), null);
+        saveParticipant(story.id(), owner.id(), StoryRole.OWNER);
+        saveParticipant(story.id(), deletingUser.id(), StoryRole.EDITOR);
+        saveNotification(
+                RECEIVED_NOTIFICATION_ID,
+                deletingUser.id(),
+                owner.id(),
+                story.id()
+        );
+        saveNotification(
+                ACTOR_NOTIFICATION_ID,
+                owner.id(),
+                deletingUser.id(),
+                story.id()
+        );
+
+        deleteCurrentAccountUseCase.deleteCurrentAccount(
+                command(deletingUser.id())
+        );
+
+        assertThat(notificationExists(RECEIVED_NOTIFICATION_ID)).isFalse();
+        assertThat(notificationExists(ACTOR_NOTIFICATION_ID)).isTrue();
+        assertThat(userRepository.findById(deletingUser.id())
+                .orElseThrow()
+                .deletedAt())
+                .isEqualTo(CURRENT_TIME);
+        assertThat(storyRepository.findById(story.id())).contains(story);
+        assertThat(storyRepository.findById(story.id())
+                .orElseThrow()
+                .ownerId())
+                .isEqualTo(owner.id());
+        assertThat(storyParticipantRepository.find(story.id(), owner.id()))
+                .isPresent();
     }
 
     @Test
@@ -436,6 +595,7 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
                 .cover())
                 .isEqualTo(blocked.cover());
         assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).isEmpty();
     }
 
     private void assertOwnerDeletionBlockedForRole(StoryRole otherRole) {
@@ -459,6 +619,7 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
                 .deletedAt())
                 .isNull();
         assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).isEmpty();
     }
 
     private void assertNonOwnerDeletionPreservesStoryAndMemory(
@@ -496,6 +657,8 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
                 .isEqualTo(CURRENT_TIME);
         assertThat(userStoryRepository.findByUserId(deletingUser.id()))
                 .isEmpty();
+        assertThat(storageService.deletedKeys).isEmpty();
+        assertThat(cleanupTaskKeys()).isEmpty();
     }
 
     private User saveUser(UUID id, String googleSubject) {
@@ -644,6 +807,24 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
         return refreshToken;
     }
 
+    private void saveNotification(
+            UUID id,
+            UUID recipientUserId,
+            UUID actorUserId,
+            UUID storyId
+    ) {
+        notificationRepository.save(new Notification(
+                id,
+                recipientUserId,
+                NotificationType.PARTICIPANT_JOINED,
+                actorUserId,
+                storyId,
+                null,
+                BASE_TIME,
+                null
+        ));
+    }
+
     private UUID saveMusicTrack() {
         jdbcClient.sql("""
                 INSERT INTO music_tracks (
@@ -699,11 +880,37 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
                 .intValue();
     }
 
+    private boolean notificationExists(UUID notificationId) {
+        return jdbcClient.sql("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM notifications
+                    WHERE id = :notificationId
+                )
+                """)
+                .param("notificationId", notificationId)
+                .query(Boolean.class)
+                .single();
+    }
+
     private static DeleteCurrentAccountCommand command(UUID userId) {
         return new DeleteCurrentAccountCommand(
                 new AuthenticatedUser(userId),
                 CURRENT_TIME
         );
+    }
+
+    private List<StorageKey> cleanupTaskKeys() {
+        return jdbcClient.sql("""
+                SELECT storage_key
+                FROM storage_cleanup_tasks
+                ORDER BY created_at, id
+                """)
+                .query(String.class)
+                .list()
+                .stream()
+                .map(StorageKey::new)
+                .toList();
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -713,6 +920,42 @@ class DeleteCurrentAccountUseCaseIntegrationTest extends IntegrationTest {
         @Primary
         TestStorageService testStorageService() {
             return new TestStorageService();
+        }
+
+        @Bean
+        @Primary
+        TestStorageCleanupScheduler testStorageCleanupScheduler(
+                StorageCleanupTaskRepository repository
+        ) {
+            return new TestStorageCleanupScheduler(repository);
+        }
+    }
+
+    static final class TestStorageCleanupScheduler
+            implements StorageCleanupScheduler {
+
+        private final StorageCleanupTaskRepository repository;
+        private final List<StorageKey> requestedKeys = new ArrayList<>();
+        private RuntimeException failure;
+
+        private TestStorageCleanupScheduler(
+                StorageCleanupTaskRepository repository
+        ) {
+            this.repository = repository;
+        }
+
+        @Override
+        public void schedule(Collection<StorageKey> storageKeys) {
+            requestedKeys.addAll(storageKeys);
+            if (failure != null) {
+                throw failure;
+            }
+            repository.enqueueAll(storageKeys, CURRENT_TIME);
+        }
+
+        private void reset() {
+            requestedKeys.clear();
+            failure = null;
         }
     }
 

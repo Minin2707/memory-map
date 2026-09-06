@@ -670,9 +670,7 @@ class _DisplayNameEditorSheetState
       return l10n.profileDisplayNameTooLongFailure;
     }
 
-    if (normalized.runes.any((codePoint) {
-      return codePoint <= 0x1F || codePoint == 0x7F;
-    })) {
+    if (ProfileDisplayNameNotifier.containsIsoControlCharacter(normalized)) {
       return l10n.profileDisplayNameControlCharacterFailure;
     }
 

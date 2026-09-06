@@ -107,6 +107,29 @@ void main() {
       );
     });
 
+    test('shouldRejectIsoControlCharactersAndAllowNonControlNbsp', () {
+      expect(
+        ProfileDisplayNameNotifier.validate('Ada\u001FLovelace'),
+        isA<AccountDisplayNameValidationFailure>(),
+      );
+      expect(
+        ProfileDisplayNameNotifier.validate('Ada\u007FLovelace'),
+        isA<AccountDisplayNameValidationFailure>(),
+      );
+      expect(
+        ProfileDisplayNameNotifier.validate('Ada\u0085Lovelace'),
+        isA<AccountDisplayNameValidationFailure>(),
+      );
+      expect(
+        ProfileDisplayNameNotifier.validate('Ada\u009FLovelace'),
+        isA<AccountDisplayNameValidationFailure>(),
+      );
+      expect(
+        ProfileDisplayNameNotifier.validate('Ada\u00A0Lovelace'),
+        isNull,
+      );
+    });
+
     test('shouldBlockDuplicateSaveWhilePending', () async {
       final context = TestContext()
         ..accountRepository.updateDisplayNameCompleter =

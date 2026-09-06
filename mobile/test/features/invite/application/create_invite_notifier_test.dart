@@ -192,6 +192,64 @@ void main() {
       expect(readState(container).createdInvite, secondInviteFixture);
     });
 
+    test('shouldIgnoreCompletedCreateAfterProviderInvalidation', () async {
+      final completer = Completer<Invite>();
+      final repository = FakeInviteRepository()
+        ..createCompleter = completer;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        createInviteProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(createInviteProvider.future);
+
+      final create = container
+          .read(createInviteProvider.notifier)
+          .createInvite('story-id', StoryRole.editor);
+      await pumpEventQueue();
+      container.invalidate(createInviteProvider);
+      await pumpEventQueue();
+      await container.read(createInviteProvider.future);
+
+      completer.complete(inviteFixture);
+
+      expect(await create, isNull);
+      expect(readState(container).createdInvite, isNull);
+    });
+
+    test('shouldIgnoreFailedCreateAfterProviderInvalidation', () async {
+      final completer = Completer<Invite>();
+      final repository = FakeInviteRepository()
+        ..createCompleter = completer;
+      final container = createContainer(repository);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        createInviteProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await container.read(createInviteProvider.future);
+
+      final create = container
+          .read(createInviteProvider.notifier)
+          .createInvite('story-id', StoryRole.editor);
+      await pumpEventQueue();
+      container.invalidate(createInviteProvider);
+      await pumpEventQueue();
+      await container.read(createInviteProvider.future);
+
+      completer.completeError(
+        const InviteApplicationException(InviteServerFailure()),
+      );
+
+      expect(await create, isNull);
+      expect(readState(container), const CreateInviteState());
+    });
+
     test('shouldResetToIdle', () async {
       final repository = FakeInviteRepository();
       final container = createContainer(repository);

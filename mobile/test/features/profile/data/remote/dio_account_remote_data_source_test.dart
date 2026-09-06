@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memory_map/features/auth/data/remote/dto/default_auth_user_response_decoder.dart';
 import 'package:memory_map/features/media/domain/prepared_photo_upload.dart';
 import 'package:memory_map/features/profile/data/remote/account_remote_exception.dart';
 import 'package:memory_map/features/profile/data/remote/dio_account_remote_data_source.dart';
@@ -10,7 +11,7 @@ void main() {
   group('DioAccountRemoteDataSource deleteCurrentAccount', () {
     test('shouldSendDeleteCurrentAccountRequest', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 204);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await dataSource.deleteCurrentAccount();
 
@@ -21,7 +22,7 @@ void main() {
 
     test('shouldMapOwnershipConflict', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 409);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.deleteCurrentAccount(),
@@ -31,7 +32,7 @@ void main() {
 
     test('shouldMapUnauthorizedResponse', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 401);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.deleteCurrentAccount(),
@@ -41,7 +42,7 @@ void main() {
 
     test('shouldMapServerFailure', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 500);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.deleteCurrentAccount(),
@@ -51,7 +52,7 @@ void main() {
 
     test('shouldRejectUnexpectedSuccessStatus', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 200);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.deleteCurrentAccount(),
@@ -62,7 +63,7 @@ void main() {
     test('shouldMapNetworkFailure', () async {
       final adapter = RecordingHttpClientAdapter()
         ..failure = DioExceptionType.connectionError;
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.deleteCurrentAccount(),
@@ -84,7 +85,7 @@ void main() {
           }
         ''',
       );
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       final user = await dataSource.uploadCurrentUserAvatar(
         PreparedPhotoUpload(
@@ -112,7 +113,7 @@ void main() {
           }
         ''',
       );
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       final user = await dataSource.removeCurrentUserAvatar();
 
@@ -124,7 +125,7 @@ void main() {
 
     test('shouldMapInvalidAvatarRequest', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 400);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.uploadCurrentUserAvatar(
@@ -139,7 +140,7 @@ void main() {
 
     test('shouldMapOversizedAvatarRequest', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 413);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.uploadCurrentUserAvatar(
@@ -154,7 +155,7 @@ void main() {
 
     test('shouldMapUnsupportedAvatarMediaType', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 415);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.uploadCurrentUserAvatar(
@@ -181,7 +182,7 @@ void main() {
           }
         ''',
       );
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       final user = await dataSource.updateDisplayName(
         "Анна-Мария O'Connor",
@@ -196,9 +197,28 @@ void main() {
       expect(user.avatarUrl, 'https://example.com/avatar.png');
     });
 
+    test('shouldMapMissingCustomAvatarPresenceAsUnknownResponse', () async {
+      final adapter = RecordingHttpClientAdapter(
+        statusCode: 200,
+        body: '''
+          {
+            "id": "user-id",
+            "displayName": "Ada Lovelace",
+            "avatarUrl": "https://example.com/avatar.png"
+          }
+        ''',
+      );
+      final dataSource = createDataSource(adapter);
+
+      await expectLater(
+        dataSource.updateDisplayName('Ada Lovelace'),
+        throwsA(isA<AccountRemoteUnknownException>()),
+      );
+    });
+
     test('shouldMapInvalidDisplayNameRequest', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 400);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.updateDisplayName(''),
@@ -208,7 +228,7 @@ void main() {
 
     test('shouldMapUnauthorizedDisplayNameRequest', () async {
       final adapter = RecordingHttpClientAdapter(statusCode: 401);
-      final dataSource = DioAccountRemoteDataSource(createDio(adapter));
+      final dataSource = createDataSource(adapter);
 
       await expectLater(
         dataSource.updateDisplayName('Ada'),
@@ -216,6 +236,13 @@ void main() {
       );
     });
   });
+}
+
+DioAccountRemoteDataSource createDataSource(HttpClientAdapter adapter) {
+  return DioAccountRemoteDataSource(
+    createDio(adapter),
+    authUserResponseDecoder: const DefaultAuthUserResponseDecoder(),
+  );
 }
 
 Dio createDio(HttpClientAdapter adapter) {
