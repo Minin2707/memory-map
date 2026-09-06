@@ -216,9 +216,7 @@ final class PrivateMediaCachePathPolicy {
       return false;
     }
 
-    return _isMemoryMediaPath(backendPath) ||
-        _isStoryCoverPath(backendPath) ||
-        _isStoryParticipantAvatarPath(backendPath);
+    return _isMemoryMediaPath(backendPath) || _isStoryCoverPath(backendPath);
   }
 
   bool _isMemoryMediaPath(String backendPath) {
@@ -241,19 +239,6 @@ final class PrivateMediaCachePathPolicy {
     return RegExp(r'^[0-9]+$').hasMatch(segments[6]);
   }
 
-  bool _isStoryParticipantAvatarPath(String backendPath) {
-    final segments = Uri(path: backendPath).pathSegments;
-    if (segments.length != 8 ||
-        segments[0] != 'api' ||
-        segments[1] != 'v1' ||
-        segments[2] != 'stories' ||
-        segments[4] != 'participants' ||
-        segments[6] != 'avatar') {
-      return false;
-    }
-
-    return RegExp(r'^[0-9]+$').hasMatch(segments[7]);
-  }
 }
 
 const PrivateMediaCachePathPolicy privateMediaCachePathPolicy =

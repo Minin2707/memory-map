@@ -1,0 +1,43 @@
+﻿{
+    "timestampUtc":  "2026-09-06T11:24:06.4416566+00:00",
+    "label":  "pg-connections-json",
+    "backendPort":  8080,
+    "containers":  {
+                       "postgres":  "memory-map-postgres",
+                       "minio":  "memory-map-minio"
+                   },
+    "backend":  {
+                    "available":  true,
+                    "warning":  null,
+                    "pid":  33592,
+                    "processName":  "java",
+                    "cumulativeCpuSeconds":  28.1875,
+                    "workingSetBytes":  33914880,
+                    "privateMemoryBytes":  312950784,
+                    "handleCount":  628
+                },
+    "postgres":  {
+                     "available":  true,
+                     "status":  "ok",
+                     "cpuPercent":  0,
+                     "memoryUsageBytes":  37476106,
+                     "memoryLimitBytes":  12251394212,
+                     "memoryPercent":  0.31,
+                     "pids":  16,
+                     "connections":  {
+                                         "active":  1,
+                                         "idle":  10
+                                     },
+                     "connectionQueryAvailable":  true,
+                     "connectionQueryStatus":  "ok"
+                 },
+    "minio":  {
+                  "available":  true,
+                  "status":  "ok",
+                  "cpuPercent":  0.17,
+                  "memoryUsageBytes":  235300454,
+                  "memoryLimitBytes":  12251394212,
+                  "memoryPercent":  1.92,
+                  "pids":  14
+              }
+}

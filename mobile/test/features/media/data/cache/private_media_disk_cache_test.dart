@@ -280,18 +280,6 @@ void main() {
       expect(policy.isCacheable(displayPath), isTrue);
     });
 
-    test('shouldCacheVersionedStoryParticipantAvatarPaths', () {
-      const policy = PrivateMediaCachePathPolicy();
-
-      expect(policy.isCacheable(participantAvatarPath), isTrue);
-      expect(
-        policy.isCacheable(
-          '/api/v1/stories/$storyId/participants/$otherUserId/avatar/1',
-        ),
-        isTrue,
-      );
-    });
-
     test('shouldRejectMalformedStoryCoverRepresentationPaths', () {
       const policy = PrivateMediaCachePathPolicy();
 
@@ -325,51 +313,6 @@ void main() {
       );
     });
 
-    test('shouldRejectMalformedStoryParticipantAvatarPaths', () {
-      const policy = PrivateMediaCachePathPolicy();
-
-      expect(
-        policy.isCacheable('/api/v1/stories/$storyId/participants/$userId'),
-        isFalse,
-      );
-      expect(
-        policy.isCacheable(
-          '/api/v1/stories/$storyId/participants/$userId/avatar',
-        ),
-        isFalse,
-      );
-      expect(
-        policy.isCacheable(
-          '/api/v1/stories/$storyId/participants/$userId/avatar/not-a-version',
-        ),
-        isFalse,
-      );
-      expect(
-        policy.isCacheable(
-          '/api/v1/stories/$storyId/participants/$userId/avatar/-1',
-        ),
-        isFalse,
-      );
-      expect(
-        policy.isCacheable(
-          '/api/v1/stories/$storyId/participants/$userId/avatar/1?x=1',
-        ),
-        isFalse,
-      );
-      expect(
-        policy.isCacheable(
-          '/api/v1/stories/$storyId/participants/$userId/avatar/1#fragment',
-        ),
-        isFalse,
-      );
-      expect(
-        policy.isCacheable(
-          '/api/v1/stories/$storyId/members/$userId/avatar/1',
-        ),
-        isFalse,
-      );
-    });
-
     test('shouldKeepStoryCoverVersionInCacheIdentity', () {
       final first = privateMediaCacheFileNameForPath(
         '/api/v1/stories/$storyId/cover/display/111',
@@ -379,98 +322,6 @@ void main() {
       );
 
       expect(first, isNot(second));
-    });
-
-    test('shouldShareConcurrentSameParticipantAvatarRequests', () async {
-      final directory = await createTemporaryCacheDirectory();
-      final cache = cacheFor(directory);
-      final completer = Completer<Uint8List>();
-      var fetchCalls = 0;
-
-      final first = cache.getOrFetch(participantAvatarPath, () {
-        fetchCalls += 1;
-        return completer.future;
-      });
-      final second = cache.getOrFetch(participantAvatarPath, () {
-        fetchCalls += 1;
-        return Future<Uint8List>.value(imageBytes(9));
-      });
-
-      completer.complete(imageBytes(3));
-
-      expect(await first, imageBytes(3));
-      expect(await second, imageBytes(3));
-      expect(fetchCalls, 1);
-    });
-
-    test('shouldKeepDifferentParticipantAvatarsIsolated', () async {
-      final directory = await createTemporaryCacheDirectory();
-      final cache = cacheFor(directory);
-      var fetchCalls = 0;
-      final otherAvatarPath =
-          '/api/v1/stories/$storyId/participants/$otherUserId/avatar/1';
-
-      final first = await cache.getOrFetch(participantAvatarPath, () async {
-        fetchCalls += 1;
-        return imageBytes(1);
-      });
-      final second = await cache.getOrFetch(otherAvatarPath, () async {
-        fetchCalls += 1;
-        return imageBytes(2);
-      });
-
-      expect(first, imageBytes(1));
-      expect(second, imageBytes(2));
-      expect(fetchCalls, 2);
-      expect(
-        privateMediaCacheFileNameForPath(participantAvatarPath),
-        isNot(privateMediaCacheFileNameForPath(otherAvatarPath)),
-      );
-    });
-
-    test('shouldKeepParticipantAvatarVersionInCacheIdentity', () async {
-      final directory = await createTemporaryCacheDirectory();
-      final cache = cacheFor(directory);
-      var fetchCalls = 0;
-      final nextVersionAvatarPath =
-          '/api/v1/stories/$storyId/participants/$userId/avatar/2';
-
-      final first = await cache.getOrFetch(participantAvatarPath, () async {
-        fetchCalls += 1;
-        return imageBytes(1);
-      });
-      final second = await cache.getOrFetch(nextVersionAvatarPath, () async {
-        fetchCalls += 1;
-        return imageBytes(2);
-      });
-
-      expect(first, imageBytes(1));
-      expect(second, imageBytes(2));
-      expect(fetchCalls, 2);
-      expect(
-        privateMediaCacheFileNameForPath(participantAvatarPath),
-        isNot(privateMediaCacheFileNameForPath(nextVersionAvatarPath)),
-      );
-    });
-
-    test('shouldClearCachedParticipantAvatarsOnSessionInvalidation', () async {
-      final directory = await createTemporaryCacheDirectory();
-      final cache = cacheFor(directory);
-      var fetchCalls = 0;
-
-      final first = await cache.getOrFetch(participantAvatarPath, () async {
-        fetchCalls += 1;
-        return imageBytes(1);
-      });
-      await cache.clear();
-      final second = await cache.getOrFetch(participantAvatarPath, () async {
-        fetchCalls += 1;
-        return imageBytes(2);
-      });
-
-      expect(first, imageBytes(1));
-      expect(second, imageBytes(2));
-      expect(fetchCalls, 2);
     });
   });
 }
@@ -515,10 +366,6 @@ Uint8List imageBytes(int marker) {
 const String thumbnailPath = '/api/v1/media/media-id/thumbnail';
 const String displayPath = '/api/v1/media/media-id/display';
 const String storyId = '00000000-0000-0000-0000-000000000001';
-const String userId = '00000000-0000-0000-0000-000000000002';
-const String otherUserId = '00000000-0000-0000-0000-000000000003';
-const String participantAvatarPath =
-    '/api/v1/stories/$storyId/participants/$userId/avatar/1';
 
 final class FakeClock {
   FakeClock(this._value);
