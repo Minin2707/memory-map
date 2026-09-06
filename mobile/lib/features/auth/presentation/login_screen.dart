@@ -5,10 +5,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:memory_map/features/auth/application/auth_notifier.dart';
 import 'package:memory_map/features/auth/application/auth_state.dart';
 import 'package:memory_map/features/auth/presentation/auth_failure_message.dart';
-import 'package:memory_map/features/auth/presentation/memory_map_brand_mark.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 const _heroAsset = 'assets/loginscreen.png';
+const _loginLogoAsset = 'assets/branding/login_logo.png';
 const _googleLogoAsset = 'assets/google.svg';
 const _screenBackground = Color(0xFFFBF7F4);
 const _primaryText = Color(0xFF172330);
@@ -186,17 +186,14 @@ class _LoginContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final textScaler = MediaQuery.textScalerOf(context);
     final largeText = textScaler.scale(1) > 1.25;
-    final logoSize = largeText ? 54.0 : 62.0;
+    final logoSize = largeText ? 62.0 : 72.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Center(
-          child: MemoryMapHeartPin(
-            key: const ValueKey('login.memory-map.logo'),
-            size: logoSize,
-          ),
+          child: _LoginLogo(size: logoSize),
         ),
         const SizedBox(height: 8),
         Text(
@@ -250,6 +247,26 @@ class _LoginContent extends StatelessWidget {
           onTermsOfUse: onTermsOfUse,
         ),
       ],
+    );
+  }
+}
+
+class _LoginLogo extends StatelessWidget {
+  const _LoginLogo({
+    required this.size,
+  });
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      _loginLogoAsset,
+      key: const ValueKey('login.memory-map.logo'),
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      semanticLabel: AppLocalizations.of(context).appName,
     );
   }
 }

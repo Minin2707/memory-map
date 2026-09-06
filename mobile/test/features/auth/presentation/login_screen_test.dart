@@ -43,8 +43,18 @@ void main() {
   testWidgets('shouldRenderMemoryMapLogo', (WidgetTester tester) async {
     await pumpScreen(tester, FakeAuthRepository());
 
-    expect(find.byKey(const ValueKey('login.memory-map.logo')), findsOneWidget);
-    expect(find.byType(CustomPaint), findsWidgets);
+    final image = tester.widget<Image>(
+      find.byKey(const ValueKey('login.memory-map.logo')),
+    );
+
+    expect(image.image, isA<AssetImage>());
+    expect(
+      (image.image as AssetImage).assetName,
+      'assets/branding/login_logo.png',
+    );
+    expect(image.fit, BoxFit.contain);
+    expect(image.width, 72);
+    expect(image.height, 72);
   });
 
   testWidgets('shouldRenderHeroBeforeMainContent', (
