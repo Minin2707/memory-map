@@ -1577,6 +1577,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get languageEnglishOption => 'English';
 
   @override
+  String get languageGeorgianOption => 'ქართული';
+
+  @override
   String get languageChangeFailure =>
       'Language could not be saved. Please try again.';
 

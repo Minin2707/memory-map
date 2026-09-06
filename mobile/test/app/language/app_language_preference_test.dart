@@ -17,6 +17,10 @@ void main() {
         AppLanguagePreference.fromSerializedValue('en'),
         AppLanguagePreference.english,
       );
+      expect(
+        AppLanguagePreference.fromSerializedValue('ka'),
+        AppLanguagePreference.georgian,
+      );
     });
 
     test('shouldRejectUnknownPreferenceValues', () {
@@ -34,6 +38,10 @@ void main() {
         AppLanguagePreference.english.toFlutterLocale(),
         const Locale('en'),
       );
+      expect(
+        AppLanguagePreference.georgian.toFlutterLocale(),
+        const Locale('ka'),
+      );
     });
   });
 
@@ -42,9 +50,29 @@ void main() {
       expect(
         resolveMemoryStoryLocale(
           const Locale('ru'),
-          const [Locale('en'), Locale('ru')],
+          const [Locale('en'), Locale('ka'), Locale('ru')],
         ),
         const Locale('ru'),
+      );
+    });
+
+    test('shouldUseGeorgianSystemLocaleWhenSupported', () {
+      expect(
+        resolveMemoryStoryLocale(
+          const Locale('ka'),
+          const [Locale('en'), Locale('ka'), Locale('ru')],
+        ),
+        const Locale('ka'),
+      );
+    });
+
+    test('shouldUseEnglishSystemLocaleWhenSupported', () {
+      expect(
+        resolveMemoryStoryLocale(
+          const Locale('en'),
+          const [Locale('en'), Locale('ka'), Locale('ru')],
+        ),
+        const Locale('en'),
       );
     });
 
@@ -52,7 +80,7 @@ void main() {
       expect(
         resolveMemoryStoryLocale(
           const Locale('fr'),
-          const [Locale('en'), Locale('ru')],
+          const [Locale('en'), Locale('ka'), Locale('ru')],
         ),
         const Locale('en'),
       );
@@ -60,7 +88,10 @@ void main() {
 
     test('shouldUseEnglishWhenSystemLocaleIsUnavailable', () {
       expect(
-        resolveMemoryStoryLocale(null, const [Locale('en'), Locale('ru')]),
+        resolveMemoryStoryLocale(
+          null,
+          const [Locale('en'), Locale('ka'), Locale('ru')],
+        ),
         const Locale('en'),
       );
     });

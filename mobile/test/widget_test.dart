@@ -170,6 +170,44 @@ void main() {
     expect(find.text('Memory Map'), findsWidgets);
   });
 
+  testWidgets('shouldUseGeorgianSystemLocaleForUnauthenticatedLogin', (
+    WidgetTester tester,
+  ) async {
+    final fakeRepository = FakeAuthRepository();
+
+    await pumpApp(
+      tester,
+      fakeRepository,
+      locale: const Locale('ka'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Scaffold), findsOneWidget);
+    expect(find.text('Google-ით გაგრძელება'), findsOneWidget);
+    expect(find.text('ყოველ ადგილს თავისი ისტორია აქვს'), findsOneWidget);
+    expect(fakeRepository.restoreCalls, 1);
+  });
+
+  testWidgets('shouldUsePersistedGeorgianLanguagePreference', (
+    WidgetTester tester,
+  ) async {
+    final fakeRepository = FakeAuthRepository();
+
+    await pumpApp(
+      tester,
+      fakeRepository,
+      locale: const Locale('en'),
+      languageStorage: FakeAppLanguagePreferenceStorage()
+        ..storedPreference = AppLanguagePreference.georgian,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Scaffold), findsOneWidget);
+    expect(find.text('Google-ით გაგრძელება'), findsOneWidget);
+    expect(find.text('ყოველ ადგილს თავისი ისტორია აქვს'), findsOneWidget);
+    expect(fakeRepository.restoreCalls, 1);
+  });
+
   testWidgets('shouldCreateMaterialAppRouter', (WidgetTester tester) async {
     final restoreCompleter = Completer<AuthSession?>();
     final fakeRepository = FakeAuthRepository()

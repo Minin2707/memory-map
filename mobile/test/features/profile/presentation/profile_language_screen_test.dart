@@ -5,6 +5,11 @@ import 'package:memory_map/app/language/app_language_preference.dart';
 import 'package:memory_map/app/language/app_language_preference_notifier.dart';
 import 'package:memory_map/app/language/app_language_preference_storage.dart';
 import 'package:memory_map/app/language/file_app_language_preference_storage.dart';
+import 'package:memory_map/features/auth/application/auth_network_providers.dart';
+import 'package:memory_map/features/auth/application/in_memory_auth_session_store.dart';
+import 'package:memory_map/features/auth/domain/auth_session.dart';
+import 'package:memory_map/features/auth/domain/auth_tokens.dart';
+import 'package:memory_map/features/auth/domain/auth_user.dart';
 import 'package:memory_map/features/profile/presentation/profile_language_screen.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
@@ -21,6 +26,7 @@ void main() {
       expect(find.text('Use device language'), findsOneWidget);
       expect(find.text('Русский'), findsOneWidget);
       expect(find.text('English'), findsOneWidget);
+      expect(find.text('ქართული'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('profile-language.selected.system')),
         findsOneWidget,
@@ -41,6 +47,20 @@ void main() {
       expect(find.text('Язык'), findsOneWidget);
       expect(find.text('Системный'), findsOneWidget);
       expect(find.text('Использовать язык устройства'), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderGeorgianWhenSystemLocaleIsGeorgian', (
+      WidgetTester tester,
+    ) async {
+      await pumpProfileLanguageScreen(
+        tester,
+        FakeAppLanguagePreferenceStorage(),
+        deviceLocale: const Locale('ka'),
+      );
+
+      expect(find.text('ენა'), findsOneWidget);
+      expect(find.text('სისტემური'), findsOneWidget);
+      expect(find.text('მოწყობილობის ენის გამოყენება'), findsOneWidget);
     });
   });
 
@@ -89,6 +109,47 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('profile-language.screen')), findsOneWidget);
+    });
+
+    testWidgets('shouldPersistGeorgianSelectionAndSwitchLocaleImmediately', (
+      WidgetTester tester,
+    ) async {
+      final storage = FakeAppLanguagePreferenceStorage();
+      await pumpProfileLanguageScreen(tester, storage);
+
+      await tester.tap(
+        find.byKey(const ValueKey('profile-language.option.ka')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(storage.storedPreference, AppLanguagePreference.georgian);
+      expect(find.text('ენა'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-language.selected.ka')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('profile-language.screen')), findsOneWidget);
+    });
+
+    testWidgets('shouldNotModifyCurrentAuthSessionWhenSelectingGeorgian', (
+      WidgetTester tester,
+    ) async {
+      final storage = FakeAppLanguagePreferenceStorage();
+      final sessionStore = InMemoryAuthSessionStore()..setSession(session);
+      addTearDown(sessionStore.dispose);
+      await pumpProfileLanguageScreen(
+        tester,
+        storage,
+        sessionStore: sessionStore,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('profile-language.option.ka')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(storage.storedPreference, AppLanguagePreference.georgian);
+      expect(sessionStore.session, session);
     });
 
     testWidgets('shouldRestoreSystemModeWithoutPersistingResolvedLocale', (
@@ -163,6 +224,7 @@ Future<void> pumpProfileLanguageScreen(
   FakeAppLanguagePreferenceStorage storage, {
   Locale deviceLocale = const Locale('en'),
   VoidCallback? onBack,
+  InMemoryAuthSessionStore? sessionStore,
 }) async {
   tester.platformDispatcher.localeTestValue = deviceLocale;
   tester.platformDispatcher.localesTestValue = [deviceLocale];
@@ -175,6 +237,8 @@ Future<void> pumpProfileLanguageScreen(
     ProviderScope(
       overrides: [
         appLanguagePreferenceStorageProvider.overrideWithValue(storage),
+        if (sessionStore != null)
+          authSessionStoreProvider.overrideWithValue(sessionStore),
       ],
       child: Consumer(
         builder: (context, ref, child) {
@@ -196,6 +260,17 @@ Future<void> pumpProfileLanguageScreen(
   );
   await tester.pumpAndSettle();
 }
+
+final AuthSession session = AuthSession(
+  user: AuthUser(
+    id: 'user-1',
+    displayName: 'Ada Lovelace',
+  ),
+  tokens: AuthTokens(
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+  ),
+);
 
 final class FakeAppLanguagePreferenceStorage
     implements AppLanguagePreferenceStorage {

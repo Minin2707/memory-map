@@ -1,0 +1,665 @@
+{
+  "@@locale": "ka",
+  "appName": "Memory Map",
+  "@appName": {
+    "description": "Application name"
+  },
+  "loginHeadline": "ყოველ ადგილს თავისი ისტორია აქვს",
+  "loginDescription": "შექმენით მოგონებების პირადი რუკა და გაუზიარეთ ის საყვარელ ადამიანებს.",
+  "continueWithGoogle": "Google-ით გაგრძელება",
+  "signingIn": "შესვლა…",
+  "loginLegalPrefix": "გაგრძელებით თქვენ ეთანხმებით ჩვენს",
+  "privacyPolicy": "კონფიდენციალურობის პოლიტიკას",
+  "termsOfUse": "გამოყენების პირობებს",
+  "legalSeparator": "და",
+  "authCancelled": "შესვლა გაუქმდა.",
+  "googleAuthenticationUnavailable": "ამ მოწყობილობაზე Google-ით შესვლა მიუწვდომელია.",
+  "googleAuthenticationFailed": "Google-ით შესვლა ვერ მოხერხდა. სცადეთ ხელახლა.",
+  "backendUnauthorized": "ავთენტიფიკაცია უარყოფილია. სცადეთ ხელახლა.",
+  "requestValidationFailed": "მოთხოვნა არასწორია. სცადეთ ხელახლა.",
+  "networkUnavailable": "ქსელთან კავშირი არ არის. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "requestTimedOut": "მოთხოვნის დრო ამოიწურა. სცადეთ ხელახლა.",
+  "serverFailure": "სერვერი დროებით მიუწვდომელია. სცადეთ ხელახლა.",
+  "secureStorageFailure": "სესიის უსაფრთხოდ შენახვა ვერ მოხერხდა. სცადეთ ხელახლა.",
+  "corruptSession": "ლოკალური სესიის მონაცემები არასწორია. სცადეთ ხელახლა.",
+  "unknownAuthFailure": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "restoreSessionTitle": "სესიის აღდგენა ვერ მოხერხდა",
+  "retry": "ხელახლა ცდა",
+  "unexpectedErrorTitle": "რაღაც არასწორად წავიდა",
+  "unexpectedErrorDescription": "გადატვირთეთ აპი ან სცადეთ ხელახლა.",
+  "tryAgain": "სცადეთ ხელახლა",
+  "welcomeUser": "მოგესალმებით, {displayName}",
+  "@welcomeUser": {
+    "description": "Greeting shown on the authenticated home screen",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "fallbackDisplayName": "მეგობარო",
+  "authenticatedSessionReady": "ავთენტიფიცირებული სესია მზადაა",
+  "logOut": "გასვლა",
+  "loggingOut": "გასვლა…",
+  "tryLogoutAgain": "გასვლის ხელახლა ცდა",
+  "storiesGreeting": "გამარჯობა, {displayName}! 👋",
+  "@storiesGreeting": {
+    "description": "Greeting shown on the Stories screen",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "storiesSubtitle": "თქვენი გაზიარებული მოგონებები აქ ცხოვრობს",
+  "storiesSectionTitle": "თქვენი ისტორიები",
+  "storiesCreateAction": "ისტორიის შექმნა",
+  "storiesEmptyTitle": "ისტორიები ჯერ არ არის",
+  "storiesEmptyDescription": "შექმენით პირველი ისტორია და ერთად შეინახეთ მნიშვნელოვანი მომენტები",
+  "storiesLoadFailureTitle": "ისტორიების ჩატვირთვა ვერ მოხერხდა",
+  "storiesRefreshFailureTitle": "ისტორიების განახლება ვერ მოხერხდა",
+  "storyFailureValidation": "მოთხოვნა არასწორია. სცადეთ ხელახლა.",
+  "storyFailureUnauthorized": "სესიას ყურადღება სჭირდება. სცადეთ ხელახლა.",
+  "storyFailureNotFound": "ისტორია მიუწვდომელია.",
+  "storyFailureNetworkUnavailable": "ქსელთან კავშირი არ არის. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "storyFailureRequestTimedOut": "მოთხოვნის დრო ამოიწურა. სცადეთ ხელახლა.",
+  "storyFailureServerFailure": "სერვერი დროებით მიუწვდომელია. სცადეთ ხელახლა.",
+  "storyFailureUnknown": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "storyRoleOwner": "მფლობელი",
+  "storyRoleCoOwner": "თანამფლობელი",
+  "storyRoleEditor": "რედაქტორი",
+  "storyRoleViewer": "მნახველი",
+  "storyMemoryCount": "{count, plural, =0 {მოგონებები არ არის} =1 {1 მოგონება} other {{count} მოგონება}}",
+  "@storyMemoryCount": {
+    "description": "Memory count shown on a Story card",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storyParticipantCount": "{count, plural, =1 {1 მონაწილე} other {{count} მონაწილე}}",
+  "@storyParticipantCount": {
+    "description": "Participant count shown on a Story card",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storyThumbnailLabel": "ისტორიის ფოტო",
+  "storyThumbnailUnavailableLabel": "ისტორიის ფოტო მიუწვდომელია",
+  "storiesNotificationUnavailableLabel": "შეტყობინებები ჯერ მიუწვდომელია",
+  "storiesOpenNotificationsLabel": "შეტყობინებების გახსნა",
+  "storiesAvatarLabel": "{displayName}-ის ავატარი",
+  "@storiesAvatarLabel": {
+    "description": "Accessibility label for the Stories screen avatar",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "storiesOpenStoryLabel": "ისტორიის გახსნა: {title}",
+  "@storiesOpenStoryLabel": {
+    "description": "Accessibility label for a tappable story card",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "cancel": "გაუქმება",
+  "createStoryPageTitle": "ისტორიის შექმნა",
+  "createStoryBackLabel": "ისტორიებზე დაბრუნება",
+  "createStoryHeroTitle": "ახალი ისტორია",
+  "createStoryHeroSubtitle": "შექმენით სივრცე თქვენი საერთო მოგონებებისთვის",
+  "createStoryTitleLabel": "ისტორიის სათაური",
+  "createStoryTitleHint": "მაგალითი: ჩვენი ისტორია",
+  "createStoryTitleHelp": "სათაური ხილული იქნება ისტორიის ყველა მონაწილისთვის",
+  "createStoryTitleRequired": "შეიყვანეთ ისტორიის სათაური.",
+  "createStoryTitleBlank": "ისტორიის სათაური ცარიელი ვერ იქნება.",
+  "createStoryDescriptionLabel": "აღწერა",
+  "createStoryDescriptionOptional": "არასავალდებულო",
+  "createStoryDescriptionHint": "დაამატეთ მოკლე ჩანაწერი ამ ისტორიაზე",
+  "createStoryWhyTitle": "რატომ არის სათაური მნიშვნელოვანი?",
+  "createStoryWhyDescription": "კარგი სათაური ყველას ეხმარება გაიხსენოს, რატომ არის ეს ისტორია განსაკუთრებული.",
+  "createStoryIdeasTitle": "სათაურის იდეები",
+  "createStoryIdeaOne": "ჩვენი ისტორია",
+  "createStoryIdeaTwo": "საუკეთესო მომენტები ერთად",
+  "createStoryIdeaThree": "მოგზაურობები და თავგადასავლები",
+  "createStorySubmitButton": "ისტორიის შექმნა",
+  "createStoryCreatingButton": "ისტორია იქმნება...",
+  "createStoryCoverRemoveSelectionAction": "არჩეული ყდის წაშლა",
+  "createStoryCoverUploading": "ყდა იტვირთება...",
+  "createStoryCoverPartialTitle": "ისტორია შეიქმნა",
+  "createStoryCoverPartialMessage": "ისტორია შეიქმნა, მაგრამ ყდის ატვირთვა ვერ მოხერხდა.",
+  "createStoryCoverRetryAction": "ყდის ატვირთვის ხელახლა ცდა",
+  "createStoryCoverContinueAction": "გაგრძელება ყდის გარეშე",
+  "storyDetailsPageTitle": "ისტორია",
+  "storyDetailsBackLabel": "ისტორიებზე დაბრუნება",
+  "storyDetailsEditAction": "ისტორიის რედაქტირება",
+  "storyDetailsLoadFailureTitle": "ისტორიის ჩატვირთვა ვერ მოხერხდა",
+  "storyDetailsDescriptionTitle": "ამ ისტორიის შესახებ",
+  "storyDetailsNoDescription": "აღწერა ჯერ არ არის.",
+  "storyDetailsInfoTitle": "ისტორიის ინფორმაცია",
+  "storyDetailsCreatedLabel": "შექმნილია",
+  "storyDetailsUpdatedLabel": "განახლებულია",
+  "storyDetailsRefreshFailureTitle": "ისტორიის განახლება ვერ მოხერხდა",
+  "storyDetailsPeriodPresent": "დღემდე",
+  "storyDetailsSectionsTitle": "დათვალიერება",
+  "storyDetailsMemoriesAction": "მოგონებები",
+  "storyDetailsParticipantsAction": "მონაწილეები",
+  "storyDetailsParticipantsManageAction": "მართვა",
+  "storyDetailsMapAction": "რუკა",
+  "storyDetailsTimelineAction": "ქრონოლოგია",
+  "storyDetailsRecentMemoriesTitle": "ბოლო მოგონებები",
+  "storyDetailsSeeAllAction": "ყველას ნახვა",
+  "storyDetailsPlaybackStoryAction": "ისტორიის დაკვრა",
+  "deleteStoryAction": "ისტორიის წაშლა",
+  "deleteStoryDialogTitle": "წავშალოთ ისტორია?",
+  "deleteStoryDialogBody": "ეს ისტორია და მისი მოგონებები სამუდამოდ წაიშლება. მოქმედების გაუქმება შეუძლებელია.",
+  "deleteStoryCancel": "გაუქმება",
+  "deleteStoryConfirm": "წაშლა",
+  "deleteStoryDeleting": "ისტორია იშლება...",
+  "soundtrackTitle": "საუნდტრეკი",
+  "soundtrackNoMusic": "მუსიკის გარეშე",
+  "soundtrackLoading": "საუნდტრეკი იტვირთება...",
+  "soundtrackLoadFailureTitle": "საუნდტრეკის ჩატვირთვა ვერ მოხერხდა",
+  "soundtrackChooseTitle": "საუნდტრეკის არჩევა",
+  "soundtrackReadOnly": "მხოლოდ წაკითხვა",
+  "soundtrackCurrentSelection": "მიმდინარე არჩევანი",
+  "soundtrackCurrentlyUnavailable": "ამჟამად მიუწვდომელია",
+  "soundtrackUnavailableEditable": "ამჟამად მიუწვდომელია. აირჩიეთ სხვა ტრეკი ან მუსიკის გარეშე.",
+  "soundtrackCatalogTitle": "ხელმისაწვდომი საუნდტრეკები",
+  "soundtrackCatalogLoadFailureTitle": "საუნდტრეკების ჩატვირთვა ვერ მოხერხდა",
+  "soundtrackCatalogEmpty": "საუნდტრეკები ამჟამად ხელმისაწვდომი არ არის.",
+  "soundtrackSelected": "არჩეულია",
+  "soundtrackUpdateFailure": "საუნდტრეკის განახლება ვერ მოხერხდა. სცადეთ ხელახლა.",
+  "musicFailureUnavailable": "მუსიკა მიუწვდომელია. სცადეთ ხელახლა.",
+  "musicFailureNetworkUnavailable": "ქსელთან კავშირი არ არის. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "musicFailureRequestTimedOut": "მოთხოვნის დრო ამოიწურა. სცადეთ ხელახლა.",
+  "musicFailureUnknown": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "participantsPageTitle": "მონაწილეები",
+  "participantsBack": "ისტორიაზე დაბრუნება",
+  "participantsHeaderTitle": "ადამიანები ამ ისტორიაში",
+  "participantsCount": "{count, plural, =0{მონაწილეები არ არის} =1{1 მონაწილე} other{{count} მონაწილე}}",
+  "@participantsCount": {
+    "description": "Participant count shown on the Participants screen",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "participantsSectionTitle": "მონაწილეები",
+  "participantsSectionSubtitle": "როლები განსაზღვრავს, რისი გაკეთება შეუძლია თითოეულ მონაწილეს ამ ისტორიაში.",
+  "participantsInvite": "მონაწილის მოწვევა",
+  "participantsLeaveStory": "ისტორიის დატოვება",
+  "participantsLeaveConfirmTitle": "დატოვოთ ისტორია?",
+  "participantsLeaveConfirmBody": "თქვენ დაკარგავთ წვდომას ამ ისტორიაზე. ხელახლა შესაერთებლად ახალი მოწვევა დაგჭირდებათ. თუ ბოლო მფლობელი ხართ, სერვერმა შეიძლება უარყოს ეს მოქმედება.",
+  "participantsLeaveConfirmAction": "დატოვება",
+  "participantsLeaveCancel": "გაუქმება",
+  "participantsLeaving": "ისტორია იტოვება...",
+  "participantsCurrentUser": "თქვენ",
+  "participantsEmptyTitle": "საჩვენებელი მონაწილეები არ არის",
+  "participantsEmptyBody": "მონაწილეთა სია ახლა ცარიელია. სცადეთ განახლება ცოტა ხანში.",
+  "participantsRetry": "ხელახლა ცდა",
+  "participantsRefreshFailed": "მონაწილეთა განახლება ვერ მოხერხდა",
+  "participantsLoadFailed": "მონაწილეთა ჩატვირთვა ვერ მოხერხდა",
+  "participantsRemoveAction": "წაშლა",
+  "participantsRemoveConfirmTitle": "წავშალოთ {displayName}?",
+  "@participantsRemoveConfirmTitle": {
+    "description": "Title for confirming participant removal",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveConfirmBody": "{displayName} დაკარგავს წვდომას ამ ისტორიაზე. ხელახლა შემოერთება ახალი მოწვევით შეეძლება.",
+  "@participantsRemoveConfirmBody": {
+    "description": "Body for confirming participant removal",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveConfirmAction": "წაშლა",
+  "participantsRemoveCancel": "გაუქმება",
+  "participantsRemoving": "მონაწილე იშლება...",
+  "participantsRemoveSuccess": "{displayName} წაიშალა.",
+  "@participantsRemoveSuccess": {
+    "description": "SnackBar shown after a participant is removed",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsAvatarLabel": "{displayName}-ის ავატარი",
+  "@participantsAvatarLabel": {
+    "description": "Accessibility label for a participant avatar",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsRemoveParticipantLabel": "{displayName}-ის წაშლა",
+  "@participantsRemoveParticipantLabel": {
+    "description": "Accessibility label for removing a participant",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "participantFailureValidation": "მოთხოვნა არასწორია. სცადეთ ხელახლა.",
+  "participantFailureUnauthorized": "სესიას ყურადღება სჭირდება. სცადეთ ხელახლა.",
+  "participantFailureNotFound": "მონაწილეები მიუწვდომელია.",
+  "participantFailureLastOwner": "ბოლო მფლობელი ვერ დატოვებს ამ ისტორიას.",
+  "participantFailureCannotRemoveSelf": "საკუთარი თავის წასაშლელად გამოიყენეთ „ისტორიის დატოვება“.",
+  "participantFailureOwnerCannotBeRemoved": "მფლობელების წაშლა აქედან შეუძლებელია.",
+  "participantFailureNetwork": "ქსელთან კავშირი არ არის. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "participantFailureTimeout": "მოთხოვნის დრო ამოიწურა. სცადეთ ხელახლა.",
+  "participantFailureServer": "სერვერი დროებით მიუწვდომელია. სცადეთ ხელახლა.",
+  "participantFailureUnknown": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "storyMemoriesPageTitle": "მოგონებები",
+  "storyMemoriesBackLabel": "ისტორიაზე დაბრუნება",
+  "storyMemoriesRefreshAction": "მოგონებების განახლება",
+  "storyMemoriesHeaderTitle": "ისტორიის მოგონებები",
+  "storyMemoriesCount": "{count, plural, =0{მოგონებები არ არის} =1{1 მოგონება} other{{count} მოგონება}}",
+  "@storyMemoriesCount": {
+    "description": "Memory count shown on the Story Memories screen",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storyMemoriesCreate": "მოგონების დამატება",
+  "storyMemoriesEmptyTitle": "მოგონებები ჯერ არ არის",
+  "storyMemoriesEmptyBody": "დაამატეთ პირველი მოგონება, როცა შესანახი რამ მოხდება.",
+  "storyMemoriesLoadFailureTitle": "მოგონებების ჩატვირთვა ვერ მოხერხდა",
+  "storyMemoriesRefreshFailureTitle": "მოგონებების განახლება ვერ მოხერხდა",
+  "storyTimelinePageTitle": "ქრონოლოგია",
+  "storyTimelineBackLabel": "ისტორიაზე დაბრუნება",
+  "storyTimelineRefreshAction": "ქრონოლოგიის განახლება",
+  "storyTimelineCreate": "მოგონების დამატება",
+  "storyTimelineEmptyTitle": "ქრონოლოგია ჯერ არ არის",
+  "storyTimelineEmptyBody": "დაამატეთ მოგონებები ამ ისტორიის ქრონოლოგიის შესაქმნელად.",
+  "storyTimelineLoadFailureTitle": "ქრონოლოგიის ჩატვირთვა ვერ მოხერხდა",
+  "storyTimelineRefreshFailureTitle": "ქრონოლოგიის განახლება ვერ მოხერხდა",
+  "storyMapPageTitle": "რუკა",
+  "storyMapBackLabel": "ისტორიაზე დაბრუნება",
+  "storyMapShowAllAction": "ყველას ჩვენება",
+  "storyMapRefreshAction": "რუკის განახლება",
+  "storyMapShowDetailsAction": "დეტალების ჩვენება",
+  "storyMapEmptyTitle": "რუკაზე მოგონებები ჯერ არ არის",
+  "storyMapEmptyBody": "შენახული ადგილების მქონე მოგონებები აქ გამოჩნდება.",
+  "storyMapLoadFailureTitle": "რუკის ჩატვირთვა ვერ მოხერხდა",
+  "storyMapRefreshFailureTitle": "რუკის განახლება ვერ მოხერხდა",
+  "memoryOpenLabel": "მოგონების გახსნა: {title}",
+  "@memoryOpenLabel": {
+    "description": "Accessibility label for a tappable memory item",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryFailureValidation": "მოთხოვნა არასწორია. სცადეთ ხელახლა.",
+  "memoryFailureUnauthorized": "სესიას ყურადღება სჭირდება. სცადეთ ხელახლა.",
+  "memoryFailureStoryUnavailable": "ისტორიის მოგონებები მიუწვდომელია.",
+  "memoryFailureNotFound": "მოგონება მიუწვდომელია.",
+  "memoryFailureCreationUnavailable": "აქედან მოგონების შექმნა შეუძლებელია.",
+  "memoryFailureUpdateUnavailable": "აქედან მოგონების განახლება შეუძლებელია.",
+  "memoryFailureDeletionUnavailable": "აქედან მოგონების წაშლა შეუძლებელია.",
+  "memoryFailureNetworkUnavailable": "ქსელთან კავშირი არ არის. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "memoryFailureRequestTimedOut": "მოთხოვნის დრო ამოიწურა. სცადეთ ხელახლა.",
+  "memoryFailureServerFailure": "სერვერი დროებით მიუწვდომელია. სცადეთ ხელახლა.",
+  "memoryFailureUnknown": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "createMemoryPageTitle": "მოგონების დამატება",
+  "createMemoryBackLabel": "მოგონებებზე დაბრუნება",
+  "createMemoryTitleLabel": "სათაური",
+  "createMemoryTitleHint": "მაგალითი: მზის ჩასვლა ბალიზე",
+  "createMemoryTitleRequired": "შეიყვანეთ მოგონების სათაური.",
+  "createMemoryTitleBlank": "მოგონების სათაური ცარიელი ვერ იქნება.",
+  "createMemoryTitleMax": "მოგონების სათაური უნდა იყოს 255 სიმბოლო ან ნაკლები.",
+  "createMemoryDescriptionLabel": "აღწერა",
+  "createMemoryDescriptionHint": "დაამატეთ ჩანაწერი ამ მომენტზე",
+  "createMemoryPlaceNameLabel": "ადგილის სახელი",
+  "createMemoryPlaceNameHint": "მაგალითი: სემინიაკის პლაჟი",
+  "createMemoryPlaceNameMax": "ადგილის სახელი უნდა იყოს 255 სიმბოლო ან ნაკლები.",
+  "createMemoryOptionalLabel": "არასავალდებულო",
+  "createMemoryEventDateLabel": "თარიღი",
+  "createMemoryEventDateEmpty": "თარიღი არჩეული არ არის",
+  "createMemoryChooseDate": "არჩევა",
+  "createMemoryChangeDate": "შეცვლა",
+  "createMemoryDateRequired": "აირჩიეთ თარიღი.",
+  "createMemoryLocationLabel": "მდებარეობა",
+  "createMemoryLocationEmpty": "მდებარეობა არჩეული არ არის",
+  "createMemoryLocationSelected": "მდებარეობა არჩეულია",
+  "createMemoryChooseLocation": "არჩევა",
+  "createMemoryChangeLocation": "შეცვლა",
+  "createMemoryLocationRequired": "აირჩიეთ მდებარეობა.",
+  "createMemorySubmitButton": "მოგონების შექმნა",
+  "createMemorySubmittingButton": "მოგონება იქმნება...",
+  "editMemoryPageTitle": "მოგონების რედაქტირება",
+  "editMemoryBackLabel": "მოგონებაზე დაბრუნება",
+  "editMemorySaveButton": "ცვლილებების შენახვა",
+  "editMemorySavingButton": "ინახება...",
+  "editMemoryNoChangesHint": "შესანახად შეიტანეთ ცვლილება.",
+  "memoryDetailsPageTitle": "მოგონება",
+  "memoryDetailsBackLabel": "მოგონებებზე დაბრუნება",
+  "memoryDetailsRefreshAction": "მოგონების განახლება",
+  "memoryDetailsEditAction": "მოგონების რედაქტირება",
+  "memoryDetailsDeleteAction": "მოგონების წაშლა",
+  "memoryDetailsLoadFailureTitle": "მოგონების ჩატვირთვა ვერ მოხერხდა",
+  "memoryDetailsRefreshFailureTitle": "მოგონების განახლება ვერ მოხერხდა",
+  "memoryDetailsDescriptionTitle": "მოგონების ჩანაწერი",
+  "memoryDetailsNoDescription": "აღწერა ჯერ არ არის.",
+  "memoryDetailsPlaceTitle": "ადგილი",
+  "memoryDetailsNoPlace": "ადგილის სახელი ჯერ არ არის.",
+  "memoryDetailsOpenOnMapAction": "რუკაზე გახსნა",
+  "memoryDetailsMapUnavailable": "რუკის წინასწარი ნახვა მიუწვდომელია.",
+  "memoryMediaTitle": "ფოტოები",
+  "memoryMediaRefreshAction": "ფოტოების განახლება",
+  "memoryMediaAddPhotoAction": "ფოტოს დამატება",
+  "memoryMediaEmpty": "ფოტოები ჯერ არ არის.",
+  "memoryMediaSelectingPhoto": "ფოტოს არჩევა...",
+  "memoryMediaPreparingPhoto": "ფოტო მზადდება...",
+  "memoryMediaUploadingPhoto": "ფოტო იტვირთება...",
+  "memoryMediaOpenPhotoLabel": "ფოტოს გახსნა",
+  "memoryMediaClosePhotoAction": "ფოტოს დახურვა",
+  "deletePhotoAction": "ფოტოს წაშლა",
+  "deletePhotoDialogTitle": "წავშალოთ ფოტო?",
+  "deletePhotoDialogBody": "ეს ფოტო სამუდამოდ წაიშლება.",
+  "deletePhotoCancel": "გაუქმება",
+  "deletePhotoConfirm": "წაშლა",
+  "deletePhotoFailure": "ფოტოს წაშლა ვერ მოხერხდა. სცადეთ ხელახლა.",
+  "mediaFailureValidation": "ფოტოს მოთხოვნა არასწორია. სცადეთ ხელახლა.",
+  "mediaFailureUnauthorized": "სესიას ყურადღება სჭირდება. სცადეთ ხელახლა.",
+  "mediaFailureUnavailable": "ფოტოები მიუწვდომელია.",
+  "mediaFailureUploadUnavailable": "აქედან ფოტოს ატვირთვა შეუძლებელია.",
+  "mediaFailureNetworkUnavailable": "ქსელთან კავშირი არ არის. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "mediaFailureRequestTimedOut": "მოთხოვნის დრო ამოიწურა. სცადეთ ხელახლა.",
+  "mediaFailureServerFailure": "სერვერი დროებით მიუწვდომელია. სცადეთ ხელახლა.",
+  "mediaFailurePreprocessing": "ამ ფოტოს მომზადება ვერ მოხერხდა. აირჩიეთ სხვა სურათი.",
+  "mediaFailureUnknown": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "deleteMemoryDialogTitle": "წავშალოთ მოგონება?",
+  "deleteMemoryDialogBody": "ეს მოგონება სამუდამოდ წაიშლება. მოქმედების გაუქმება შეუძლებელია.",
+  "deleteMemoryCancel": "გაუქმება",
+  "deleteMemoryConfirm": "წაშლა",
+  "deleteMemoryDeleting": "მოგონება იშლება...",
+  "locationPickerTitle": "ადგილის არჩევა",
+  "locationPickerBackLabel": "უკან",
+  "locationPickerInstruction": "შეეხეთ რუკას, რათა აირჩიოთ ზუსტი წერტილი ამ მოგონებისთვის.",
+  "locationPickerSelectedTitle": "მდებარეობა არჩეულია",
+  "locationPickerSelectedDescription": "დაადასტურეთ, როცა პინი იმ ადგილს აღნიშნავს, რომლის შენახვაც გსურთ.",
+  "locationPickerNoSelectionTitle": "მდებარეობა არჩეული არ არის",
+  "locationPickerNoSelectionDescription": "დადასტურებამდე აირჩიეთ წერტილი რუკაზე.",
+  "locationPickerConfirmAction": "მდებარეობის დადასტურება",
+  "locationPickerMapLoading": "რუკა იტვირთება...",
+  "locationPickerMapUnavailable": "რუკა მიუწვდომელია. სცადეთ მოგვიანებით.",
+  "editStoryPageTitle": "ისტორიის რედაქტირება",
+  "editStoryBackLabel": "ისტორიაზე დაბრუნება",
+  "editStoryHeroTitle": "ისტორიის დეტალები",
+  "editStoryHeroSubtitle": "განაახლეთ სახელი და ჩანაწერი, რომელსაც ისტორიის მონაწილეები ხედავენ",
+  "editStoryCoverLabel": "ყდა",
+  "editStoryCoverNoPhoto": "ყდის ფოტო არ არის",
+  "editStoryCoverPhotoLabel": "ისტორიის ყდის ფოტო",
+  "editStoryCoverChooseAction": "ყდის არჩევა",
+  "editStoryCoverChangeAction": "ყდის შეცვლა",
+  "editStoryCoverRemoveAction": "ყდის წაშლა",
+  "editStoryCoverSelecting": "ფოტოს არჩევა...",
+  "editStoryCoverPreparing": "ფოტო მზადდება...",
+  "editStoryCoverUploading": "ყდა განახლდება...",
+  "editStoryCoverRemoving": "ყდა იშლება...",
+  "editStoryCoverUpdatedFeedback": "ყდა განახლდა",
+  "editStoryCoverRemovedFeedback": "ყდა წაიშალა",
+  "editStoryCoverAutosaveHint": "ყდის ცვლილებები ავტომატურად ინახება.",
+  "editStoryTitleLabel": "ისტორიის სათაური",
+  "editStoryTitleHint": "მაგალითი: ჩვენი ისტორია",
+  "editStoryTitleHelp": "სათაური ხილული რჩება ისტორიის ყველა მონაწილისთვის",
+  "editStoryTitleRequired": "შეიყვანეთ ისტორიის სათაური.",
+  "editStoryTitleBlank": "ისტორიის სათაური ცარიელი ვერ იქნება.",
+  "editStoryDescriptionLabel": "აღწერა",
+  "editStoryDescriptionOptional": "არასავალდებულო",
+  "editStoryDescriptionHint": "დაამატეთ მოკლე ჩანაწერი ამ ისტორიაზე",
+  "editStoryDescriptionHelp": "გაასუფთავეთ ველი არსებული აღწერის მოსაშორებლად",
+  "editStorySaveButton": "ცვლილებების შენახვა",
+  "editStorySavingButton": "ინახება...",
+  "editStoryNoChangesHint": "შესანახად შეიტანეთ ცვლილება.",
+  "editStoryUnavailableTitle": "რედაქტირება მიუწვდომელია",
+  "editStoryUnavailableDescription": "ამ ისტორიის რედაქტირება აქედან შეუძლებელია.",
+  "editStoryUnavailableBackAction": "ისტორიაზე დაბრუნება",
+  "invitePageTitle": "მონაწილის მოწვევა",
+  "inviteCreatedPageTitle": "მოწვევა შეიქმნა",
+  "inviteBackLabel": "ისტორიაზე დაბრუნება",
+  "inviteHeroTitle": "მოიწვიეთ ახლობელი ადამიანი",
+  "inviteHeroSubtitle": "გაუზიარეთ ერთჯერადი მოწვევის ბმული, რათა თქვენს ისტორიას შეუერთდეს.",
+  "inviteLinkLabel": "მოწვევის ბმული",
+  "inviteSingleUseDescription": "ერთჯერადი გამოყენება. მიღების შემდეგ ბმული აღარ იმუშავებს.",
+  "inviteExpirationLabel": "ვადა იწურება",
+  "inviteExpirationDescription": "მოწვევა ძალაშია სერვერის მიერ დაბრუნებულ თარიღამდე.",
+  "inviteTargetRoleTitle": "წვდომის არჩევა",
+  "inviteRoleCoOwnerLabel": "თანაავტორი",
+  "inviteRoleCoOwnerDescription": "შეუძლია ისტორიისა და მოგონებების მართვა.",
+  "inviteRoleEditorLabel": "რედაქტორი",
+  "inviteRoleEditorDescription": "შეუძლია მოგონებების დამატება და საკუთარი მოგონებების რედაქტირება.",
+  "inviteRoleViewerLabel": "მხოლოდ ნახვა",
+  "inviteRoleViewerDescription": "შეუძლია ისტორიისა და მოგონებების ნახვა.",
+  "inviteWhatCanDoTitle": "რა შეგიძლიათ გააკეთოთ ამ ბმულით?",
+  "inviteInstructionShare": "გააზიარეთ ნებისმიერ მესენჯერში.",
+  "inviteInstructionCopy": "დააკოპირეთ და თავად გაუგზავნეთ.",
+  "inviteInstructionOneUse": "სთხოვეთ მიმღებს გამოიყენოს მხოლოდ ერთხელ.",
+  "inviteCreateButton": "მოწვევის შექმნა",
+  "inviteCreatingButton": "მოწვევა იქმნება...",
+  "inviteSuccessTitle": "მოწვევა მზადაა!",
+  "inviteSuccessSubtitle": "გაუზიარეთ ბმული ახლობელ ადამიანს. ის ერთჯერადი და უსაფრთხოა.",
+  "inviteLinkSemanticsLabel": "მოწვევის ბმული",
+  "inviteCopyAction": "კოპირება",
+  "inviteCopiedFeedback": "მოწვევის ბმული დაკოპირდა.",
+  "inviteCopyFailure": "მოწვევის ბმულის კოპირება ვერ მოხერხდა.",
+  "inviteShareAction": "გაზიარება",
+  "inviteShareReadyFeedback": "გაზიარების ვარიანტები გაიხსნა.",
+  "inviteShareFailure": "მოწვევის ბმულის გაზიარება ვერ მოხერხდა.",
+  "inviteLinkCannotBeRestoredWarning": "ამ ეკრანიდან გასვლამდე დააკოპირეთ ან გააზიარეთ ბმული. მოგვიანებით მისი ჩვენება შეუძლებელი იქნება.",
+  "inviteImportantTitle": "მნიშვნელოვანი",
+  "inviteImportantSingleUse": "ეს ბმული მხოლოდ ერთხელ გამოიყენება.",
+  "inviteImportantAfterAccept": "მოწვევის მიღების შემდეგ ბმული არავალიდური ხდება.",
+  "inviteImportantExpiration": "მოწვევა ავტომატურად იწურება ვადის გასვლის შემდეგ.",
+  "inviteDoneAction": "დასრულება",
+  "inviteFailureValidation": "მოწვევის მოთხოვნა არასწორია. სცადეთ ხელახლა.",
+  "inviteFailureUnauthorized": "სესიას ყურადღება სჭირდება. სცადეთ ხელახლა.",
+  "inviteFailureNotFound": "ეს ისტორია მოწვევებისთვის მიუწვდომელია.",
+  "inviteFailureNetworkUnavailable": "ქსელთან კავშირი არ არის. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "inviteFailureRequestTimedOut": "მოთხოვნის დრო ამოიწურა. სცადეთ ხელახლა.",
+  "inviteFailureServerFailure": "სერვერი დროებით მიუწვდომელია. სცადეთ ხელახლა.",
+  "inviteFailureUnknown": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "acceptInvitePageTitle": "მოწვევა",
+  "acceptInviteBackLabel": "ისტორიებზე დაბრუნება",
+  "acceptInviteHeroTitle": "თქვენ მიგიწვიეს ისტორიაში",
+  "acceptInviteHeroDescription": "მიიღეთ მოწვევა შესაერთებლად. წვდომის დადასტურების შემდეგ ისტორიას გაჩვენებთ.",
+  "acceptInviteDetailsAccessTitle": "პირადი წვდომა",
+  "acceptInviteDetailsAccessBody": "ისტორიის დეტალები დამალულია, სანამ მოწვევას მიიღებთ.",
+  "acceptInviteDetailsSingleUseTitle": "ერთჯერადი ბმული",
+  "acceptInviteDetailsSingleUseBody": "მოწვევის მიღება მხოლოდ ერთხელ შეიძლება და მას შეიძლება ვადა გაუვიდეს.",
+  "acceptInviteAcceptAction": "მოწვევის მიღება",
+  "acceptInviteAcceptingAction": "მოწვევა მიიღება...",
+  "acceptInviteRetryAction": "ხელახლა ცდა",
+  "acceptInviteCancelAction": "გაუქმება",
+  "acceptInviteBackToStoriesAction": "ისტორიებზე დაბრუნება",
+  "acceptInviteInvalidLinkTitle": "მოწვევის ბმული მიუწვდომელია",
+  "acceptInviteInvalidLinkDescription": "ამ მოწვევის გახსნა შეუძლებელია.",
+  "acceptInviteUnavailable": "ამ მოწვევის მიღება შეუძლებელია.",
+  "acceptInviteFailureUnauthorized": "სესიას ყურადღება სჭირდება. გთხოვთ, ხელახლა შეხვიდეთ.",
+  "acceptInviteFailureUnknown": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "acceptInviteAcceptSemanticsLabel": "მოწვევის მიღება",
+  "acceptInviteCancelSemanticsLabel": "მოწვევის გაუქმება",
+  "acceptInviteErrorSemanticsLabel": "მოწვევის შეცდომა",
+  "playbackTitle": "დაკვრა",
+  "playbackContextLabel": "ისტორიის დაკვრა",
+  "playbackProgressLabel": "{current} / {total, plural, =1{1 მოგონება} other{{total} მოგონება}}",
+  "@playbackProgressLabel": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "playbackPreviousAction": "წინა",
+  "playbackNextAction": "შემდეგი",
+  "playbackPauseAction": "პაუზა",
+  "playbackResumeAction": "გაგრძელება",
+  "playbackReplayAction": "ხელახლა დაკვრა",
+  "playbackCloseAction": "დახურვა",
+  "playbackRetryAction": "ხელახლა ცდა",
+  "playbackEmptyTitle": "დასაკრავი მოგონებები ჯერ არ არის",
+  "playbackEmptyBody": "დაამატეთ მოგონებები ამ ისტორიაში და შემდეგ დაბრუნდით მოგზაურობისთვის.",
+  "playbackLoadFailureTitle": "დაკვრა მიუწვდომელია",
+  "playbackLoadFailureBody": "ამ ისტორიის მოგონებების ჩატვირთვა ვერ შევძელით.",
+  "playbackCameraFailureTitle": "რუკის მოძრაობა შეჩერდა",
+  "playbackCameraFailureBody": "რუკა შემდეგ მოგონებაზე ვერ გადავიდა. შეგიძლიათ სცადოთ ხელახლა ან დახუროთ დაკვრა.",
+  "playbackFinishedTitle": "დაკვრა დასრულდა",
+  "playbackFinishedBody": "გაიმეორეთ ამ ისტორიის მოგზაურობა ან დახურეთ დაკვრა.",
+  "playbackNoPhotoTitle": "ფოტო არ არის",
+  "playbackPhotoUnavailable": "ფოტო მიუწვდომელია",
+  "playbackMemoryPhotoLabel": "მოგონების ფოტო",
+  "notificationsTitle": "შეტყობინებები",
+  "notificationsBackLabel": "ისტორიებზე დაბრუნება",
+  "notificationsMarkAllReadAction": "ყველას წაკითხულად მონიშვნა",
+  "notificationsRetryAction": "ხელახლა ცდა",
+  "notificationsEmptyTitle": "შეტყობინებები ჯერ არ არის",
+  "notificationsEmptyBody": "ისტორიის განახლებები აქ გამოჩნდება, როცა რამე ახალი მოხდება.",
+  "notificationsLoadFailureTitle": "შეტყობინებების ჩატვირთვა ვერ მოხერხდა",
+  "notificationsMutationFailure": "შეტყობინების განახლება ვერ მოხერხდა. სცადეთ ხელახლა.",
+  "notificationsReferenceUnavailable": "ეს ისტორიის ელემენტი აღარ არის ხელმისაწვდომი",
+  "notificationParticipantJoined": "{actor} შეუერთდა ისტორიას",
+  "@notificationParticipantJoined": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationMemoryCreated": "{actor} დაამატა მოგონება",
+  "@notificationMemoryCreated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationMemoryCreatedWithTitle": "{actor} დაამატა {memoryTitle}",
+  "@notificationMemoryCreatedWithTitle": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "memoryTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationPhotosAdded": "{actor} დაამატა ფოტოები",
+  "@notificationPhotosAdded": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationPhotosAddedWithTitle": "{actor} დაამატა ფოტოები მოგონებაში {memoryTitle}",
+  "@notificationPhotosAddedWithTitle": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "memoryTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationFailureUnauthorized": "სესიას ყურადღება სჭირდება. გთხოვთ, ხელახლა შეხვიდეთ.",
+  "notificationFailureNotFound": "ეს შეტყობინება აღარ არის ხელმისაწვდომი.",
+  "notificationFailureNetwork": "ქსელთან კავშირი არ არის. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "notificationFailureTimeout": "მოთხოვნის დრო ამოიწურა. სცადეთ ხელახლა.",
+  "notificationFailureServer": "შეტყობინებები დროებით მიუწვდომელია. სცადეთ მოგვიანებით.",
+  "notificationFailureUnknown": "რაღაც არასწორად წავიდა. სცადეთ ხელახლა.",
+  "storiesOpenProfileLabel": "{displayName}-ის პროფილის გახსნა",
+  "@storiesOpenProfileLabel": {
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "profileTitle": "პროფილი",
+  "profileBackLabel": "ისტორიებზე დაბრუნება",
+  "profileCreatorLabel": "Memory Creator",
+  "profileQuote": "ყოველი მოგონება იმსახურებს ადგილს, სადაც იცხოვრებს.",
+  "profileAccountSection": "ანგარიში",
+  "profilePhotoTitle": "პროფილის ფოტო",
+  "profilePhotoSubtitle": "ჯერჯერობით Google-ის ავატარი",
+  "profilePhotoCustomSubtitle": "Custom Memory Story ავატარი",
+  "profileAvatarChooseAction": "ფოტოს არჩევა",
+  "profileAvatarReplaceAction": "ფოტოს შეცვლა",
+  "profileAvatarRemoveAction": "ფოტოს წაშლა",
+  "profileAvatarUploading": "იტვირთება...",
+  "profileAvatarFailure": "პროფილის ფოტოს განახლება ვერ მოხერხდა. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "profileAvatarInvalidFailure": "აირჩიეთ JPEG ან PNG ფოტო ატვირთვის ლიმიტზე ნაკლები ზომით.",
+  "profileAvatarUnauthorizedFailure": "სესიის ვადა ამოიწურა. ფოტოს შესაცვლელად ხელახლა შედით.",
+  "profileDisplayNameTitle": "საჩვენებელი სახელი",
+  "profileDisplayNameEditTitle": "საჩვენებელი სახელის რედაქტირება",
+  "profileDisplayNameFieldLabel": "საჩვენებელი სახელი",
+  "profileDisplayNameSaveAction": "შენახვა",
+  "profileDisplayNameSaving": "ინახება...",
+  "profileDisplayNameInvalidFailure": "შეიყვანეთ საჩვენებელი სახელი.",
+  "profileDisplayNameTooLongFailure": "საჩვენებელი სახელი უნდა იყოს 255 სიმბოლო ან ნაკლები.",
+  "profileDisplayNameControlCharacterFailure": "საჩვენებელი სახელი ერთ ხაზზე უნდა დარჩეს.",
+  "profileDisplayNameFailure": "სახელის შენახვა ვერ მოხერხდა. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "profileDisplayNameUnauthorizedFailure": "სესიის ვადა ამოიწურა. სახელის შესაცვლელად ხელახლა შედით.",
+  "profileDisplayNameLocalPersistenceFailure": "სახელი შენახულია, მაგრამ ლოკალურად შენახვა ვერ მოხერხდა. თუ არ განახლდა, გადატვირთეთ აპი.",
+  "profileLanguageTitle": "ენა",
+  "profileLanguageSubtitle": "აირჩიეთ აპის ენა",
+  "languageSystemOption": "სისტემური",
+  "languageSystemSubtitle": "მოწყობილობის ენის გამოყენება",
+  "languageRussianOption": "Русский",
+  "languageEnglishOption": "English",
+  "languageGeorgianOption": "ქართული",
+  "languageChangeFailure": "ენის შენახვა ვერ მოხერხდა. სცადეთ ხელახლა.",
+  "profileLegalSupportSection": "სამართლებრივი ინფორმაცია და მხარდაჭერა",
+  "profilePrivacyPolicyTitle": "კონფიდენციალურობის პოლიტიკა",
+  "profilePrivacyPolicySubtitle": "როგორ არის დაცული პირადი მოგონებები",
+  "profileTermsOfUseTitle": "გამოყენების პირობები",
+  "profileTermsOfUseSubtitle": "Memory Story-ის გამოყენების წესები",
+  "profileHelpSupportTitle": "დახმარება და მხარდაჭერა",
+  "profileHelpSupportSubtitle": "კითხვები და მხარდაჭერის ვარიანტები",
+  "profileAboutTitle": "Memory Story-ის შესახებ",
+  "profileAboutSubtitle": "აპის ინფორმაცია",
+  "profileAccountActionsSection": "ანგარიშის მოქმედებები",
+  "profileLogoutSubtitle": "ამ მოწყობილობაზე სესიის დასრულება",
+  "profileDeleteTitle": "პროფილის წაშლა",
+  "profileDeleteSubtitle": "ანგარიშის სამუდამოდ წაშლა",
+  "profileDeleteConfirmTitle": "წავშალოთ პროფილი?",
+  "profileDeleteConfirmBody": "ეს სამუდამოდ წაშლის თქვენს ანგარიშს და Memory Story-ზე წვდომას მოგიხსნით. ისტორიები, რომლებსაც ჯერ კიდევ მფლობელი სჭირდება, ჯერ უნდა მოგვარდეს.",
+  "profileDeleteConfirmAction": "პროფილის წაშლა",
+  "profileDeletingAction": "იშლება...",
+  "profileDeleteOwnershipConflict": "თქვენს ერთ-ერთ გაზიარებულ ისტორიას ჯერ კიდევ სჭირდება მფლობელი. პროფილის წაშლამდე მოაგვარეთ ისტორიის მფლობელობა.",
+  "profileDeleteUnauthorized": "სესიის ვადა ამოიწურა. პროფილის წასაშლელად ხელახლა შედით.",
+  "profileDeleteFailure": "პროფილის წაშლა ვერ მოხერხდა. შეამოწმეთ კავშირი და სცადეთ ხელახლა.",
+  "profileDeleteUnavailableAction": "წაშლა მიუწვდომელია",
+  "profilePhotoPlaceholderBody": "პროფილის ფოტოს რედაქტირება ჯერ მიუწვდომელია. თქვენი Google-ის ავატარი რჩება მიმდინარე პროფილის სურათად.",
+  "profileDisplayNamePlaceholderBody": "საჩვენებელი სახელის რედაქტირება ჯერ მიუწვდომელია. თქვენი Google-ის მიმდინარე სახელი ხილული რჩება.",
+  "profilePrivacyPolicyPlaceholderBody": "სრული კონფიდენციალურობის პოლიტიკა დაემატება საჯარო გამოშვებამდე.",
+  "profileTermsPlaceholderBody": "გამოყენების სრული პირობები დაემატება საჯარო გამოშვებამდე.",
+  "profileHelpPlaceholderBody": "დახმარებისა და მხარდაჭერის ვარიანტები დაემატება საჯარო გამოშვებამდე.",
+  "profileAboutPlaceholderBody": "Memory Story არის პირადი მოგონებების აპი ისტორიებისთვის, ადგილებისთვის, ფოტოებისთვის, დაკვრისთვის და ადამიანებისთვის, რომლებიც მათ იზიარებენ."
+}

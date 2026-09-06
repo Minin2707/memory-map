@@ -633,6 +633,7 @@
   "languageSystemSubtitle": "Использовать язык устройства",
   "languageRussianOption": "Русский",
   "languageEnglishOption": "English",
+  "languageGeorgianOption": "ქართული",
   "languageChangeFailure": "Не удалось сохранить язык. Попробуйте снова.",
   "profileLegalSupportSection": "ПРАВОВАЯ ИНФОРМАЦИЯ И ПОМОЩЬ",
   "profilePrivacyPolicyTitle": "Политика конфиденциальности",

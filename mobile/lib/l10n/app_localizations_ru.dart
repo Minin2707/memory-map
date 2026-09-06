@@ -1599,6 +1599,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get languageEnglishOption => 'English';
 
   @override
+  String get languageGeorgianOption => 'ქართული';
+
+  @override
   String get languageChangeFailure =>
       'Не удалось сохранить язык. Попробуйте снова.';
 

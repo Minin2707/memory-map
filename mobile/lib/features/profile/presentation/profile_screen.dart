@@ -277,6 +277,7 @@ class ProfileScreen extends ConsumerWidget {
       AppLanguagePreference.system => l10n.languageSystemOption,
       AppLanguagePreference.russian => l10n.languageRussianOption,
       AppLanguagePreference.english => l10n.languageEnglishOption,
+      AppLanguagePreference.georgian => l10n.languageGeorgianOption,
     };
   }
 

@@ -56,6 +56,19 @@ void main() {
       expect(state.preference, AppLanguagePreference.english);
     });
 
+    test('shouldRestorePersistedGeorgianPreference', () async {
+      final container = createContainer(
+        FakeAppLanguagePreferenceStorage(
+          initialPreference: AppLanguagePreference.georgian,
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final state = await container.read(appLanguagePreferenceProvider.future);
+
+      expect(state.preference, AppLanguagePreference.georgian);
+    });
+
     test('shouldPersistSelectedPreference', () async {
       final storage = FakeAppLanguagePreferenceStorage();
       final container = createContainer(storage);
@@ -64,15 +77,15 @@ void main() {
 
       final didSave = await container
           .read(appLanguagePreferenceProvider.notifier)
-          .selectPreference(AppLanguagePreference.english);
+          .selectPreference(AppLanguagePreference.georgian);
 
       final state = container.read(appLanguagePreferenceProvider).requireValue;
       expect(didSave, isTrue);
-      expect(storage.storedPreference, AppLanguagePreference.english);
+      expect(storage.storedPreference, AppLanguagePreference.georgian);
       expect(storage.writes, <AppLanguagePreference>[
-        AppLanguagePreference.english,
+        AppLanguagePreference.georgian,
       ]);
-      expect(state.preference, AppLanguagePreference.english);
+      expect(state.preference, AppLanguagePreference.georgian);
       expect(state.hasPersistenceFailure, isFalse);
     });
 
