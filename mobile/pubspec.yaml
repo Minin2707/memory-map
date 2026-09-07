@@ -76,8 +76,22 @@ flutter:
   uses-material-design: true
   assets:
     - assets/loginscreen.png
+    - assets/hero_create_story.png
     - assets/branding/login_logo.png
     - assets/google.svg
+  fonts:
+    - family: NotoSerif
+      fonts:
+        - asset: assets/fonts/NotoSerif-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSerif-Medium.ttf
+          weight: 500
+    - family: NotoSerifGeorgian
+      fonts:
+        - asset: assets/fonts/NotoSerifGeorgian-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSerifGeorgian-Medium.ttf
+          weight: 500
 
   # To add assets to your application, add an assets section, like this:
   # assets:

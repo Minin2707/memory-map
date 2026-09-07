@@ -26,7 +26,7 @@ void main() {
       await pumpScreen(tester, FakeStoryRepository());
 
       expect(find.text('Create story'), findsWidgets);
-      expect(find.text('New story'), findsOneWidget);
+      expect(find.text('New story'), findsNothing);
       expect(
         find.text('Create a space for your shared memories'),
         findsOneWidget,
@@ -38,6 +38,8 @@ void main() {
       expect(find.text('Choose cover'), findsOneWidget);
       expect(find.text('optional'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Why does a title matter?'), findsNothing);
+      expect(find.text('Title ideas'), findsNothing);
     });
 
     testWidgets('shouldRenderRussianContent', (WidgetTester tester) async {
@@ -47,8 +49,8 @@ void main() {
         locale: const Locale('ru'),
       );
 
-      expect(find.text('Создание истории'), findsOneWidget);
-      expect(find.text('Новая история'), findsOneWidget);
+      expect(find.text('Создать историю'), findsWidgets);
+      expect(find.text('Новая история'), findsNothing);
       expect(
         find.text('Создайте пространство для ваших совместных воспоминаний'),
         findsOneWidget,
@@ -60,6 +62,15 @@ void main() {
       expect(find.text('Выбрать обложку'), findsOneWidget);
       expect(find.text('необязательно'), findsOneWidget);
       expect(find.text('Отмена'), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderDecorativeHeroAsset', (WidgetTester tester) async {
+      await pumpScreen(tester, FakeStoryRepository());
+
+      expect(
+        find.image(const AssetImage('assets/hero_create_story.png')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shouldRenderBackAction', (WidgetTester tester) async {
@@ -221,7 +232,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Change cover'), findsOneWidget);
-      expect(find.text('Remove selected cover'), findsOneWidget);
+      expect(find.text('Remove cover'), findsOneWidget);
       expect(repository.createCalls, 0);
       expect(repository.uploadCoverCalls, 0);
     });
@@ -855,10 +866,10 @@ Future<void> tapSubmit(
 }
 
 Future<void> chooseCover(WidgetTester tester) async {
-  await pressButton(
-    tester,
-    find.byKey(const ValueKey('create-story.cover.choose-action')),
-  );
+  final finder = find.byKey(const ValueKey('create-story.cover.choose-action'));
+  await tester.ensureVisible(finder);
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
 }
 
 Future<void> pressButton(

@@ -46,7 +46,7 @@ void main() {
       final noPhotoRect = tester.getRect(
         find.byKey(const ValueKey('story-card.no-photo')),
       );
-      expect(noPhotoRect.width, noPhotoRect.height);
+      expect(noPhotoRect.width, greaterThan(noPhotoRect.height));
     });
 
     testWidgets('shouldKeepCardContentWhenThumbnailFails', (tester) async {
@@ -64,7 +64,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Our story'), findsOneWidget);
-      expect(find.text('Together since 2021'), findsOneWidget);
+      expect(find.text('Together since 2021'), findsNothing);
       expect(find.text('12 memories'), findsOneWidget);
       expect(find.text('2 participants'), findsOneWidget);
       expect(find.textContaining('UnexpectedStoryImageException'), findsNothing);
@@ -78,23 +78,28 @@ void main() {
       expect(unavailableRect.size, thumbnailRect.size);
     });
 
-    testWidgets('shouldRenderTitleDescriptionRolesAndCounts', (tester) async {
-      await pumpCard(tester, userStory());
-
-      expect(find.text('Our story'), findsOneWidget);
-      expect(find.text('Together since 2021'), findsOneWidget);
-      expect(find.text('Owner'), findsOneWidget);
-      expect(find.text('12 memories'), findsOneWidget);
-      expect(find.text('2 participants'), findsOneWidget);
-    });
-
-    testWidgets('shouldRenderMetadataWithPinAndParticipantIcons', (
+    testWidgets('shouldRenderTitleAndCountsWithoutDescriptionOrRoleBadge', (
       tester,
     ) async {
       await pumpCard(tester, userStory());
 
-      expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.group_outlined), findsOneWidget);
+      expect(find.text('Our story'), findsOneWidget);
+      expect(find.text('Together since 2021'), findsNothing);
+      expect(find.text('Owner'), findsNothing);
+      expect(find.text('12 memories'), findsOneWidget);
+      expect(find.text('2 participants'), findsOneWidget);
+    });
+
+    testWidgets('shouldRenderMetadataAsTextWithMiddleDot', (
+      tester,
+    ) async {
+      await pumpCard(tester, userStory());
+
+      expect(find.text('12 memories'), findsOneWidget);
+      expect(find.text('·'), findsOneWidget);
+      expect(find.text('2 participants'), findsOneWidget);
+      expect(find.byIcon(Icons.location_on_outlined), findsNothing);
+      expect(find.byIcon(Icons.group_outlined), findsNothing);
     });
 
     testWidgets('shouldKeepMetadataOnOneRowAtNormalPhoneWidth', (
@@ -121,21 +126,20 @@ void main() {
       );
     });
 
-    testWidgets('shouldKeepTextBadgeAndCountsInRightColumn', (tester) async {
+    testWidgets('shouldKeepTitleAndCountsInLowerPhotoOverlay', (tester) async {
       await pumpCard(tester, userStory());
 
-      final thumbnailRect = tester.getRect(
+      final cardRect = tester.getRect(
         find.byKey(const ValueKey('story-card.no-photo')),
       );
       final titleRect = tester.getRect(find.text('Our story'));
-      final badgeRect = tester.getRect(find.text('Owner'));
       final memoriesRect = tester.getRect(find.text('12 memories'));
       final participantsRect = tester.getRect(find.text('2 participants'));
 
-      expect(titleRect.left, greaterThan(thumbnailRect.right));
-      expect(badgeRect.left, greaterThan(titleRect.left));
-      expect(memoriesRect.left, greaterThan(thumbnailRect.right));
-      expect(participantsRect.left, greaterThan(thumbnailRect.right));
+      expect(titleRect.left, greaterThan(cardRect.left));
+      expect(titleRect.bottom, lessThan(cardRect.bottom));
+      expect(memoriesRect.left, greaterThan(cardRect.left));
+      expect(participantsRect.left, greaterThan(cardRect.left));
       expect(memoriesRect.top, greaterThan(titleRect.top));
       expect(participantsRect.top, greaterThan(titleRect.top));
     });
@@ -151,7 +155,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('shouldRenderEveryRoleAsLocalizedLabel', (tester) async {
+    testWidgets('shouldNotRenderRoleLabelsOnPhotoLedCards', (tester) async {
       await pumpCardList(
         tester,
         <UserStory>[
@@ -162,15 +166,17 @@ void main() {
         ],
       );
 
-      expect(find.text('Owner'), findsOneWidget);
-      expect(find.text('Co-owner'), findsOneWidget);
-      expect(find.text('Editor'), findsOneWidget);
-      expect(find.text('Viewer'), findsOneWidget);
+      expect(find.text('Owner'), findsNothing);
+      expect(find.text('Co-owner'), findsNothing);
+      expect(find.text('Editor'), findsNothing);
+      expect(find.text('Viewer'), findsNothing);
       expect(find.text('CO_OWNER'), findsNothing);
       expect(find.text('coOwner'), findsNothing);
     });
 
     testWidgets('shouldRenderEnglishPluralizedCounts', (tester) async {
+      setSurface(tester, const Size(390, 900));
+
       await pumpCardList(
         tester,
         <UserStory>[
@@ -194,6 +200,8 @@ void main() {
     });
 
     testWidgets('shouldRenderRussianPluralizedCounts', (tester) async {
+      setSurface(tester, const Size(390, 1300));
+
       await pumpCardList(
         tester,
         <UserStory>[
@@ -270,7 +278,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('shouldHandleLongTitleWithCoOwnerBadge', (tester) async {
+    testWidgets('shouldHandleLongTitleForCoOwnerRoleWithoutRoleBadge', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(330, 640);
       tester.view.devicePixelRatio = 1;
       addTearDown(() {
@@ -287,14 +297,15 @@ void main() {
         ),
       );
 
-      expect(find.text('Co-owner'), findsOneWidget);
+      expect(find.text('Co-owner'), findsNothing);
       expect(tester.takeException(), isNull);
 
-      final thumbnailRect = tester.getRect(
+      final cardRect = tester.getRect(
         find.byKey(const ValueKey('story-card.no-photo')),
       );
       final memoriesRect = tester.getRect(find.text('12 memories'));
-      expect(memoriesRect.left, greaterThan(thumbnailRect.right));
+      expect(memoriesRect.left, greaterThan(cardRect.left));
+      expect(memoriesRect.bottom, lessThan(cardRect.bottom));
     });
   });
 }
@@ -396,4 +407,13 @@ StoryPhotoPreview storyPreviewPhoto({
 
 final class UnexpectedStoryImageException implements Exception {
   const UnexpectedStoryImageException();
+}
+
+void setSurface(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
 }

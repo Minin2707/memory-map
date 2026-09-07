@@ -208,7 +208,8 @@ void main() {
       await pumpStartupBrandingAnimation(tester);
       await tester.pumpAndSettle();
 
-      expect(find.text('Hi, Ada! 👋'), findsOneWidget);
+      expect(findStoriesDaypartGreeting(), findsOneWidget);
+      expect(find.text('Ada'), findsOneWidget);
       expect(find.textContaining('Ada Lovelace!'), findsNothing);
       expect(find.text('Your stories'), findsOneWidget);
       expect(find.text('Continue with Google'), findsNothing);
@@ -856,7 +857,10 @@ void main() {
         find.byKey(const ValueKey('stories.create.section-action')),
       );
 
-      expect(find.text('New story'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('create-story.title-field')),
+        findsOneWidget,
+      );
 
       await tapButton(
         tester,
@@ -906,7 +910,10 @@ void main() {
       );
 
       expect(find.text('Your stories'), findsOneWidget);
-      expect(find.text('New story'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('create-story.title-field')),
+        findsNothing,
+      );
     });
 
     testWidgets('shouldOpenDetailsFromSelectedStoryAndBackToStories', (
@@ -945,7 +952,7 @@ void main() {
         storyRepository: fakeStoryRepository,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(ownerStory.story.title));
+      await tapVisibleText(tester, ownerStory.story.title);
       await tester.pumpAndSettle();
 
       expect(storyDetailsScreenFinder(), findsOneWidget);
@@ -1086,7 +1093,7 @@ void main() {
         storyRepository: fakeStoryRepository,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(ownerStory.story.title));
+      await tapVisibleText(tester, ownerStory.story.title);
       await tester.pumpAndSettle();
       await tapButton(
         tester,
@@ -1117,7 +1124,7 @@ void main() {
 
       expect(find.text('Your stories'), findsOneWidget);
       expect(find.text(updatedOwnerStory.story.title), findsOneWidget);
-      expect(find.text(updatedOwnerStory.story.description!), findsOneWidget);
+      expect(find.text(updatedOwnerStory.story.description!), findsNothing);
     });
 
     testWidgets('shouldBuildDirectDetailsRouteWithPathStoryId', (
@@ -1739,7 +1746,8 @@ void main() {
         participantRepository: fakeParticipantRepository,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(storyB.story.title));
+      await scrollDownUntilFound(tester, find.text(storyB.story.title));
+      await tapVisibleText(tester, storyB.story.title);
       await tester.pumpAndSettle();
       await scrollToStoryDetailsParticipantsAction(tester);
       await tapButton(tester, storyDetailsParticipantsActionFinder());
@@ -1756,10 +1764,14 @@ void main() {
         fakeParticipantRepository.receivedLeaveInput,
         LeaveStoryInput(storyId: storyB.story.id),
       );
+      expect(storyDetailsScreenFinder(), findsNothing);
+      expect(find.text('Participants'), findsNothing);
+      await scrollUpUntilFound(tester, find.text('Your stories'));
       expect(find.text('Your stories'), findsOneWidget);
-      expect(find.text(storyA.story.title), findsOneWidget);
-      expect(find.text(storyB.story.title), findsNothing);
-      expect(find.text(storyC.story.title), findsOneWidget);
+      expect(
+        routerLocation(tester.element(find.text('Your stories'))),
+        storiesRoute,
+      );
       expect(
         container.read(storiesNotifierProvider).asData!.value.stories,
         <UserStory>[storyA, storyC],
@@ -4512,6 +4524,16 @@ Widget fakeLocationPickerMapBuilder(
         child: const Text('Select point B'),
       ),
     ],
+  );
+}
+
+Finder findStoriesDaypartGreeting() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Text &&
+        (widget.data == 'Good morning,' ||
+            widget.data == 'Good afternoon,' ||
+            widget.data == 'Good evening,'),
   );
 }
 

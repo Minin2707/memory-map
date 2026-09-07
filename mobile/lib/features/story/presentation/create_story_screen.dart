@@ -16,6 +16,16 @@ import 'package:memory_map/features/story/presentation/story_failure_message.dar
 import 'package:memory_map/features/story/presentation/widgets/story_form_failure_banner.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _createStoryBackground = Color(0xFFFBF6F1);
+const _createStoryInk = Color(0xFF182331);
+const _createStoryMuted = Color(0xFF747B86);
+const _createStoryAccent = Color(0xFFE05D6E);
+const _createStoryAccentSoft = Color(0xFFFFEEF0);
+const _createStoryBorder = Color(0x1FEA6D7A);
+const _createStoryInputFill = Color(0xFFFFFDFB);
+const _createStoryDisplayFontFamily = 'NotoSerif';
+const _createStoryHeroAsset = 'assets/hero_create_story.png';
+
 class CreateStoryScreen extends ConsumerStatefulWidget {
   const CreateStoryScreen({
     this.onCancel,
@@ -75,6 +85,7 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
         _coverMediaFailure != null;
     final failureMessage = _failureMessage(l10n, storiesValue, storiesState);
     final coverFailureMessage = _coverFailureMessage(l10n);
+    final mediaPadding = MediaQuery.paddingOf(context);
 
     return PopScope(
       canPop: false,
@@ -90,122 +101,108 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
-        body: SafeArea(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              FocusScope.of(context).unfocus();
-            },
-            child: CustomScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: _CreateStoryAppBar(
-                      isBusy: isBusy,
-                      onCancel: hasPersistedStory
-                          ? _continueWithoutCover
-                          : widget.onCancel,
-                    ),
-                  ),
+        backgroundColor: _createStoryBackground,
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            FocusScope.of(context).unfocus();
+          },
+          child: CustomScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              SliverToBoxAdapter(
+                child: _CreateStoryHero(
+                  title: l10n.createStoryPageTitle,
+                  subtitle: l10n.createStoryHeroSubtitle,
+                  isBusy: isBusy,
+                  onCancel: hasPersistedStory
+                      ? _continueWithoutCover
+                      : widget.onCancel,
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: _CreateStoryHero(
-                      title: l10n.createStoryHeroTitle,
-                      subtitle: l10n.createStoryHeroSubtitle,
-                    ),
-                  ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  28,
+                  24,
+                  32 +
+                      MediaQuery.viewInsetsOf(context).bottom +
+                      mediaPadding.bottom,
                 ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    24,
-                    30,
-                    24,
-                    24 + MediaQuery.viewInsetsOf(context).bottom,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _CreateStoryFormCard(
-                            titleController: _titleController,
-                            descriptionController: _descriptionController,
-                            titleFocusNode: _titleFocusNode,
-                            descriptionFocusNode: _descriptionFocusNode,
-                            enabled: !isBusy && !hasPersistedStory,
-                            preparedCover: _preparedCover,
-                            isCoverSelecting: _isSelectingCover,
-                            isCoverPreparing: _isPreparingCover,
-                            isCoverUploading: _isUploadingCover,
-                            coverFailureMessage: coverFailureMessage,
-                            onChooseCover:
-                                isBusy || hasPersistedStory ? null : _chooseCover,
-                            onRemoveSelectedCover:
-                                isBusy || hasPersistedStory || !hasLocalCoverState
-                                    ? null
-                                    : _removeSelectedCover,
-                          ),
-                          if (failureMessage != null) ...[
-                            const SizedBox(height: 16),
-                            StoryFormFailureBanner(message: failureMessage),
-                          ],
-                          if (hasPartialCoverFailure) ...[
-                            const SizedBox(height: 16),
-                            _CreateStoryCoverPartialSuccessPanel(
-                              failureMessage: _partialCoverFailureMessage(l10n),
-                              isRetrying: _isUploadingCover,
-                              onRetry: _isUploadingCover
+                sliver: SliverToBoxAdapter(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _CreateStoryFormCard(
+                          titleController: _titleController,
+                          descriptionController: _descriptionController,
+                          titleFocusNode: _titleFocusNode,
+                          descriptionFocusNode: _descriptionFocusNode,
+                          enabled: !isBusy && !hasPersistedStory,
+                          preparedCover: _preparedCover,
+                          isCoverSelecting: _isSelectingCover,
+                          isCoverPreparing: _isPreparingCover,
+                          isCoverUploading: _isUploadingCover,
+                          coverFailureMessage: coverFailureMessage,
+                          onChooseCover:
+                              isBusy || hasPersistedStory ? null : _chooseCover,
+                          onRemoveSelectedCover:
+                              isBusy || hasPersistedStory || !hasLocalCoverState
                                   ? null
-                                  : _retryCoverUpload,
-                              onContinue: _isUploadingCover
-                                  ? null
-                                  : _continueWithoutCover,
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          if (!hasPartialCoverFailure) ...[
-                            _CreateStoryButton(
-                              isCreating: isCreatingStory,
-                              isUploadingCover: _isUploadingCover,
-                              onPressed: isBusy || hasPersistedStory
-                                  ? null
-                                  : _submit,
-                            ),
-                            const SizedBox(height: 12),
-                            OutlinedButton(
-                              key: const ValueKey('create-story.cancel-action'),
-                              onPressed: isBusy ? null : widget.onCancel,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFFF5D72),
-                                side: const BorderSide(
-                                  color: Color(0xFFFF8A99),
-                                ),
-                                minimumSize: const Size.fromHeight(56),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                              child: Text(l10n.cancel),
-                            ),
-                          ],
+                                  : _removeSelectedCover,
+                        ),
+                        if (failureMessage != null) ...[
+                          const SizedBox(height: 16),
+                          StoryFormFailureBanner(message: failureMessage),
                         ],
-                      ),
+                        if (hasPartialCoverFailure) ...[
+                          const SizedBox(height: 16),
+                          _CreateStoryCoverPartialSuccessPanel(
+                            failureMessage: _partialCoverFailureMessage(l10n),
+                            isRetrying: _isUploadingCover,
+                            onRetry:
+                                _isUploadingCover ? null : _retryCoverUpload,
+                            onContinue: _isUploadingCover
+                                ? null
+                                : _continueWithoutCover,
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        if (!hasPartialCoverFailure) ...[
+                          _CreateStoryButton(
+                            isCreating: isCreatingStory,
+                            isUploadingCover: _isUploadingCover,
+                            onPressed:
+                                isBusy || hasPersistedStory ? null : _submit,
+                          ),
+                          const SizedBox(height: 10),
+                          TextButton(
+                            key: const ValueKey('create-story.cancel-action'),
+                            onPressed: isBusy ? null : widget.onCancel,
+                            style: TextButton.styleFrom(
+                              foregroundColor: _createStoryAccent,
+                              minimumSize: const Size.fromHeight(48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 12,
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                            child: Text(l10n.cancel),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -485,8 +482,66 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
   }
 }
 
-class _CreateStoryAppBar extends StatelessWidget {
-  const _CreateStoryAppBar({
+class _CreateStoryHero extends StatelessWidget {
+  const _CreateStoryHero({
+    required this.title,
+    required this.subtitle,
+    required this.isBusy,
+    required this.onCancel,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool isBusy;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _CreateStoryHeroImage(
+          isBusy: isBusy,
+          onCancel: onCancel,
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _createStoryInk,
+              fontFamily: _createStoryDisplayFontFamily,
+              fontFamilyFallback: <String>['NotoSerifGeorgian'],
+              fontSize: 33,
+              fontWeight: FontWeight.w500,
+              height: 1.08,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _createStoryMuted,
+              fontSize: 16,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CreateStoryHeroImage extends StatelessWidget {
+  const _CreateStoryHeroImage({
     required this.isBusy,
     required this.onCancel,
   });
@@ -498,175 +553,62 @@ class _CreateStoryAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Row(
-      children: [
-        IconButton(
-          key: const ValueKey('create-story.back-action'),
-          onPressed: isBusy ? null : onCancel,
-          tooltip: l10n.createStoryBackLabel,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        Expanded(
-          child: Text(
-            l10n.createStoryPageTitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        const SizedBox(width: 48),
-      ],
-    );
-  }
-}
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = (width * 0.72).clamp(220.0, 280.0).toDouble();
 
-class _CreateStoryHero extends StatelessWidget {
-  const _CreateStoryHero({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const _CreateStoryIllustration(),
-        const SizedBox(height: 28),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF1F2937),
-            fontSize: 34,
-            fontWeight: FontWeight.w900,
-            height: 1.1,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          subtitle,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 18,
-            height: 1.45,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CreateStoryIllustration extends StatelessWidget {
-  const _CreateStoryIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      child: SizedBox(
-        width: 220,
-        height: 154,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              bottom: 26,
-              left: 14,
-              child: _SoftHill(
-                width: 88,
-                height: 56,
-                color: const Color(0xFFE9E5EA),
+        return SizedBox(
+          width: double.infinity,
+          height: height,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ExcludeSemantics(
+                  child: Image.asset(
+                    _createStoryHeroAsset,
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
-            ),
-            Positioned(
-              bottom: 20,
-              right: 10,
-              child: _SoftHill(
-                width: 118,
-                height: 76,
-                color: const Color(0xFFF0ECEF),
-              ),
-            ),
-            Positioned(
-              top: 18,
-              child: Container(
-                width: 78,
-                height: 98,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF5D72),
-                  borderRadius: BorderRadius.circular(42),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33FF5D72),
-                      offset: Offset(0, 12),
-                      blurRadius: 20,
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        _createStoryBackground.withValues(alpha: 0),
+                        _createStoryBackground.withValues(alpha: 0.18),
+                        _createStoryBackground.withValues(alpha: 0.72),
+                        _createStoryBackground,
+                      ],
+                      stops: const [0.58, 0.74, 0.91, 1],
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.favorite_rounded,
-                  color: Colors.white,
-                  size: 38,
+                  ),
                 ),
               ),
-            ),
-            const Positioned(
-              top: 28,
-              right: 38,
-              child: Icon(
-                Icons.favorite_rounded,
-                color: Color(0x33FF5D72),
-                size: 24,
+              Positioned(
+                left: 8,
+                top: MediaQuery.paddingOf(context).top + 8,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: _createStoryBackground.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: IconButton(
+                    key: const ValueKey('create-story.back-action'),
+                    onPressed: isBusy ? null : onCancel,
+                    tooltip: l10n.createStoryBackLabel,
+                    color: _createStoryInk,
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                  ),
+                ),
               ),
-            ),
-            const Positioned(
-              top: 48,
-              left: 54,
-              child: Icon(
-                Icons.favorite_rounded,
-                color: Color(0x33FF5D72),
-                size: 16,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SoftHill extends StatelessWidget {
-  const _SoftHill({
-    required this.width,
-    required this.height,
-    required this.color,
-  });
-
-  final double width;
-  final double height;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(height / 2),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -704,98 +646,69 @@ class _CreateStoryFormCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CreateStoryCoverSection(
-            preparedCover: preparedCover,
-            isSelecting: isCoverSelecting,
-            isPreparing: isCoverPreparing,
-            isUploading: isCoverUploading,
-            failureMessage: coverFailureMessage,
-            onChooseCover: onChooseCover,
-            onRemoveSelectedCover: onRemoveSelectedCover,
-          ),
-          const SizedBox(height: 24),
-          _FieldLabel(
-            label: l10n.createStoryTitleLabel,
-            required: true,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('create-story.title-field'),
-            controller: titleController,
-            focusNode: titleFocusNode,
-            enabled: enabled,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.next,
-            onFieldSubmitted: (_) {
-              descriptionFocusNode.requestFocus();
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return l10n.createStoryTitleRequired;
-              }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CreateStoryCoverSection(
+          preparedCover: preparedCover,
+          isSelecting: isCoverSelecting,
+          isPreparing: isCoverPreparing,
+          isUploading: isCoverUploading,
+          failureMessage: coverFailureMessage,
+          onChooseCover: onChooseCover,
+          onRemoveSelectedCover: onRemoveSelectedCover,
+        ),
+        const SizedBox(height: 28),
+        _FieldLabel(
+          label: l10n.createStoryTitleLabel,
+          required: true,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          key: const ValueKey('create-story.title-field'),
+          controller: titleController,
+          focusNode: titleFocusNode,
+          enabled: enabled,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.next,
+          onFieldSubmitted: (_) {
+            descriptionFocusNode.requestFocus();
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return l10n.createStoryTitleRequired;
+            }
 
-              if (value.trim().isEmpty) {
-                return l10n.createStoryTitleBlank;
-              }
+            if (value.trim().isEmpty) {
+              return l10n.createStoryTitleBlank;
+            }
 
-              return null;
-            },
-            decoration: _inputDecoration(
-              hintText: l10n.createStoryTitleHint,
-            ),
+            return null;
+          },
+          decoration: _inputDecoration(
+            hintText: l10n.createStoryTitleHint,
           ),
-          const SizedBox(height: 10),
-          Text(
-            l10n.createStoryTitleHelp,
-            style: const TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 14,
-              height: 1.35,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0,
-            ),
+        ),
+        const SizedBox(height: 24),
+        _FieldLabel(
+          label: l10n.createStoryDescriptionLabel,
+          optionalText: l10n.createStoryDescriptionOptional,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          key: const ValueKey('create-story.description-field'),
+          controller: descriptionController,
+          focusNode: descriptionFocusNode,
+          enabled: enabled,
+          minLines: 3,
+          maxLines: 6,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.newline,
+          decoration: _inputDecoration(
+            hintText: l10n.createStoryDescriptionHint,
           ),
-          const SizedBox(height: 22),
-          _FieldLabel(
-            label: l10n.createStoryDescriptionLabel,
-            optionalText: l10n.createStoryDescriptionOptional,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('create-story.description-field'),
-            controller: descriptionController,
-            focusNode: descriptionFocusNode,
-            enabled: enabled,
-            minLines: 3,
-            maxLines: 6,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.newline,
-            decoration: _inputDecoration(
-              hintText: l10n.createStoryDescriptionHint,
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Divider(color: Color(0xFFE8EBEF)),
-          const SizedBox(height: 22),
-          _NameIdeas(l10n: l10n),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -805,31 +718,31 @@ class _CreateStoryFormCard extends StatelessWidget {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(
-        color: Color(0xFFA8AFBA),
+        color: Color(0xFFA0A7B1),
         fontWeight: FontWeight.w500,
       ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: _createStoryInputFill,
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFD8DDE5)),
+        borderSide: const BorderSide(color: Color(0xFFEFE5E1), width: 0.8),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFFF6B7D), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xB8E05D6E), width: 1.1),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFFF5D72), width: 1.5),
+        borderSide: const BorderSide(color: _createStoryAccent, width: 1.4),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFFF5D72), width: 1.5),
+        borderSide: const BorderSide(color: _createStoryAccent, width: 1.4),
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        borderSide: const BorderSide(color: Color(0xFFF2EBE8), width: 0.8),
       ),
     );
   }
@@ -874,34 +787,101 @@ class _CreateStoryCoverSection extends StatelessWidget {
           preparedCover: preparedCover,
           photoLabel: l10n.editStoryCoverPhotoLabel,
           emptyLabel: l10n.editStoryCoverNoPhoto,
+          chooseLabel: chooseLabel,
+          isBusy: isSelecting || isPreparing || isUploading,
+          statusMessage: statusMessage,
+          onChooseCover: onChooseCover,
         ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            OutlinedButton.icon(
-              key: const ValueKey('create-story.cover.choose-action'),
-              onPressed: onChooseCover,
-              icon: isSelecting || isPreparing || isUploading
-                  ? const _ButtonProgressIndicator()
-                  : const Icon(Icons.photo_library_rounded),
-              label: Text(chooseLabel),
-            ),
-            if (hasLocalSelectionState)
-              TextButton.icon(
-                key: const ValueKey(
-                  'create-story.cover.remove-selection-action',
+        if (hasLocalSelectionState) ...[
+          const SizedBox(height: 14),
+          if (hasCover)
+            Row(
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('create-story.cover.choose-action'),
+                    onPressed: onChooseCover,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _createStoryAccent,
+                      side: const BorderSide(color: _createStoryBorder),
+                      backgroundColor: _createStoryInputFill,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    icon: isSelecting || isPreparing || isUploading
+                        ? const _ButtonProgressIndicator()
+                        : const Icon(Icons.photo_library_rounded),
+                    label: Text(
+                      chooseLabel,
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
                 ),
-                onPressed: onRemoveSelectedCover,
-                icon: const Icon(Icons.close_rounded),
-                label: Text(l10n.createStoryCoverRemoveSelectionAction),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 5,
+                  child: TextButton.icon(
+                    key: const ValueKey(
+                      'create-story.cover.remove-selection-action',
+                    ),
+                    onPressed: onRemoveSelectedCover,
+                    style: TextButton.styleFrom(
+                      foregroundColor: _createStoryMuted,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      l10n.createStoryCoverRemoveSelectionAction,
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            TextButton.icon(
+              key: const ValueKey(
+                'create-story.cover.remove-selection-action',
               ),
-          ],
-        ),
-        if (statusMessage != null) ...[
-          const SizedBox(height: 10),
-          _CoverStatusMessage(message: statusMessage),
+              onPressed: onRemoveSelectedCover,
+              style: TextButton.styleFrom(
+                foregroundColor: _createStoryMuted,
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+              ),
+              label: Text(l10n.createStoryCoverRemoveSelectionAction),
+            ),
         ],
         if (failureMessage != null) ...[
           const SizedBox(height: 12),
@@ -933,46 +913,72 @@ class _LocalStoryCoverPreview extends StatelessWidget {
     required this.preparedCover,
     required this.photoLabel,
     required this.emptyLabel,
+    required this.chooseLabel,
+    required this.isBusy,
+    required this.statusMessage,
+    required this.onChooseCover,
   });
 
   final PreparedPhotoUpload? preparedCover;
   final String photoLabel;
   final String emptyLabel;
+  final String chooseLabel;
+  final bool isBusy;
+  final String? statusMessage;
+  final VoidCallback? onChooseCover;
 
   @override
   Widget build(BuildContext context) {
     const borderRadius = BorderRadius.all(Radius.circular(20));
     final cover = preparedCover;
 
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: SizedBox(
-        height: 176,
-        width: double.infinity,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Color(0xFFFFF1F3),
-            borderRadius: borderRadius,
-          ),
-          child: cover == null
-              ? _StoryCoverEmptyState(
-                  key: const ValueKey('create-story.cover.no-photo'),
-                  message: emptyLabel,
-                )
-              : Semantics(
-                  image: true,
-                  label: photoLabel,
-                  child: ExcludeSemantics(
-                    child: Image.memory(
-                      cover.bytes,
-                      key: const ValueKey(
-                        'create-story.cover.local-preview-image',
+    return Semantics(
+      liveRegion: statusMessage != null,
+      label: statusMessage,
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: SizedBox(
+          height: cover == null ? 132.0 : 176.0,
+          width: double.infinity,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: _createStoryAccentSoft,
+              borderRadius: borderRadius,
+            ),
+            child: cover == null
+                ? Semantics(
+                    button: true,
+                    enabled: onChooseCover != null,
+                    label: chooseLabel,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        key: const ValueKey('create-story.cover.choose-action'),
+                        onTap: onChooseCover,
+                        child: _StoryCoverEmptyState(
+                          key: const ValueKey('create-story.cover.no-photo'),
+                          message: emptyLabel,
+                          actionLabel: chooseLabel,
+                          isBusy: isBusy,
+                        ),
                       ),
-                      fit: BoxFit.cover,
-                      gaplessPlayback: true,
+                    ),
+                  )
+                : Semantics(
+                    image: true,
+                    label: photoLabel,
+                    child: ExcludeSemantics(
+                      child: Image.memory(
+                        cover.bytes,
+                        key: const ValueKey(
+                          'create-story.cover.local-preview-image',
+                        ),
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
                     ),
                   ),
-                ),
+          ),
         ),
       ),
     );
@@ -982,10 +988,14 @@ class _LocalStoryCoverPreview extends StatelessWidget {
 class _StoryCoverEmptyState extends StatelessWidget {
   const _StoryCoverEmptyState({
     required this.message,
+    required this.actionLabel,
+    required this.isBusy,
     super.key,
   });
 
   final String message;
+  final String actionLabel;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -994,69 +1004,44 @@ class _StoryCoverEmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              color: _createStoryInputFill,
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
-              Icons.image_outlined,
-              color: Color(0xFFFF5D72),
-              size: 28,
+            child: Center(
+              child: isBusy
+                  ? const _ButtonProgressIndicator()
+                  : const Icon(
+                      Icons.image_outlined,
+                      color: _createStoryAccent,
+                      size: 26,
+                    ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _createStoryMuted,
               fontSize: 14,
               height: 1.25,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               letterSpacing: 0,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CoverStatusMessage extends StatelessWidget {
-  const _CoverStatusMessage({
-    required this.message,
-  });
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      child: Row(
-        key: const ValueKey('create-story.cover.status'),
-        children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Color(0xFFFF5D72),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 13,
-                height: 1.3,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            actionLabel,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _createStoryAccent,
+              fontSize: 14,
+              height: 1.25,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
             ),
           ),
         ],
@@ -1108,9 +1093,9 @@ class _CreateStoryCoverPartialSuccessPanel extends StatelessWidget {
                     Text(
                       l10n.createStoryCoverPartialTitle,
                       style: const TextStyle(
-                        color: Color(0xFF1F2937),
+                        color: _createStoryInk,
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0,
                       ),
                     ),
@@ -1118,7 +1103,7 @@ class _CreateStoryCoverPartialSuccessPanel extends StatelessWidget {
                     Text(
                       l10n.createStoryCoverPartialMessage,
                       style: const TextStyle(
-                        color: Color(0xFF6B7280),
+                        color: _createStoryMuted,
                         fontSize: 14,
                         height: 1.35,
                         fontWeight: FontWeight.w600,
@@ -1190,9 +1175,9 @@ class _FieldLabel extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF1F2937),
+            color: _createStoryInk,
             fontSize: 17,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0,
           ),
         ),
@@ -1200,9 +1185,9 @@ class _FieldLabel extends StatelessWidget {
           const Text(
             '*',
             style: TextStyle(
-              color: Color(0xFFFF5D72),
+              color: _createStoryAccent,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
           ),
@@ -1210,125 +1195,13 @@ class _FieldLabel extends StatelessWidget {
           Text(
             optionalText!,
             style: const TextStyle(
-              color: Color(0xFF8A93A3),
+              color: _createStoryMuted,
               fontSize: 14,
               fontWeight: FontWeight.w600,
               letterSpacing: 0,
             ),
           ),
       ],
-    );
-  }
-}
-
-class _NameIdeas extends StatelessWidget {
-  const _NameIdeas({
-    required this.l10n,
-  });
-
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F3),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.lightbulb_outline_rounded,
-                color: Color(0xFFFF5D72),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.createStoryWhyTitle,
-                      style: const TextStyle(
-                        color: Color(0xFF1F2937),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.createStoryWhyDescription,
-                      style: const TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontSize: 15,
-                        height: 1.45,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            l10n.createStoryIdeasTitle,
-            style: const TextStyle(
-              color: Color(0xFFFF5D72),
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _IdeaText(l10n.createStoryIdeaOne),
-          _IdeaText(l10n.createStoryIdeaTwo),
-          _IdeaText(l10n.createStoryIdeaThree),
-        ],
-      ),
-    );
-  }
-}
-
-class _IdeaText extends StatelessWidget {
-  const _IdeaText(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.favorite_rounded,
-            color: Color(0xFFFF7D8D),
-            size: 18,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 15,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1352,17 +1225,17 @@ class _CreateStoryButton extends StatelessWidget {
       key: const ValueKey('create-story.submit-action'),
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFFFF5D72),
+        backgroundColor: const Color(0xFFD16A74),
         foregroundColor: Colors.white,
-        disabledBackgroundColor: const Color(0xFFFFB3BD),
+        disabledBackgroundColor: const Color(0xFFE9A5AD),
         disabledForegroundColor: Colors.white,
-        minimumSize: const Size.fromHeight(58),
+        minimumSize: const Size.fromHeight(56),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),
         textStyle: const TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w900,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
           letterSpacing: 0,
         ),
       ),
@@ -1392,7 +1265,7 @@ class _CreateStoryButton extends StatelessWidget {
 
 class _ButtonProgressIndicator extends StatelessWidget {
   const _ButtonProgressIndicator({
-    this.color = const Color(0xFFFF5D72),
+    this.color = _createStoryAccent,
   });
 
   final Color color;

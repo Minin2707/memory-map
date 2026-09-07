@@ -27,8 +27,8 @@ void main() {
     testWidgets('shouldRenderEnglishHeader', (WidgetTester tester) async {
       await pumpScreen(tester, FakeStoryRepository());
 
-      expect(find.text('Hi, Anna! 👋'), findsOneWidget);
-      expect(find.text('Your shared memories live here'), findsOneWidget);
+      expect(findStoriesDaypartGreeting(), findsOneWidget);
+      expect(find.text('Anna'), findsOneWidget);
       expect(find.text('Your stories'), findsOneWidget);
     });
 
@@ -41,7 +41,8 @@ void main() {
         displayName: 'Anna Petrova',
       );
 
-      expect(find.text('Hi, Anna! 👋'), findsOneWidget);
+      expect(findStoriesDaypartGreeting(), findsOneWidget);
+      expect(find.text('Anna'), findsOneWidget);
       expect(find.textContaining('Anna Petrova!'), findsNothing);
     });
 
@@ -52,11 +53,8 @@ void main() {
         locale: const Locale('ru'),
       );
 
-      expect(find.text('Привет, Anna! 👋'), findsOneWidget);
-      expect(
-        find.text('Здесь живут ваши совместные воспоминания'),
-        findsOneWidget,
-      );
+      expect(findRussianStoriesDaypartGreeting(), findsOneWidget);
+      expect(find.text('Anna'), findsOneWidget);
       expect(find.text('Ваши истории'), findsOneWidget);
     });
 
@@ -246,7 +244,7 @@ void main() {
       expect(coOwnerTop.dy, lessThan(editorTop.dy));
     });
 
-    testWidgets('shouldRenderTitleDescriptionAndAllRoles', (
+    testWidgets('shouldRenderTitlesWithoutRoleBadgesOrDescriptions', (
       WidgetTester tester,
     ) async {
       setSurface(tester, const Size(390, 1200));
@@ -263,11 +261,11 @@ void main() {
       );
 
       expect(find.text(ownerStory.story.title), findsOneWidget);
-      expect(find.text(ownerStory.story.description!), findsOneWidget);
-      expect(find.text('Owner'), findsOneWidget);
-      expect(find.text('Co-owner'), findsOneWidget);
-      expect(find.text('Editor'), findsOneWidget);
-      expect(find.text('Viewer'), findsWidgets);
+      expect(find.text(ownerStory.story.description!), findsNothing);
+      expect(find.text('Owner'), findsNothing);
+      expect(find.text('Co-owner'), findsNothing);
+      expect(find.text('Editor'), findsNothing);
+      expect(find.text('Viewer'), findsNothing);
       expect(find.text('CO_OWNER'), findsNothing);
       expect(find.text('coOwner'), findsNothing);
     });
@@ -705,4 +703,24 @@ final class FakeNotificationRepository implements NotificationRepository {
 
 final class UnexpectedStoryException implements Exception {
   const UnexpectedStoryException();
+}
+
+Finder findStoriesDaypartGreeting() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Text &&
+        (widget.data == 'Good morning,' ||
+            widget.data == 'Good afternoon,' ||
+            widget.data == 'Good evening,'),
+  );
+}
+
+Finder findRussianStoriesDaypartGreeting() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Text &&
+        (widget.data == 'Доброе утро,' ||
+            widget.data == 'Добрый день,' ||
+            widget.data == 'Добрый вечер,'),
+  );
 }

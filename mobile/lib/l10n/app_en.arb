@@ -51,9 +51,12 @@
       }
     }
   },
+  "storiesGreetingMorning": "Good morning,",
+  "storiesGreetingAfternoon": "Good afternoon,",
+  "storiesGreetingEvening": "Good evening,",
   "storiesSubtitle": "Your shared memories live here",
   "storiesSectionTitle": "Your stories",
-  "storiesCreateAction": "Create story",
+  "storiesCreateAction": "New story",
   "storiesEmptyTitle": "No stories yet",
   "storiesEmptyDescription": "Create your first story and save important moments together",
   "storiesLoadFailureTitle": "Could not load stories",
@@ -130,7 +133,7 @@
   "createStoryIdeaThree": "Travels and adventures",
   "createStorySubmitButton": "Create story",
   "createStoryCreatingButton": "Creating story...",
-  "createStoryCoverRemoveSelectionAction": "Remove selected cover",
+  "createStoryCoverRemoveSelectionAction": "Remove cover",
   "createStoryCoverUploading": "Uploading cover...",
   "createStoryCoverPartialTitle": "Story created",
   "createStoryCoverPartialMessage": "Story was created, but cover could not be uploaded.",

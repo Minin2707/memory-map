@@ -116,13 +116,22 @@ class AppLocalizationsKa extends AppLocalizations {
   }
 
   @override
+  String get storiesGreetingMorning => 'დილა მშვიდობისა,';
+
+  @override
+  String get storiesGreetingAfternoon => 'შუადღე მშვიდობისა,';
+
+  @override
+  String get storiesGreetingEvening => 'საღამო მშვიდობისა,';
+
+  @override
   String get storiesSubtitle => 'თქვენი გაზიარებული მოგონებები აქ ცხოვრობს';
 
   @override
   String get storiesSectionTitle => 'თქვენი ისტორიები';
 
   @override
-  String get storiesCreateAction => 'ისტორიის შექმნა';
+  String get storiesCreateAction => 'ახალი ისტორია';
 
   @override
   String get storiesEmptyTitle => 'ისტორიები ჯერ არ არის';
@@ -224,7 +233,7 @@ class AppLocalizationsKa extends AppLocalizations {
   String get cancel => 'გაუქმება';
 
   @override
-  String get createStoryPageTitle => 'ისტორიის შექმნა';
+  String get createStoryPageTitle => 'შექმენით ისტორია';
 
   @override
   String get createStoryBackLabel => 'ისტორიებზე დაბრუნება';
@@ -288,7 +297,7 @@ class AppLocalizationsKa extends AppLocalizations {
   String get createStoryCreatingButton => 'ისტორია იქმნება...';
 
   @override
-  String get createStoryCoverRemoveSelectionAction => 'არჩეული ყდის წაშლა';
+  String get createStoryCoverRemoveSelectionAction => 'ყდის წაშლა';
 
   @override
   String get createStoryCoverUploading => 'ყდა იტვირთება...';

@@ -119,13 +119,22 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get storiesGreetingMorning => 'Good morning,';
+
+  @override
+  String get storiesGreetingAfternoon => 'Good afternoon,';
+
+  @override
+  String get storiesGreetingEvening => 'Good evening,';
+
+  @override
   String get storiesSubtitle => 'Your shared memories live here';
 
   @override
   String get storiesSectionTitle => 'Your stories';
 
   @override
-  String get storiesCreateAction => 'Create story';
+  String get storiesCreateAction => 'New story';
 
   @override
   String get storiesEmptyTitle => 'No stories yet';
@@ -291,7 +300,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createStoryCreatingButton => 'Creating story...';
 
   @override
-  String get createStoryCoverRemoveSelectionAction => 'Remove selected cover';
+  String get createStoryCoverRemoveSelectionAction => 'Remove cover';
 
   @override
   String get createStoryCoverUploading => 'Uploading cover...';

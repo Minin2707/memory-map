@@ -117,13 +117,22 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get storiesGreetingMorning => 'Доброе утро,';
+
+  @override
+  String get storiesGreetingAfternoon => 'Добрый день,';
+
+  @override
+  String get storiesGreetingEvening => 'Добрый вечер,';
+
+  @override
   String get storiesSubtitle => 'Здесь живут ваши совместные воспоминания';
 
   @override
   String get storiesSectionTitle => 'Ваши истории';
 
   @override
-  String get storiesCreateAction => 'Создать историю';
+  String get storiesCreateAction => 'Новая история';
 
   @override
   String get storiesEmptyTitle => 'У вас пока нет историй';
@@ -230,7 +239,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cancel => 'Отмена';
 
   @override
-  String get createStoryPageTitle => 'Создание истории';
+  String get createStoryPageTitle => 'Создать историю';
 
   @override
   String get createStoryBackLabel => 'Вернуться к историям';
@@ -294,8 +303,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get createStoryCreatingButton => 'Создаём историю...';
 
   @override
-  String get createStoryCoverRemoveSelectionAction =>
-      'Убрать выбранную обложку';
+  String get createStoryCoverRemoveSelectionAction => 'Удалить обложку';
 
   @override
   String get createStoryCoverUploading => 'Загружаем обложку...';

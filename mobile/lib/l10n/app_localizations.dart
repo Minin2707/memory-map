@@ -292,6 +292,24 @@ abstract class AppLocalizations {
   /// **'Hi, {displayName}! 👋'**
   String storiesGreeting(String displayName);
 
+  /// No description provided for @storiesGreetingMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning,'**
+  String get storiesGreetingMorning;
+
+  /// No description provided for @storiesGreetingAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good afternoon,'**
+  String get storiesGreetingAfternoon;
+
+  /// No description provided for @storiesGreetingEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening,'**
+  String get storiesGreetingEvening;
+
   /// No description provided for @storiesSubtitle.
   ///
   /// In en, this message translates to:
@@ -307,7 +325,7 @@ abstract class AppLocalizations {
   /// No description provided for @storiesCreateAction.
   ///
   /// In en, this message translates to:
-  /// **'Create story'**
+  /// **'New story'**
   String get storiesCreateAction;
 
   /// No description provided for @storiesEmptyTitle.
@@ -577,7 +595,7 @@ abstract class AppLocalizations {
   /// No description provided for @createStoryCoverRemoveSelectionAction.
   ///
   /// In en, this message translates to:
-  /// **'Remove selected cover'**
+  /// **'Remove cover'**
   String get createStoryCoverRemoveSelectionAction;
 
   /// No description provided for @createStoryCoverUploading.

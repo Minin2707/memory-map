@@ -10,6 +10,32 @@ import 'package:memory_map/features/story/presentation/widgets/stories_error_vie
 import 'package:memory_map/features/story/presentation/widgets/story_card.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _storiesBackground = Color(0xFFFBF6F1);
+const _storiesInk = Color(0xFF182331);
+const _storiesMuted = Color(0xFF747B86);
+const _storiesAccent = Color(0xFFE05D6E);
+const _storiesAccentSoft = Color(0xFFFFEEF0);
+const _storiesBorder = Color(0x1FEA6D7A);
+const _storiesCreateAccent = Color(0xFFC45A66);
+const _storiesDisplayFontFamily = 'NotoSerif';
+const _storiesHorizontalPadding = 24.0;
+const _storiesHeaderSecondaryStyle = TextStyle(
+  color: _storiesMuted,
+  fontSize: 14,
+  fontWeight: FontWeight.w500,
+  height: 1.18,
+  letterSpacing: 0,
+);
+const _storiesSectionTitleStyle = TextStyle(
+  color: Color(0xFF1F2937),
+  fontFamily: _storiesDisplayFontFamily,
+  fontFamilyFallback: <String>['NotoSerifGeorgian'],
+  fontSize: 26.5,
+  height: 1.08,
+  fontWeight: FontWeight.w500,
+  letterSpacing: 0,
+);
+
 class StoriesScreen extends ConsumerWidget {
   const StoriesScreen({
     required this.displayName,
@@ -39,12 +65,13 @@ class StoriesScreen extends ConsumerWidget {
         ? l10n.fallbackDisplayName
         : displayName.trim();
     final greetingName = _greetingName(effectiveDisplayName);
+    final daypartGreeting = _daypartGreeting(l10n, DateTime.now().hour);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8F8),
+      backgroundColor: _storiesBackground,
       body: SafeArea(
         child: RefreshIndicator(
-          color: const Color(0xFFFF5D72),
+          color: _storiesAccent,
           onRefresh: () {
             return ref
                 .read(storiesNotifierProvider.notifier)
@@ -54,9 +81,15 @@ class StoriesScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  _storiesHorizontalPadding,
+                  24,
+                  _storiesHorizontalPadding,
+                  0,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: _StoriesHeader(
+                    greeting: daypartGreeting,
                     displayName: greetingName,
                     avatarDisplayName: effectiveDisplayName,
                     avatarUrl: avatarUrl,
@@ -67,7 +100,12 @@ class StoriesScreen extends ConsumerWidget {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 21, 24, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  _storiesHorizontalPadding,
+                  26,
+                  _storiesHorizontalPadding,
+                  0,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: _StoriesSectionHeader(
                     onCreateStory: onCreateStory,
@@ -76,7 +114,7 @@ class StoriesScreen extends ConsumerWidget {
               ),
               ..._contentSlivers(context, ref, storiesValue),
               const SliverToBoxAdapter(
-                child: SizedBox(height: 32),
+                child: SizedBox(height: 36),
               ),
             ],
           ),
@@ -95,7 +133,12 @@ class StoriesScreen extends ConsumerWidget {
     if (storiesValue.isLoading) {
       return const [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
+          padding: EdgeInsets.fromLTRB(
+            _storiesHorizontalPadding,
+            24,
+            _storiesHorizontalPadding,
+            0,
+          ),
           sliver: SliverToBoxAdapter(child: _StoriesLoadingView()),
         ),
       ];
@@ -104,7 +147,12 @@ class StoriesScreen extends ConsumerWidget {
     if (storiesValue.hasError) {
       return [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          padding: const EdgeInsets.fromLTRB(
+            _storiesHorizontalPadding,
+            24,
+            _storiesHorizontalPadding,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: StoriesErrorView(
               title: l10n.unexpectedErrorTitle,
@@ -127,7 +175,12 @@ class StoriesScreen extends ConsumerWidget {
     if (loadFailure != null) {
       return [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+          padding: const EdgeInsets.fromLTRB(
+            _storiesHorizontalPadding,
+            24,
+            _storiesHorizontalPadding,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: StoriesErrorView(
               title: l10n.storiesLoadFailureTitle,
@@ -145,12 +198,17 @@ class StoriesScreen extends ConsumerWidget {
     if (state.isRefreshing) {
       slivers.add(
         const SliverPadding(
-          padding: EdgeInsets.fromLTRB(24, 14, 24, 0),
+          padding: EdgeInsets.fromLTRB(
+            _storiesHorizontalPadding,
+            22,
+            _storiesHorizontalPadding,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: LinearProgressIndicator(
               minHeight: 3,
-              color: Color(0xFFFF5D72),
-              backgroundColor: Color(0xFFFFE6EA),
+              color: _storiesAccent,
+              backgroundColor: _storiesAccentSoft,
             ),
           ),
         ),
@@ -161,7 +219,12 @@ class StoriesScreen extends ConsumerWidget {
     if (refreshFailure != null) {
       slivers.add(
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+          padding: const EdgeInsets.fromLTRB(
+            _storiesHorizontalPadding,
+            22,
+            _storiesHorizontalPadding,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: _RefreshFailureBanner(
               message: storyFailureMessage(l10n, refreshFailure),
@@ -192,12 +255,17 @@ class StoriesScreen extends ConsumerWidget {
 
     slivers.add(
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+        padding: const EdgeInsets.fromLTRB(
+          _storiesHorizontalPadding,
+          24,
+          _storiesHorizontalPadding,
+          0,
+        ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               if (index.isOdd) {
-                return const SizedBox(height: 12);
+                return const SizedBox(height: 24);
               }
 
               final storyIndex = index ~/ 2;
@@ -225,8 +293,21 @@ String _greetingName(String displayName) {
   return trimmed.split(RegExp(r'\s+')).first;
 }
 
+String _daypartGreeting(AppLocalizations l10n, int hour) {
+  if (hour >= 5 && hour < 12) {
+    return l10n.storiesGreetingMorning;
+  }
+
+  if (hour >= 12 && hour < 18) {
+    return l10n.storiesGreetingAfternoon;
+  }
+
+  return l10n.storiesGreetingEvening;
+}
+
 class _StoriesHeader extends StatelessWidget {
   const _StoriesHeader({
+    required this.greeting,
     required this.displayName,
     required this.avatarDisplayName,
     required this.avatarUrl,
@@ -235,6 +316,7 @@ class _StoriesHeader extends StatelessWidget {
     required this.onProfileSelected,
   });
 
+  final String greeting;
   final String displayName;
   final String avatarDisplayName;
   final String? avatarUrl;
@@ -250,29 +332,17 @@ class _StoriesHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l10n.storiesGreeting(displayName),
-          maxLines: 2,
+          greeting,
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF1F2937),
-            fontSize: 25,
-            fontWeight: FontWeight.w800,
-            height: 1.13,
-            letterSpacing: 0,
-          ),
+          style: _storiesHeaderSecondaryStyle,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 5),
         Text(
-          l10n.storiesSubtitle,
-          maxLines: 3,
+          displayName,
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF667085),
-            fontSize: 14.5,
-            height: 1.32,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0,
-          ),
+          style: _storiesHeaderSecondaryStyle,
         ),
       ],
     );
@@ -285,7 +355,7 @@ class _StoriesHeader extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Positioned.fill(
-                child: IconButton.filledTonal(
+                child: IconButton(
                   key: const ValueKey('stories.notification.action'),
                   onPressed: onNotificationsSelected,
                   tooltip: l10n.storiesOpenNotificationsLabel,
@@ -294,11 +364,12 @@ class _StoriesHeader extends StatelessWidget {
                     size: 21,
                   ),
                   style: IconButton.styleFrom(
-                    foregroundColor: const Color(0xFF1F2937),
-                    backgroundColor: Colors.white,
-                    shadowColor: const Color(0x140F172A),
-                    elevation: 1,
+                    foregroundColor: _storiesInk,
+                    backgroundColor: Colors.transparent,
                     padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                 ),
               ),
@@ -387,7 +458,7 @@ class _StoriesAvatar extends StatelessWidget {
             avatarUrl: avatarUrl,
             radius: 26,
             backgroundColor: const Color(0xFFFFE6EA),
-            foregroundColor: const Color(0xFFFF5D72),
+            foregroundColor: _storiesAccent,
             cacheDimension: 128,
           ),
         ),
@@ -412,43 +483,41 @@ class _StoriesSectionHeader extends StatelessWidget {
     final title = Text(
       l10n.storiesSectionTitle,
       maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: Color(0xFF1F2937),
-        fontSize: 20.5,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0,
-      ),
+      softWrap: false,
+      style: _storiesSectionTitleStyle,
     );
 
-    final createAction = FilledButton.tonalIcon(
+    final createAction = TextButton(
       key: const ValueKey('stories.create.section-action'),
       onPressed: onCreateStory,
-      icon: const Icon(
-        Icons.add_rounded,
-        size: 20,
-      ),
-      label: Text(
-        l10n.storiesCreateAction,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      style: FilledButton.styleFrom(
-        foregroundColor: const Color(0xFFFF5D72),
-        backgroundColor: const Color(0xFFFFF7F8),
-        disabledForegroundColor: const Color(0xFFFF5D72),
-        disabledBackgroundColor: const Color(0xFFFFF7F8),
-        minimumSize: const Size(0, 40),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFFFD6DC)),
-        ),
+      style: TextButton.styleFrom(
+        foregroundColor: _storiesCreateAccent,
+        disabledForegroundColor: _storiesCreateAccent.withValues(alpha: 0.46),
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         textStyle: const TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
           letterSpacing: 0,
         ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              l10n.storiesCreateAction,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Icon(
+            Icons.add_rounded,
+            size: 17,
+          ),
+        ],
       ),
     );
 
@@ -466,9 +535,9 @@ class _StoriesSectionHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: title),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 166),
+          constraints: const BoxConstraints(maxWidth: 154),
           child: createAction,
         ),
       ],
@@ -493,9 +562,9 @@ class _RefreshFailureBanner extends StatelessWidget {
       key: const ValueKey('stories.refresh.failure-banner'),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7F8),
+        color: const Color(0xFFFFF4F5),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFD6DC)),
+        border: Border.all(color: _storiesBorder),
       ),
       child: Row(
         children: [
@@ -556,87 +625,78 @@ class _SkeletonCard extends StatelessWidget {
       widthFactor: widthFactor,
       alignment: Alignment.centerLeft,
       child: Container(
-        height: 124,
+        height: 236,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
+          color: const Color(0xFFFFFDFB),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x120F172A),
-              offset: Offset(0, 8),
-              blurRadius: 20,
+              color: Color(0x0F4D2B32),
+              offset: Offset(0, 14),
+              blurRadius: 28,
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
             children: [
-              Container(
-                width: 104,
-                height: 104,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFECEFF3),
-                  borderRadius: BorderRadius.circular(16),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFFECE8),
+                        Color(0xFFF3E8DF),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 104,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x00FFFFFF),
+                        Color(0x55FFFFFF),
+                        Color(0xBFFFFFFF),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 22,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        width: 70,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F3F5),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     Container(
-                      width: 180,
+                      width: 150,
                       height: 18,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECEFF3),
+                        color: Colors.white.withValues(alpha: 0.72),
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Container(
-                      width: 140,
-                      height: 14,
+                      width: 214,
+                      height: 12,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F3F5),
+                        color: Colors.white.withValues(alpha: 0.54),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                    const Spacer(),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Row(
-                          children: [
-                            Flexible(
-                              flex: 6,
-                              child: _SkeletonLine(
-                                width: constraints.maxWidth * 0.46,
-                                height: 14,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Flexible(
-                              flex: 5,
-                              child: _SkeletonLine(
-                                width: constraints.maxWidth * 0.38,
-                                height: 14,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
                     ),
                   ],
                 ),
@@ -644,28 +704,6 @@ class _SkeletonCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SkeletonLine extends StatelessWidget {
-  const _SkeletonLine({
-    required this.width,
-    required this.height,
-  });
-
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F3F5),
-        borderRadius: BorderRadius.circular(8),
       ),
     );
   }

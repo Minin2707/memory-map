@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:memory_map/features/media/presentation/widgets/authenticated_media_image.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
-import 'package:memory_map/features/story/presentation/widgets/story_role_badge.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
 class StoryCard extends StatelessWidget {
@@ -19,64 +18,60 @@ class StoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final story = userStory.story;
-    final description = story.description;
-    final visibleDescription = description == null || description.trim().isEmpty
-        ? null
-        : description;
 
     return Semantics(
       button: onSelected != null,
       label: l10n.storiesOpenStoryLabel(story.title),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(_cardRadius),
-          onTap: onSelected == null
-              ? null
-              : () {
-                  onSelected!(story.id);
-                },
-          child: Ink(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(_cardRadius),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x100F172A),
-                  offset: Offset(0, 8),
-                  blurRadius: 20,
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(11),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final previewSize =
-                      constraints.maxWidth < 320 ? 92.0 : _previewSize;
-                  final contentGap = constraints.maxWidth < 320 ? 10.0 : 13.0;
-
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _StoryPreview(
-                        userStory: userStory,
-                        size: previewSize,
-                      ),
-                      SizedBox(width: contentGap),
-                      Expanded(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: previewSize),
-                          child: _StoryContent(
-                            userStory: userStory,
-                            title: story.title,
-                            description: visibleDescription,
-                          ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
+          child: SizedBox(
+            width: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(_cardRadius),
+                onTap: onSelected == null
+                    ? null
+                    : () {
+                        onSelected!(story.id);
+                      },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(_cardRadius),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF6ECE5),
+                      borderRadius: BorderRadius.circular(_cardRadius),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x144D2B32),
+                          offset: Offset(0, 14),
+                          blurRadius: 30,
                         ),
+                      ],
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: 1.24,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _StoryPreview(userStory: userStory),
+                          const _StoryScrim(),
+                          Positioned(
+                            left: 20,
+                            right: 20,
+                            bottom: 24,
+                            child: _StoryOverlayContent(
+                              userStory: userStory,
+                              title: story.title,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  );
-                },
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -89,11 +84,9 @@ class StoryCard extends StatelessWidget {
 class _StoryPreview extends StatelessWidget {
   const _StoryPreview({
     required this.userStory,
-    required this.size,
   });
 
   final UserStory userStory;
-  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -104,25 +97,20 @@ class _StoryPreview extends StatelessWidget {
       image: preview != null,
       label: preview == null ? null : l10n.storyThumbnailLabel,
       child: ExcludeSemantics(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: SizedBox(
-            key: preview == null
-                ? const ValueKey('story-card.no-photo')
-                : const ValueKey('story-card.thumbnail'),
-            width: size,
-            height: size,
-            child: preview == null
-                ? _NoPhotoState(userStory: userStory)
-                : AuthenticatedMediaPathImage(
-                    thumbnailPath: preview.thumbnailPath,
-                    fit: BoxFit.cover,
-                    placeholder: _PhotoPlaceholder(role: userStory.role),
-                    errorBuilder: (_) => _PhotoUnavailableState(
-                      userStory: userStory,
-                    ),
+        child: SizedBox.expand(
+          key: preview == null
+              ? const ValueKey('story-card.no-photo')
+              : const ValueKey('story-card.thumbnail'),
+          child: preview == null
+              ? _NoPhotoState(userStory: userStory)
+              : AuthenticatedMediaPathImage(
+                  thumbnailPath: preview.thumbnailPath,
+                  fit: BoxFit.cover,
+                  placeholder: _PhotoPlaceholder(role: userStory.role),
+                  errorBuilder: (_) => _PhotoUnavailableState(
+                    userStory: userStory,
                   ),
-          ),
+                ),
         ),
       ),
     );
@@ -146,8 +134,8 @@ class _PhotoPlaceholder extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            colors.first.withValues(alpha: 0.22),
-            colors.last.withValues(alpha: 0.12),
+            colors.first.withValues(alpha: 0.32),
+            colors.last.withValues(alpha: 0.18),
           ],
         ),
       ),
@@ -209,8 +197,9 @@ class _IntentionalPhotoState extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            colors.first.withValues(alpha: 0.26),
-            colors.last.withValues(alpha: 0.12),
+            colors.first.withValues(alpha: 0.34),
+            const Color(0xFFF3E6DC),
+            colors.last.withValues(alpha: 0.24),
           ],
         ),
       ),
@@ -222,8 +211,8 @@ class _IntentionalPhotoState extends StatelessWidget {
             bottom: 10,
             child: Icon(
               icon,
-              color: colors.last.withValues(alpha: 0.52),
-              size: 25,
+              color: colors.last.withValues(alpha: 0.42),
+              size: 48,
             ),
           ),
           Text(
@@ -231,8 +220,8 @@ class _IntentionalPhotoState extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: colors.last,
-              fontSize: 25,
+              color: colors.last.withValues(alpha: 0.82),
+              fontSize: 42,
               fontWeight: FontWeight.w900,
               letterSpacing: 0,
             ),
@@ -243,16 +232,37 @@ class _IntentionalPhotoState extends StatelessWidget {
   }
 }
 
-class _StoryContent extends StatelessWidget {
-  const _StoryContent({
+class _StoryScrim extends StatelessWidget {
+  const _StoryScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: [0.34, 0.68, 0.84, 1],
+          colors: [
+            Color(0x00000000),
+            Color(0x24111827),
+            Color(0x5C111827),
+            Color(0x9C111827),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryOverlayContent extends StatelessWidget {
+  const _StoryOverlayContent({
     required this.userStory,
     required this.title,
-    required this.description,
   });
 
   final UserStory userStory;
   final String title;
-  final String? description;
 
   @override
   Widget build(BuildContext context) {
@@ -260,50 +270,26 @@ class _StoryContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF1F2937),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  height: 1.14,
-                  letterSpacing: 0,
-                ),
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 23,
+            fontWeight: FontWeight.w600,
+            height: 1.1,
+            letterSpacing: 0,
+            shadows: [
+              Shadow(
+                color: Color(0x66000000),
+                offset: Offset(0, 1),
+                blurRadius: 8,
               ),
-            ),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 108),
-              child: StoryRoleBadge(
-                role: userStory.role,
-                showIcon: false,
-                compact: true,
-              ),
-            ),
-          ],
-        ),
-        if (description != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            description!,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF667085),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              height: 1.32,
-              letterSpacing: 0,
-            ),
+            ],
           ),
-        ],
-        const SizedBox(height: 13),
+        ),
+        const SizedBox(height: 9),
         _StoryFooter(userStory: userStory),
       ],
     );
@@ -320,62 +306,36 @@ class _StoryFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-
-    return Row(
-      children: [
-        Flexible(
-          child: _Counter(
-            icon: Icons.location_on_outlined,
-            label: l10n.storyMemoryCount(userStory.memoryCount),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: _Counter(
-            icon: Icons.group_outlined,
-            label: l10n.storyParticipantCount(userStory.participantCount),
-          ),
-        ),
-      ],
+    final memoryCount = l10n.storyMemoryCount(userStory.memoryCount);
+    final participantCount = l10n.storyParticipantCount(
+      userStory.participantCount,
     );
-  }
-}
 
-class _Counter extends StatelessWidget {
-  const _Counter({
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: const Color(0xFF6B7280),
-        ),
-        const SizedBox(width: 5),
         Flexible(
           child: Text(
-            label,
-            key: icon == Icons.location_on_outlined
-                ? const ValueKey('story-card.memory-count')
-                : const ValueKey('story-card.participant-count'),
+            memoryCount,
+            key: const ValueKey('story-card.memory-count'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              letterSpacing: 0,
-            ),
+            style: _metadataStyle,
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            '·',
+            style: _metadataStyle,
+          ),
+        ),
+        Flexible(
+          child: Text(
+            participantCount,
+            key: const ValueKey('story-card.participant-count'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _metadataStyle,
           ),
         ),
       ],
@@ -384,7 +344,14 @@ class _Counter extends StatelessWidget {
 }
 
 const double _cardRadius = 22;
-const double _previewSize = 104;
+const double _cardMaxWidth = 560;
+const _metadataStyle = TextStyle(
+  color: Color(0xD9FFFFFF),
+  fontSize: 13,
+  fontWeight: FontWeight.w500,
+  height: 1.2,
+  letterSpacing: 0,
+);
 
 List<Color> _markColors(StoryRole role) {
   return switch (role) {

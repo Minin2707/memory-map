@@ -51,9 +51,12 @@
       }
     }
   },
+  "storiesGreetingMorning": "Доброе утро,",
+  "storiesGreetingAfternoon": "Добрый день,",
+  "storiesGreetingEvening": "Добрый вечер,",
   "storiesSubtitle": "Здесь живут ваши совместные воспоминания",
   "storiesSectionTitle": "Ваши истории",
-  "storiesCreateAction": "Создать историю",
+  "storiesCreateAction": "Новая история",
   "storiesEmptyTitle": "У вас пока нет историй",
   "storiesEmptyDescription": "Создайте свою первую историю и сохраните важные моменты вместе",
   "storiesLoadFailureTitle": "Не удалось загрузить истории",
@@ -110,7 +113,7 @@
     }
   },
   "cancel": "Отмена",
-  "createStoryPageTitle": "Создание истории",
+  "createStoryPageTitle": "Создать историю",
   "createStoryBackLabel": "Вернуться к историям",
   "createStoryHeroTitle": "Новая история",
   "createStoryHeroSubtitle": "Создайте пространство для ваших совместных воспоминаний",
@@ -130,7 +133,7 @@
   "createStoryIdeaThree": "Путешествия и приключения",
   "createStorySubmitButton": "Создать историю",
   "createStoryCreatingButton": "Создаём историю...",
-  "createStoryCoverRemoveSelectionAction": "Убрать выбранную обложку",
+  "createStoryCoverRemoveSelectionAction": "Удалить обложку",
   "createStoryCoverUploading": "Загружаем обложку...",
   "createStoryCoverPartialTitle": "История создана",
   "createStoryCoverPartialMessage": "История создана, но обложку загрузить не удалось.",

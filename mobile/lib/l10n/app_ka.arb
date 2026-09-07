@@ -51,9 +51,12 @@
       }
     }
   },
+  "storiesGreetingMorning": "დილა მშვიდობისა,",
+  "storiesGreetingAfternoon": "შუადღე მშვიდობისა,",
+  "storiesGreetingEvening": "საღამო მშვიდობისა,",
   "storiesSubtitle": "თქვენი გაზიარებული მოგონებები აქ ცხოვრობს",
   "storiesSectionTitle": "თქვენი ისტორიები",
-  "storiesCreateAction": "ისტორიის შექმნა",
+  "storiesCreateAction": "ახალი ისტორია",
   "storiesEmptyTitle": "ისტორიები ჯერ არ არის",
   "storiesEmptyDescription": "შექმენით პირველი ისტორია და ერთად შეინახეთ მნიშვნელოვანი მომენტები",
   "storiesLoadFailureTitle": "ისტორიების ჩატვირთვა ვერ მოხერხდა",
@@ -110,7 +113,7 @@
     }
   },
   "cancel": "გაუქმება",
-  "createStoryPageTitle": "ისტორიის შექმნა",
+  "createStoryPageTitle": "შექმენით ისტორია",
   "createStoryBackLabel": "ისტორიებზე დაბრუნება",
   "createStoryHeroTitle": "ახალი ისტორია",
   "createStoryHeroSubtitle": "შექმენით სივრცე თქვენი საერთო მოგონებებისთვის",
@@ -130,7 +133,7 @@
   "createStoryIdeaThree": "მოგზაურობები და თავგადასავლები",
   "createStorySubmitButton": "ისტორიის შექმნა",
   "createStoryCreatingButton": "ისტორია იქმნება...",
-  "createStoryCoverRemoveSelectionAction": "არჩეული ყდის წაშლა",
+  "createStoryCoverRemoveSelectionAction": "ყდის წაშლა",
   "createStoryCoverUploading": "ყდა იტვირთება...",
   "createStoryCoverPartialTitle": "ისტორია შეიქმნა",
   "createStoryCoverPartialMessage": "ისტორია შეიქმნა, მაგრამ ყდის ატვირთვა ვერ მოხერხდა.",
