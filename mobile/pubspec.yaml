@@ -77,6 +77,7 @@ flutter:
   assets:
     - assets/loginscreen.png
     - assets/hero_create_story.png
+    - assets/hero_stories_empty_state.png
     - assets/branding/login_logo.png
     - assets/google.svg
   fonts:

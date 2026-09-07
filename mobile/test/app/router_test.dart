@@ -224,7 +224,7 @@ void main() {
       await pumpApp(tester, fakeAuthRepository);
       await tester.pumpAndSettle();
 
-      final context = tester.element(find.text('Your stories'));
+      final context = tester.element(storiesHomeFinder());
       GoRouter.of(context).go(authLoginRoute);
       await tester.pumpAndSettle();
 
@@ -1044,14 +1044,14 @@ void main() {
 
       expect(fakeStoryRepository.deleteStoryCalls, 1);
       expect(fakeStoryRepository.receivedDeleteStoryId, ownerStory.story.id);
-      expect(find.text('Your stories'), findsOneWidget);
+      expect(storiesHomeFinder(), findsOneWidget);
       expect(storyDetailsScreenFinder(), findsNothing);
       expect(find.text(ownerStory.story.title), findsNothing);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
-      expect(find.text('Your stories'), findsOneWidget);
+      expect(storiesHomeFinder(), findsOneWidget);
       expect(storyDetailsScreenFinder(), findsNothing);
     });
 
@@ -1484,7 +1484,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final context = tester.element(find.text('Your stories'));
+      final context = tester.element(storiesHomeFinder());
       GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
       await tester.pumpAndSettle();
 
@@ -1544,7 +1544,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final context = tester.element(find.text('Your stories'));
+      final context = tester.element(storiesHomeFinder());
       GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
       await tester.pumpAndSettle();
 
@@ -1840,7 +1840,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final context = tester.element(find.text('Your stories'));
+      final context = tester.element(storiesHomeFinder());
       GoRouter.of(context).go('/stories/${ownerStory.story.id}/participants');
       await tester.pumpAndSettle();
 
@@ -1851,7 +1851,7 @@ void main() {
         find.byKey(const ValueKey('participants.leave.confirm-action')),
       );
 
-      expect(find.text('Your stories'), findsOneWidget);
+      expect(storiesHomeFinder(), findsOneWidget);
       expect(find.text('Participants'), findsNothing);
     });
 
@@ -1892,10 +1892,10 @@ void main() {
         find.byKey(const ValueKey('participants.leave.confirm-action')),
       );
 
-      expect(find.text('Your stories'), findsOneWidget);
+      expect(storiesHomeFinder(), findsOneWidget);
 
       fakeMemoryRepository.memoriesResult = <Memory>[];
-      final postLeaveContext = tester.element(find.text('Your stories'));
+      final postLeaveContext = tester.element(storiesHomeFinder());
       GoRouter.of(postLeaveContext).go('/stories/${ownerStory.story.id}/map');
       await tester.pumpAndSettle();
 
@@ -3648,6 +3648,15 @@ Future<void> tapButton(
 
 String routerLocation(BuildContext context) {
   return GoRouter.of(context).routeInformationProvider.value.uri.toString();
+}
+
+Finder storiesHomeFinder() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Text &&
+        (widget.data == 'Your stories' ||
+            widget.data == 'Your story starts here'),
+  );
 }
 
 void expectNoRouterTechnicalError(String route) {

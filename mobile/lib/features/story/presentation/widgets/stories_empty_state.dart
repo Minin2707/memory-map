@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _storiesEmptyHeroAsset = 'assets/hero_stories_empty_state.png';
+const _storiesEmptyBackground = Color(0xFFFBF6F1);
+const _storiesEmptyInk = Color(0xFF182331);
+const _storiesEmptyMuted = Color(0xFF747B86);
+const _storiesEmptyButton = Color(0xFFC45A66);
+const _storiesEmptyDisplayFontFamily = 'NotoSerif';
+const _storiesEmptyHeroVisibleHeightRatio = 1.12;
+
 class StoriesEmptyState extends StatelessWidget {
   const StoriesEmptyState({
     this.onCreateStory,
@@ -12,133 +20,152 @@ class StoriesEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final mediaSize = MediaQuery.sizeOf(context);
+    final mediaPadding = MediaQuery.paddingOf(context);
+    final availableWidth = mediaSize.width - 16;
+    final availableHeight = mediaSize.height - mediaPadding.vertical;
+    final desiredHeroWidth =
+        (availableWidth * 0.92).clamp(280.0, 430.0).toDouble();
+    final heightBasedHeroHeight =
+        (availableHeight * 0.64).clamp(300.0, 540.0).toDouble();
+    final heightLimitedHeroWidth =
+        heightBasedHeroHeight / _storiesEmptyHeroVisibleHeightRatio;
+    final heroImageWidth = desiredHeroWidth < heightLimitedHeroWidth
+        ? desiredHeroWidth
+        : heightLimitedHeroWidth;
+    final heroHeight = heroImageWidth * _storiesEmptyHeroVisibleHeightRatio;
+    final bottomFadeHeight =
+        (heroHeight * 0.15).clamp(42.0, 72.0).toDouble();
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          fit: FlexFit.loose,
+          child: SizedBox(
+            width: double.infinity,
+            height: heroHeight,
+            child: _StoriesEmptyHero(
+              imageWidth: heroImageWidth,
+              bottomFadeHeight: bottomFadeHeight,
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const _EmptyIllustration(),
-          const SizedBox(height: 22),
-          Text(
+        ),
+        const SizedBox(height: 24),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 330),
+          child: Text(
             l10n.storiesEmptyTitle,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+              color: _storiesEmptyInk,
+              fontFamily: _storiesEmptyDisplayFontFamily,
+              fontFamilyFallback: <String>['NotoSerifGeorgian'],
+              fontSize: 32,
+              height: 1.12,
+              fontWeight: FontWeight.w500,
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
+        ),
+        const SizedBox(height: 12),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 310),
+          child: Text(
             l10n.storiesEmptyDescription,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _storiesEmptyMuted,
               fontSize: 16,
               height: 1.45,
               fontWeight: FontWeight.w500,
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            key: const ValueKey('stories.empty.create-action'),
-            onPressed: onCreateStory,
-            icon: const Icon(Icons.add_rounded),
-            label: Text(l10n.storiesCreateAction),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFF5D72),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 54),
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+        ),
+        const SizedBox(height: 24),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 286),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const ValueKey('stories.empty.create-action'),
+              onPressed: onCreateStory,
+              style: FilledButton.styleFrom(
+                backgroundColor: _storiesEmptyButton,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(56),
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
               ),
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
+              child: Text(l10n.storiesCreateFirstAction),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _EmptyIllustration extends StatelessWidget {
-  const _EmptyIllustration();
+class _StoriesEmptyHero extends StatelessWidget {
+  const _StoriesEmptyHero({
+    required this.imageWidth,
+    required this.bottomFadeHeight,
+  });
+
+  final double imageWidth;
+  final double bottomFadeHeight;
 
   @override
   Widget build(BuildContext context) {
     return ExcludeSemantics(
-      child: SizedBox(
-        width: 164,
-        height: 122,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              bottom: 10,
-              left: 12,
-              child: Container(
-                width: 64,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8E5EA),
-                  borderRadius: BorderRadius.circular(28),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              minWidth: 0,
+              maxWidth: double.infinity,
+              minHeight: 0,
+              maxHeight: double.infinity,
+              child: SizedBox(
+                width: imageWidth,
+                child: Image.asset(
+                  _storiesEmptyHeroAsset,
+                  alignment: Alignment.topCenter,
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
-            Positioned(
-              bottom: 6,
-              right: 12,
-              child: Container(
-                width: 92,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0EEF2),
-                  borderRadius: BorderRadius.circular(34),
-                ),
-              ),
-            ),
-            Container(
-              width: 74,
-              height: 92,
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: bottomFadeHeight,
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFFFF6B7D),
-                borderRadius: BorderRadius.circular(38),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x33FF6B7D),
-                    offset: Offset(0, 10),
-                    blurRadius: 18,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.favorite_rounded,
-                color: Colors.white,
-                size: 34,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    _storiesEmptyBackground.withValues(alpha: 0),
+                    _storiesEmptyBackground.withValues(alpha: 0.42),
+                    _storiesEmptyBackground,
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

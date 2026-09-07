@@ -328,16 +328,22 @@ abstract class AppLocalizations {
   /// **'New story'**
   String get storiesCreateAction;
 
+  /// No description provided for @storiesCreateFirstAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your first story'**
+  String get storiesCreateFirstAction;
+
   /// No description provided for @storiesEmptyTitle.
   ///
   /// In en, this message translates to:
-  /// **'No stories yet'**
+  /// **'Your story starts here'**
   String get storiesEmptyTitle;
 
   /// No description provided for @storiesEmptyDescription.
   ///
   /// In en, this message translates to:
-  /// **'Create your first story and save important moments together'**
+  /// **'Save meaningful places, photos, and moments together.'**
   String get storiesEmptyDescription;
 
   /// No description provided for @storiesLoadFailureTitle.

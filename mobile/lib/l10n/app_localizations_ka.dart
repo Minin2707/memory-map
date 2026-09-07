@@ -134,11 +134,14 @@ class AppLocalizationsKa extends AppLocalizations {
   String get storiesCreateAction => 'ახალი ისტორია';
 
   @override
-  String get storiesEmptyTitle => 'ისტორიები ჯერ არ არის';
+  String get storiesCreateFirstAction => 'პირველი ისტორიის შექმნა';
+
+  @override
+  String get storiesEmptyTitle => 'თქვენი ისტორია აქ იწყება';
 
   @override
   String get storiesEmptyDescription =>
-      'შექმენით პირველი ისტორია და ერთად შეინახეთ მნიშვნელოვანი მომენტები';
+      'შეინახეთ მნიშვნელოვანი ადგილები, ფოტოები და მომენტები ერთად.';
 
   @override
   String get storiesLoadFailureTitle => 'ისტორიების ჩატვირთვა ვერ მოხერხდა';

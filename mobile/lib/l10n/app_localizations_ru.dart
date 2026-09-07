@@ -135,11 +135,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get storiesCreateAction => 'Новая история';
 
   @override
-  String get storiesEmptyTitle => 'У вас пока нет историй';
+  String get storiesCreateFirstAction => 'Создать первую историю';
+
+  @override
+  String get storiesEmptyTitle => 'Здесь начнётся ваша история';
 
   @override
   String get storiesEmptyDescription =>
-      'Создайте свою первую историю и сохраните важные моменты вместе';
+      'Сохраняйте важные места, фотографии и моменты вместе.';
 
   @override
   String get storiesLoadFailureTitle => 'Не удалось загрузить истории';

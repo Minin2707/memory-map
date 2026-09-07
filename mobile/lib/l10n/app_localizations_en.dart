@@ -137,11 +137,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storiesCreateAction => 'New story';
 
   @override
-  String get storiesEmptyTitle => 'No stories yet';
+  String get storiesCreateFirstAction => 'Create your first story';
+
+  @override
+  String get storiesEmptyTitle => 'Your story starts here';
 
   @override
   String get storiesEmptyDescription =>
-      'Create your first story and save important moments together';
+      'Save meaningful places, photos, and moments together.';
 
   @override
   String get storiesLoadFailureTitle => 'Could not load stories';

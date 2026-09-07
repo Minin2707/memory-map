@@ -66,6 +66,10 @@ class StoriesScreen extends ConsumerWidget {
         : displayName.trim();
     final greetingName = _greetingName(effectiveDisplayName);
     final daypartGreeting = _daypartGreeting(l10n, DateTime.now().hour);
+    final isTrueEmptyState = storiesValue.maybeWhen(
+      data: (state) => state.loadFailure == null && state.stories.isEmpty,
+      orElse: () => false,
+    );
 
     return Scaffold(
       backgroundColor: _storiesBackground,
@@ -99,23 +103,25 @@ class StoriesScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  _storiesHorizontalPadding,
-                  26,
-                  _storiesHorizontalPadding,
-                  0,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: _StoriesSectionHeader(
-                    onCreateStory: onCreateStory,
+              if (!isTrueEmptyState)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    _storiesHorizontalPadding,
+                    26,
+                    _storiesHorizontalPadding,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: _StoriesSectionHeader(
+                      onCreateStory: onCreateStory,
+                    ),
                   ),
                 ),
-              ),
               ..._contentSlivers(context, ref, storiesValue),
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 36),
-              ),
+              if (!isTrueEmptyState)
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 36),
+                ),
             ],
           ),
         ),
@@ -242,7 +248,7 @@ class StoriesScreen extends ConsumerWidget {
         SliverFillRemaining(
           hasScrollBody: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
             child: Center(
               child: StoriesEmptyState(onCreateStory: onCreateStory),
             ),

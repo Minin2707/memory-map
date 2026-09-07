@@ -25,7 +25,10 @@ import '../../media/media_test_fixtures.dart' as media_fixtures;
 void main() {
   group('StoriesScreen header', () {
     testWidgets('shouldRenderEnglishHeader', (WidgetTester tester) async {
-      await pumpScreen(tester, FakeStoryRepository());
+      await pumpScreen(
+        tester,
+        FakeStoryRepository()..storiesResult = <UserStory>[ownerStory],
+      );
 
       expect(findStoriesDaypartGreeting(), findsOneWidget);
       expect(find.text('Anna'), findsOneWidget);
@@ -49,7 +52,7 @@ void main() {
     testWidgets('shouldRenderRussianHeader', (WidgetTester tester) async {
       await pumpScreen(
         tester,
-        FakeStoryRepository(),
+        FakeStoryRepository()..storiesResult = <UserStory>[ownerStory],
         locale: const Locale('ru'),
       );
 
@@ -170,7 +173,7 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const ValueKey('stories.loading.view')), findsOneWidget);
-      expect(find.text('No stories yet'), findsNothing);
+      expect(find.text('Your story starts here'), findsNothing);
       expect(find.textContaining('Dio'), findsNothing);
       expect(find.textContaining('Exception'), findsNothing);
 
@@ -327,7 +330,7 @@ void main() {
       var createCalls = 0;
       await pumpScreen(
         tester,
-        FakeStoryRepository(),
+        FakeStoryRepository()..storiesResult = <UserStory>[ownerStory],
         onCreateStory: () {
           createCalls += 1;
         },
@@ -348,13 +351,25 @@ void main() {
     ) async {
       await pumpScreen(tester, FakeStoryRepository());
 
-      expect(find.text('No stories yet'), findsOneWidget);
+      expect(find.text('Your story starts here'), findsOneWidget);
       expect(
         find.text(
-          'Create your first story and save important moments together',
+          'Save meaningful places, photos, and moments together.',
         ),
         findsOneWidget,
       );
+      expect(find.text('Create your first story'), findsOneWidget);
+      expect(
+        find.image(const AssetImage('assets/hero_stories_empty_state.png')),
+        findsOneWidget,
+      );
+      expect(find.text('Your stories'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('stories.create.section-action')),
+        findsNothing,
+      );
+      expect(find.text('No stories yet'), findsNothing);
+      expect(find.byIcon(Icons.favorite_rounded), findsNothing);
       expect(find.text(ownerStory.story.title), findsNothing);
     });
 
@@ -370,7 +385,11 @@ void main() {
         },
       );
 
-      await tester.tap(find.byKey(const ValueKey('stories.empty.create-action')));
+      final createAction =
+          find.byKey(const ValueKey('stories.empty.create-action'));
+      await tester.ensureVisible(createAction);
+      await tester.pump();
+      await tester.tap(createAction);
       await tester.pump();
 
       expect(createCalls, 1);
