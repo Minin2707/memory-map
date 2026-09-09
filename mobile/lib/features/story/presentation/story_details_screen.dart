@@ -28,6 +28,16 @@ import 'package:memory_map/features/story/presentation/story_failure_message.dar
 import 'package:memory_map/features/story/presentation/widgets/story_role_badge.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _storyHubBackground = Color(0xFFFBF6F1);
+const _storyHubInk = Color(0xFF182331);
+const _storyHubMuted = Color(0xFF747B86);
+const _storyHubAccent = Color(0xFFD16A74);
+const _storyHubAccentSoft = Color(0xFFFFEEF0);
+const _storyHubWarmWhite = Color(0xFFFFFDFB);
+const _storyHubWarmBorder = Color(0xFFEFE5E1);
+const _storyHubDisplayFontFamily = 'NotoSerif';
+const _storyHubDisplayFontFallback = <String>['NotoSerifGeorgian'];
+
 class StoryDetailsScreen extends ConsumerWidget {
   const StoryDetailsScreen({
     required this.storyId,
@@ -72,9 +82,9 @@ class StoryDetailsScreen extends ConsumerWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
+        backgroundColor: _storyHubBackground,
         body: RefreshIndicator(
-          color: const Color(0xFFFF5D72),
+          color: _storyHubAccent,
           onRefresh: () {
             return ref
                 .read(storyDetailsProvider(storyId).notifier)
@@ -179,8 +189,8 @@ class StoryDetailsScreen extends ConsumerWidget {
           sliver: SliverToBoxAdapter(
             child: LinearProgressIndicator(
               minHeight: 3,
-              color: Color(0xFFFF5D72),
-              backgroundColor: Color(0xFFFFE6EA),
+              color: _storyHubAccent,
+              backgroundColor: _storyHubAccentSoft,
             ),
           ),
         ),
@@ -223,7 +233,7 @@ class StoryDetailsScreen extends ConsumerWidget {
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
         sliver: SliverToBoxAdapter(
           child: _ParticipantsSummarySection(
             storyId: storyId,
@@ -239,7 +249,7 @@ class StoryDetailsScreen extends ConsumerWidget {
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
         sliver: SliverToBoxAdapter(
           child: StorySoundtrackSummaryCard(
             storyId: storyId,
@@ -253,7 +263,7 @@ class StoryDetailsScreen extends ConsumerWidget {
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
         sliver: SliverToBoxAdapter(
           child: _StoryLowerCompositionSection(
             storyId: storyId,
@@ -302,7 +312,7 @@ class StoryDetailsScreen extends ConsumerWidget {
                 Navigator.of(context).pop(true);
               },
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF5D72),
+                backgroundColor: _storyHubAccent,
                 foregroundColor: Colors.white,
               ),
               child: Text(l10n.deleteStoryConfirm),
@@ -445,7 +455,7 @@ class _StoryHero extends StatelessWidget {
           height: heroHeight,
           width: double.infinity,
           decoration: const BoxDecoration(
-            color: Color(0xFF1F2937),
+            color: _storyHubInk,
           ),
           child: Stack(
             fit: StackFit.expand,
@@ -465,6 +475,26 @@ class _StoryHero extends StatelessWidget {
                   ),
                 ),
               ),
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 150,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x00FBF6F1),
+                        Color(0x66FBF6F1),
+                        _storyHubBackground,
+                      ],
+                      stops: [0, 0.58, 1],
+                    ),
+                  ),
+                ),
+              ),
               SafeArea(
                 bottom: false,
                 child: Padding(
@@ -478,6 +508,7 @@ class _StoryHero extends StatelessWidget {
                             key: const ValueKey('story-details.back-action'),
                             tooltip: l10n.storyDetailsBackLabel,
                             icon: Icons.arrow_back_ios_new_rounded,
+                            foregroundColor: Colors.white,
                             onPressed: onBack,
                           ),
                           const Spacer(),
@@ -488,6 +519,7 @@ class _StoryHero extends StatelessWidget {
                               ),
                               tooltip: l10n.invitePageTitle,
                               icon: Icons.person_add_alt_1_rounded,
+                              foregroundColor: Colors.white,
                               onPressed: onInvite,
                             ),
                             const SizedBox(width: 10),
@@ -499,19 +531,24 @@ class _StoryHero extends StatelessWidget {
                               ),
                               tooltip: l10n.storyDetailsEditAction,
                               icon: Icons.edit_rounded,
+                              foregroundColor: Colors.white,
                               onPressed: () {
                                 onEditStory!(userStory);
                               },
                             ),
                           if (onDeleteStory != null) ...[
                             const SizedBox(width: 10),
-                            GlassCircleIconButton.icon(
+                            GlassCircleIconButton(
                               key: const ValueKey(
                                 'story-details.delete-action',
                               ),
                               tooltip: l10n.deleteStoryAction,
-                              icon: Icons.delete_outline_rounded,
-                              foregroundColor: const Color(0xFFFF5D72),
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                size: 22,
+                                color: deleteEnabled ? _storyHubAccent : null,
+                              ),
+                              foregroundColor: Colors.white,
                               onPressed: deleteEnabled ? onDeleteStory : null,
                             ),
                           ],
@@ -526,7 +563,9 @@ class _StoryHero extends StatelessWidget {
                           color: Colors.white,
                           fontSize: 32,
                           height: 1.08,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: _storyHubDisplayFontFamily,
+                          fontFamilyFallback: _storyHubDisplayFontFallback,
                           letterSpacing: 0,
                           shadows: [
                             Shadow(
@@ -547,7 +586,7 @@ class _StoryHero extends StatelessWidget {
                             color: Color(0xF2FFFFFF),
                             fontSize: 18,
                             height: 1.32,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             letterSpacing: 0,
                           ),
                         ),
@@ -632,9 +671,9 @@ class _HeroFallback extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFF8A99),
-            Color(0xFFFF5D72),
-            Color(0xFF4F8F86),
+            Color(0xFFE8A0A0),
+            _storyHubAccent,
+            Color(0xFF587D74),
           ],
         ),
       ),
@@ -649,7 +688,9 @@ class _HeroFallback extends StatelessWidget {
               color: Color(0x33FFFFFF),
               fontSize: 112,
               height: 1,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
+              fontFamily: _storyHubDisplayFontFamily,
+              fontFamilyFallback: _storyHubDisplayFontFallback,
               letterSpacing: 0,
             ),
           ),
@@ -734,7 +775,7 @@ class _HeroMetadataPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(18);
+    final borderRadius = BorderRadius.circular(20);
 
     return ClipRRect(
       borderRadius: borderRadius,
@@ -749,19 +790,19 @@ class _HeroMetadataPill extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.10),
-                Colors.white.withValues(alpha: 0.04),
+                _storyHubInk.withValues(alpha: 0.24),
+                _storyHubInk.withValues(alpha: 0.10),
               ],
             ),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.14),
+              color: _storyHubWarmWhite.withValues(alpha: 0.16),
               width: 0.5,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 18),
+              Icon(icon, color: _storyHubWarmWhite, size: 17),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -769,10 +810,10 @@ class _HeroMetadataPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14.5,
+                    color: _storyHubWarmWhite,
+                    fontSize: 14,
                     height: 1.15,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 0,
                   ),
                 ),
@@ -808,6 +849,7 @@ class _ParticipantsSummaryCard extends StatelessWidget {
 
     return _DetailsCard(
       key: const ValueKey('story-details.participants-summary'),
+      borderColor: _storyHubWarmBorder.withValues(alpha: 0.42),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -819,9 +861,11 @@ class _ParticipantsSummaryCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF1F2937),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                    color: _storyHubInk,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: _storyHubDisplayFontFamily,
+                    fontFamilyFallback: _storyHubDisplayFontFallback,
                     letterSpacing: 0,
                   ),
                 ),
@@ -837,11 +881,11 @@ class _ParticipantsSummaryCard extends StatelessWidget {
                     ),
                     onPressed: onOpenParticipants,
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFFF5D72),
+                      foregroundColor: _storyHubAccent,
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       textStyle: const TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0,
                       ),
                     ),
@@ -1124,7 +1168,7 @@ class _ParticipantsSummaryEmpty extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF8A93A3),
+              color: _storyHubMuted,
               fontSize: 15,
               height: 1.35,
               fontWeight: FontWeight.w700,
@@ -1160,13 +1204,13 @@ class _ParticipantsSummaryFailure extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFFF7F8),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFD6DC)),
+        border: Border.all(color: const Color(0xFFE9C8C4)),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.info_outline_rounded,
-            color: Color(0xFFFF5D72),
+            color: _storyHubAccent,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -1176,7 +1220,7 @@ class _ParticipantsSummaryFailure extends StatelessWidget {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xFF6B7280),
+                color: _storyHubMuted,
                 fontSize: 14,
                 height: 1.35,
                 fontWeight: FontWeight.w700,
@@ -1226,10 +1270,10 @@ class _ParticipantPreviewItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF1F2937),
+              color: _storyHubInk,
               fontSize: 14,
               height: 1.2,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
           ),
@@ -1262,7 +1306,7 @@ class _ParticipantPreviewItem extends StatelessWidget {
         radius: 32,
         foregroundImage: NetworkImage(avatarUrl),
         onForegroundImageError: (_, __) {},
-        backgroundColor: const Color(0xFFFFE6EA),
+        backgroundColor: _storyHubAccentSoft,
         child: _ParticipantPreviewInitials(
           displayName: participant.displayName,
         ),
@@ -1298,7 +1342,7 @@ class _ParticipantPreviewAvatarFallback extends StatelessWidget {
     return CircleAvatar(
       key: const ValueKey('story-details.participants.avatar'),
       radius: 32,
-      backgroundColor: const Color(0xFFFFE6EA),
+      backgroundColor: _storyHubAccentSoft,
       child: _ParticipantPreviewInitials(displayName: displayName),
     );
   }
@@ -1318,9 +1362,9 @@ class _ParticipantPreviewInitials extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.clip,
       style: const TextStyle(
-        color: Color(0xFFFF5D72),
+        color: _storyHubAccent,
         fontSize: 20,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w800,
         letterSpacing: 0,
       ),
     );
@@ -1346,18 +1390,18 @@ class _ParticipantsOverflowIndicator extends StatelessWidget {
             height: 64,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F8FA),
+              color: _storyHubWarmWhite,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: _storyHubWarmBorder),
             ),
             child: Text(
               '+$count',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xFF6B7280),
+                color: _storyHubMuted,
                 fontSize: 18,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
                 letterSpacing: 0,
               ),
             ),
@@ -1396,16 +1440,16 @@ class _ParticipantInvitePreview extends StatelessWidget {
                 height: 64,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: _storyHubAccentSoft,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: const Color(0xFFE5E7EB),
+                    color: const Color(0xFFE9C8C4),
                     width: 1.5,
                   ),
                 ),
                 child: const Icon(
                   Icons.add_rounded,
-                  color: Color(0xFFFF5D72),
+                  color: _storyHubAccent,
                   size: 32,
                 ),
               ),
@@ -1416,7 +1460,7 @@ class _ParticipantInvitePreview extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Color(0xFF8A93A3),
+                  color: _storyHubMuted,
                   fontSize: 13.5,
                   height: 1.2,
                   fontWeight: FontWeight.w800,
@@ -1463,7 +1507,7 @@ class _StoryLowerCompositionCard extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 22, 8, 0),
+            padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
             child: _StorySectionNavigationRow(
               userStory: userStory,
               onMemoriesSelected: onMemoriesSelected,
@@ -1471,9 +1515,8 @@ class _StoryLowerCompositionCard extends StatelessWidget {
               onTimelineSelected: onTimelineSelected,
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE5E7EB)),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+            padding: const EdgeInsets.fromLTRB(0, 28, 0, 0),
             child: Column(
               children: [
                 _RecentMemoriesSection(
@@ -1487,7 +1530,7 @@ class _StoryLowerCompositionCard extends StatelessWidget {
                   onMemorySelected: onMemorySelected,
                   onRetry: onRetryMemories,
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 28),
                 if (onCreateMemory != null) ...[
                   _AddMemoryAction(onPressed: onCreateMemory!),
                   const SizedBox(height: 14),
@@ -1634,21 +1677,21 @@ class _SectionNavigationAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFFFF5D72) : const Color(0xFF6B7280);
+    final color = selected ? _storyHubAccent : _storyHubMuted;
 
     return InkWell(
       key: actionKey,
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(3, 2, 3, 0),
+        padding: const EdgeInsets.fromLTRB(3, 4, 3, 0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 23, color: color),
+                Icon(icon, size: 21, color: color),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -1657,26 +1700,26 @@ class _SectionNavigationAction extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: color,
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
                       letterSpacing: 0,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 13),
             SizedBox(
-              height: 3,
+              height: 2,
               width: double.infinity,
               child: Align(
                 alignment: Alignment.center,
                 child: FractionallySizedBox(
                   widthFactor: selected ? 0.92 : 0,
                   child: Container(
-                    height: 3,
+                    height: 2,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF5D72),
+                      color: _storyHubAccent,
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -1721,10 +1764,12 @@ class _RecentMemoriesSection extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF1F2937),
-                  fontSize: 19,
+                  color: _storyHubInk,
+                  fontSize: 21,
                   height: 1.2,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: _storyHubDisplayFontFamily,
+                  fontFamilyFallback: _storyHubDisplayFontFallback,
                   letterSpacing: 0,
                 ),
               ),
@@ -1736,10 +1781,10 @@ class _RecentMemoriesSection extends StatelessWidget {
                 ),
                 onPressed: onSeeAll,
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFFF5D72),
+                  foregroundColor: _storyHubAccent,
                   textStyle: const TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: 0,
                   ),
                 ),
@@ -1848,11 +1893,11 @@ class _RecentMemoryRow extends StatelessWidget {
           ? memory.title
           : l10n.memoryOpenLabel(memory.title),
       child: Material(
-        color: Colors.white,
+        color: _storyHubWarmWhite,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFEFF1F4)),
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: _storyHubWarmBorder),
         ),
         child: InkWell(
           onTap: selected == null
@@ -1861,7 +1906,7 @@ class _RecentMemoryRow extends StatelessWidget {
                   selected(memory);
                 },
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            padding: const EdgeInsets.fromLTRB(10, 10, 14, 10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -1877,10 +1922,10 @@ class _RecentMemoryRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF1F2937),
+                          color: _storyHubInk,
                           fontSize: 17,
                           height: 1.2,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0,
                         ),
                       ),
@@ -1898,12 +1943,6 @@ class _RecentMemoryRow extends StatelessWidget {
                       ],
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.more_vert_rounded,
-                  color: Color(0xFF8A93A3),
-                  size: 25,
                 ),
               ],
             ),
@@ -1927,21 +1966,40 @@ class _RecentMemoryVisual extends StatelessWidget {
     final fallback = _RecentMemoryDateVisual(memory: readModel.memory);
 
     if (preview == null) {
-      return fallback;
+      return const _RecentMemoryNoPhotoVisual();
     }
 
     return ExcludeSemantics(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: SizedBox(
-          width: 96,
-          height: 72,
+          width: 104,
+          height: 78,
           child: AuthenticatedMediaPathImage(
             thumbnailPath: preview.thumbnailPath,
             fit: BoxFit.cover,
             placeholder: fallback,
             errorBuilder: (_) => fallback,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentMemoryNoPhotoVisual extends StatelessWidget {
+  const _RecentMemoryNoPhotoVisual();
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.asset(
+          'assets/memory_timeline_no_photo_preview.png',
+          width: 104,
+          height: 78,
+          fit: BoxFit.cover,
         ),
       ),
     );
@@ -1959,11 +2017,11 @@ class _RecentMemoryDateVisual extends StatelessWidget {
   Widget build(BuildContext context) {
     return ExcludeSemantics(
       child: Container(
-        width: 96,
-        height: 72,
+        width: 104,
+        height: 78,
         decoration: BoxDecoration(
-          color: const Color(0xFFFFE6EA),
-          borderRadius: BorderRadius.circular(14),
+          color: _storyHubAccentSoft,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1971,10 +2029,10 @@ class _RecentMemoryDateVisual extends StatelessWidget {
             Text(
               memory.eventDate.day.toString(),
               style: const TextStyle(
-                color: Color(0xFFFF5D72),
+                color: _storyHubAccent,
                 fontSize: 24,
                 height: 1,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
                 letterSpacing: 0,
               ),
             ),
@@ -1982,10 +2040,10 @@ class _RecentMemoryDateVisual extends StatelessWidget {
             Text(
               memory.eventDate.month.toString().padLeft(2, '0'),
               style: const TextStyle(
-                color: Color(0xFFFF5D72),
+                color: _storyHubAccent,
                 fontSize: 12,
                 height: 1,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
                 letterSpacing: 0,
               ),
             ),
@@ -2009,7 +2067,7 @@ class _RecentMemoryMetaLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 17, color: const Color(0xFF8A93A3)),
+        Icon(icon, size: 17, color: _storyHubMuted),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -2017,7 +2075,7 @@ class _RecentMemoryMetaLine extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _storyHubMuted,
               fontSize: 14.5,
               height: 1.2,
               fontWeight: FontWeight.w700,
@@ -2058,13 +2116,14 @@ class _RecentMemoriesEmpty extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FA),
-        borderRadius: BorderRadius.circular(20),
+        color: _storyHubWarmWhite,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _storyHubWarmBorder),
       ),
       child: Text(
         l10n.storyMemoriesEmptyTitle,
         style: const TextStyle(
-          color: Color(0xFF8A93A3),
+          color: _storyHubMuted,
           fontSize: 15,
           height: 1.35,
           fontWeight: FontWeight.w800,
@@ -2094,13 +2153,13 @@ class _RecentMemoriesFailure extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFFF7F8),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFD6DC)),
+        border: Border.all(color: const Color(0xFFE9C8C4)),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.info_outline_rounded,
-            color: Color(0xFFFF5D72),
+            color: _storyHubAccent,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -2110,7 +2169,7 @@ class _RecentMemoriesFailure extends StatelessWidget {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xFF6B7280),
+                color: _storyHubMuted,
                 fontSize: 14,
                 height: 1.35,
                 fontWeight: FontWeight.w700,
@@ -2147,14 +2206,14 @@ class _AddMemoryAction extends StatelessWidget {
       label: Text(l10n.storyMemoriesCreate),
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(58),
-        backgroundColor: const Color(0xFFFF5D72),
+        backgroundColor: _storyHubAccent,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(999),
         ),
         textStyle: const TextStyle(
           fontSize: 17,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w800,
           letterSpacing: 0,
         ),
       ),
@@ -2176,19 +2235,25 @@ class _PlaybackStoryAction extends StatelessWidget {
     return OutlinedButton.icon(
       key: const ValueKey('story-details.playback-action'),
       onPressed: onPressed,
-      icon: const Icon(Icons.play_circle_outline_rounded, size: 25),
+      icon: const Icon(
+        Icons.play_circle_outline_rounded,
+        color: _storyHubMuted,
+        size: 25,
+      ),
       label: Text(l10n.storyDetailsPlaybackStoryAction),
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(58),
-        foregroundColor: const Color(0xFF6B7280),
-        backgroundColor: const Color(0xFFF7F8FA),
-        side: BorderSide.none,
+        foregroundColor: _storyHubInk,
+        backgroundColor: _storyHubWarmWhite.withValues(alpha: 0.28),
+        side: BorderSide(
+          color: _storyHubWarmBorder.withValues(alpha: 0.44),
+        ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(999),
         ),
         textStyle: const TextStyle(
           fontSize: 17,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w800,
           letterSpacing: 0,
         ),
       ),
@@ -2217,20 +2282,20 @@ class _RefreshFailureBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFFFF7F8),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFFD6DC)),
+          border: Border.all(color: const Color(0xFFE9C8C4)),
         ),
         child: Row(
           children: [
             const Icon(
               Icons.info_outline_rounded,
-              color: Color(0xFFFF5D72),
+              color: _storyHubAccent,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 '${l10n.storyDetailsRefreshFailureTitle}. $message',
                 style: const TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: _storyHubMuted,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   letterSpacing: 0,
@@ -2275,12 +2340,12 @@ class _StoryDetailsErrorView extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE6EA),
+              color: _storyHubAccentSoft,
               borderRadius: BorderRadius.circular(24),
             ),
             child: const Icon(
               Icons.cloud_off_rounded,
-              color: Color(0xFFFF5D72),
+              color: _storyHubAccent,
               size: 34,
             ),
           ),
@@ -2289,9 +2354,11 @@ class _StoryDetailsErrorView extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF1F2937),
+              color: _storyHubInk,
               fontSize: 22,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
+              fontFamily: _storyHubDisplayFontFamily,
+              fontFamilyFallback: _storyHubDisplayFontFallback,
               letterSpacing: 0,
             ),
           ),
@@ -2300,7 +2367,7 @@ class _StoryDetailsErrorView extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _storyHubMuted,
               fontSize: 16,
               height: 1.45,
               fontWeight: FontWeight.w500,
@@ -2366,13 +2433,13 @@ class _SkeletonBlock extends StatelessWidget {
       width: double.infinity,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _storyHubWarmWhite,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x100F172A),
-            offset: Offset(0, 10),
-            blurRadius: 24,
+            color: Color(0x0A0F172A),
+            offset: Offset(0, 8),
+            blurRadius: 18,
           ),
         ],
       ),
@@ -2383,10 +2450,12 @@ class _SkeletonBlock extends StatelessWidget {
 class _DetailsCard extends StatelessWidget {
   const _DetailsCard({
     required this.child,
+    this.borderColor = _storyHubWarmBorder,
     super.key,
   });
 
   final Widget child;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -2394,15 +2463,9 @@ class _DetailsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
+        color: _storyHubWarmWhite.withValues(alpha: 0.74),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: borderColor),
       ),
       child: child,
     );
@@ -2421,17 +2484,9 @@ class _LowerDetailsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(2),
       ),
       child: child,
     );

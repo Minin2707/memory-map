@@ -5,7 +5,6 @@ import 'package:memory_map/features/music/application/music_catalog_state.dart';
 import 'package:memory_map/features/music/application/story_soundtrack_notifier.dart';
 import 'package:memory_map/features/music/application/story_soundtrack_state.dart';
 import 'package:memory_map/features/music/domain/music_track.dart';
-import 'package:memory_map/features/music/domain/story_soundtrack.dart';
 import 'package:memory_map/features/music/presentation/music_duration_format.dart';
 import 'package:memory_map/features/music/presentation/music_failure_message.dart';
 import 'package:memory_map/features/story/application/story_details_notifier.dart';
@@ -13,6 +12,16 @@ import 'package:memory_map/features/story/application/story_details_state.dart';
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/features/story/presentation/story_failure_message.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+const _pickerBackground = Color(0xFFFBF6F1);
+const _pickerInk = Color(0xFF182331);
+const _pickerMuted = Color(0xFF747B86);
+const _pickerAccent = Color(0xFFD16A74);
+const _pickerAccentSoft = Color(0xFFFFEEF0);
+const _pickerWarmWhite = Color(0xFFFFFDFB);
+const _pickerWarmBorder = Color(0xFFEFE5E1);
+const _pickerDisplayFontFamily = 'NotoSerif';
+const _pickerDisplayFontFallback = <String>['NotoSerifGeorgian'];
 
 class SoundtrackSelectionScreen extends ConsumerWidget {
   const SoundtrackSelectionScreen({
@@ -26,7 +35,6 @@ class SoundtrackSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
     final storyValue = ref.watch(storyDetailsProvider(storyId));
     final soundtrackValue = ref.watch(storySoundtrackProvider(storyId));
     final catalogValue = ref.watch(musicCatalogProvider);
@@ -39,21 +47,10 @@ class SoundtrackSelectionScreen extends ConsumerWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFFF7F8FA),
-          surfaceTintColor: const Color(0xFFF7F8FA),
-          elevation: 0,
-          leading: IconButton(
-            key: const ValueKey('soundtrack-selection.back-action'),
-            tooltip: l10n.storyDetailsBackLabel,
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
-          title: Text(l10n.soundtrackChooseTitle),
-        ),
+        backgroundColor: _pickerBackground,
         body: _SoundtrackSelectionBody(
           storyId: storyId,
+          onBack: onBack,
           storyValue: storyValue,
           soundtrackValue: soundtrackValue,
           catalogValue: catalogValue,
@@ -66,12 +63,14 @@ class SoundtrackSelectionScreen extends ConsumerWidget {
 class _SoundtrackSelectionBody extends ConsumerWidget {
   const _SoundtrackSelectionBody({
     required this.storyId,
+    required this.onBack,
     required this.storyValue,
     required this.soundtrackValue,
     required this.catalogValue,
   });
 
   final String storyId;
+  final VoidCallback? onBack;
   final AsyncValue<StoryDetailsState> storyValue;
   final AsyncValue<StorySoundtrackState> soundtrackValue;
   final AsyncValue<MusicCatalogState> catalogValue;
@@ -81,131 +80,162 @@ class _SoundtrackSelectionBody extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
 
     if (storyValue.isLoading) {
-      return const _ScreenLoading();
+      return _SoundtrackPageFrame(
+        onBack: onBack,
+        child: const _ScreenLoading(),
+      );
     }
 
     if (storyValue.hasError) {
-      return _ScreenFailure(
-        title: l10n.storyDetailsLoadFailureTitle,
-        message: l10n.storyFailureUnknown,
-        onRetry: () {
-          ref.read(storyDetailsProvider(storyId).notifier).retryLoad();
-        },
+      return _SoundtrackPageFrame(
+        onBack: onBack,
+        child: _ScreenFailure(
+          title: l10n.storyDetailsLoadFailureTitle,
+          message: l10n.storyFailureUnknown,
+          onRetry: () {
+            ref.read(storyDetailsProvider(storyId).notifier).retryLoad();
+          },
+        ),
       );
     }
 
     final storyState = storyValue.asData?.value;
     final storyFailure = storyState?.loadFailure;
     if (storyFailure != null) {
-      return _ScreenFailure(
-        title: l10n.storyDetailsLoadFailureTitle,
-        message: storyFailureMessage(l10n, storyFailure),
-        onRetry: () {
-          ref.read(storyDetailsProvider(storyId).notifier).retryLoad();
-        },
+      return _SoundtrackPageFrame(
+        onBack: onBack,
+        child: _ScreenFailure(
+          title: l10n.storyDetailsLoadFailureTitle,
+          message: storyFailureMessage(l10n, storyFailure),
+          onRetry: () {
+            ref.read(storyDetailsProvider(storyId).notifier).retryLoad();
+          },
+        ),
       );
     }
 
     final userStory = storyState?.userStory;
     if (userStory == null) {
-      return _ScreenFailure(
-        title: l10n.storyDetailsLoadFailureTitle,
-        message: l10n.storyFailureUnknown,
-        onRetry: () {
-          ref.read(storyDetailsProvider(storyId).notifier).retryLoad();
-        },
+      return _SoundtrackPageFrame(
+        onBack: onBack,
+        child: _ScreenFailure(
+          title: l10n.storyDetailsLoadFailureTitle,
+          message: l10n.storyFailureUnknown,
+          onRetry: () {
+            ref.read(storyDetailsProvider(storyId).notifier).retryLoad();
+          },
+        ),
       );
     }
 
     final editable = _canEditSoundtrack(userStory.role);
 
-    return ListView(
-      key: const ValueKey('soundtrack-selection.screen'),
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-      children: [
-        _HeaderCard(
-          title: userStory.story.title,
-          editable: editable,
-        ),
-        const SizedBox(height: 16),
-        _StorySoundtrackPanel(
-          storyId: storyId,
-          editable: editable,
-          soundtrackValue: soundtrackValue,
-        ),
-        const SizedBox(height: 16),
-        _CatalogPanel(
-          storyId: storyId,
-          editable: editable,
-          soundtrackValue: soundtrackValue,
-          catalogValue: catalogValue,
-        ),
-      ],
+    return _SoundtrackPageFrame(
+      onBack: onBack,
+      readOnly: !editable,
+      child: ListView(
+        key: const ValueKey('soundtrack-selection.screen'),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 34),
+        children: [
+          _StorySoundtrackPanel(
+            storyId: storyId,
+            editable: editable,
+            soundtrackValue: soundtrackValue,
+          ),
+          const SizedBox(height: 24),
+          _CatalogPanel(
+            storyId: storyId,
+            editable: editable,
+            soundtrackValue: soundtrackValue,
+            catalogValue: catalogValue,
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({
-    required this.title,
-    required this.editable,
+class _SoundtrackPageFrame extends StatelessWidget {
+  const _SoundtrackPageFrame({
+    required this.onBack,
+    required this.child,
+    this.readOnly = false,
   });
 
-  final String title;
-  final bool editable;
+  final VoidCallback? onBack;
+  final Widget child;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _EditorialHeader(onBack: onBack, readOnly: readOnly),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditorialHeader extends StatelessWidget {
+  const _EditorialHeader({
+    required this.onBack,
+    required this.readOnly,
+  });
+
+  final VoidCallback? onBack;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return _Panel(
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 24, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.music_note_rounded,
-            color: Color(0xFFFF5D72),
-            size: 28,
+          IconButton(
+            key: const ValueKey('soundtrack-selection.back-action'),
+            tooltip: l10n.storyDetailsBackLabel,
+            onPressed: onBack,
+            color: _pickerInk,
+            icon: const Icon(Icons.arrow_back_rounded),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.soundtrackTitle,
-                  style: const TextStyle(
-                    color: Color(0xFF1F2937),
-                    fontSize: 20,
-                    height: 1.2,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 14,
-                    height: 1.25,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
+          Padding(
+            padding: const EdgeInsets.only(left: 12, top: 8),
+            child: Text(
+              l10n.soundtrackChooseTitle,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _pickerInk,
+                fontSize: 32,
+                height: 1.08,
+                fontWeight: FontWeight.w500,
+                fontFamily: _pickerDisplayFontFamily,
+                fontFamilyFallback: _pickerDisplayFontFallback,
+                letterSpacing: 0,
+              ),
             ),
           ),
-          if (!editable)
-            Text(
-              l10n.soundtrackReadOnly,
-              style: const TextStyle(
-                color: Color(0xFF8A93A3),
-                fontSize: 13,
-                height: 1.2,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
+          if (readOnly)
+            Padding(
+              padding: const EdgeInsets.only(left: 12, top: 8),
+              child: Text(
+                l10n.soundtrackReadOnly,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _pickerMuted,
+                  fontSize: 14,
+                  height: 1.3,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
               ),
             ),
         ],
@@ -230,38 +260,32 @@ class _StorySoundtrackPanel extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
 
     if (soundtrackValue.isLoading) {
-      return const _Panel(
-        child: _InlineLoading(
-          key: ValueKey('soundtrack-selection.soundtrack.loading'),
-        ),
+      return const _InlineLoading(
+        key: ValueKey('soundtrack-selection.soundtrack.loading'),
       );
     }
 
     if (soundtrackValue.hasError) {
-      return _Panel(
-        child: _InlineFailure(
-          title: l10n.soundtrackLoadFailureTitle,
-          message: l10n.musicFailureUnavailable,
-          retryKey: const ValueKey('soundtrack-selection.soundtrack.retry'),
-          onRetry: () {
-            ref.read(storySoundtrackProvider(storyId).notifier).retryLoad();
-          },
-        ),
+      return _InlineFailure(
+        title: l10n.soundtrackLoadFailureTitle,
+        message: l10n.musicFailureUnavailable,
+        retryKey: const ValueKey('soundtrack-selection.soundtrack.retry'),
+        onRetry: () {
+          ref.read(storySoundtrackProvider(storyId).notifier).retryLoad();
+        },
       );
     }
 
     final state = soundtrackValue.asData?.value;
     final loadFailure = state?.loadFailure;
     if (loadFailure != null) {
-      return _Panel(
-        child: _InlineFailure(
-          title: l10n.soundtrackLoadFailureTitle,
-          message: musicFailureMessage(l10n, loadFailure),
-          retryKey: const ValueKey('soundtrack-selection.soundtrack.retry'),
-          onRetry: () {
-            ref.read(storySoundtrackProvider(storyId).notifier).retryLoad();
-          },
-        ),
+      return _InlineFailure(
+        title: l10n.soundtrackLoadFailureTitle,
+        message: musicFailureMessage(l10n, loadFailure),
+        retryKey: const ValueKey('soundtrack-selection.soundtrack.retry'),
+        onRetry: () {
+          ref.read(storySoundtrackProvider(storyId).notifier).retryLoad();
+        },
       );
     }
 
@@ -270,60 +294,53 @@ class _StorySoundtrackPanel extends ConsumerWidget {
         ? soundtrack!.selectedSoundtrack
         : null;
 
-    return _Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.soundtrackCurrentSelection,
-            style: _sectionTitleStyle,
-          ),
+    final children = <Widget>[
+      if (unavailableTrack != null) ...[
+        Text(
+          l10n.soundtrackCurrentSelection,
+          style: _sectionTitleStyle,
+        ),
+        const SizedBox(height: 12),
+        _UnavailableSelection(
+          track: unavailableTrack,
+          editable: editable,
+        ),
+      ],
+      if (state?.mutationFailure != null) ...[
+        if (unavailableTrack != null) const SizedBox(height: 12),
+        _MutationFailure(message: l10n.soundtrackUpdateFailure),
+      ],
+      if (state?.isMutating == true) ...[
+        if (unavailableTrack != null || state?.mutationFailure != null)
           const SizedBox(height: 12),
-          if (unavailableTrack == null)
-            _CurrentSelectionText(soundtrack: soundtrack)
-          else
-            _UnavailableSelection(
-              track: unavailableTrack,
-              editable: editable,
-            ),
-          if (state?.mutationFailure != null) ...[
-            const SizedBox(height: 12),
-            _MutationFailure(message: l10n.soundtrackUpdateFailure),
-          ],
-          if (state?.isMutating == true) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(
-              minHeight: 3,
-              color: Color(0xFFFF5D72),
-              backgroundColor: Color(0xFFFFE6EA),
-            ),
-          ],
-        ],
-      ),
+        const _MutationProgress(),
+      ],
+    ];
+
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
     );
   }
 }
 
-class _CurrentSelectionText extends StatelessWidget {
-  const _CurrentSelectionText({
-    required this.soundtrack,
-  });
-
-  final StorySoundtrack? soundtrack;
+class _MutationProgress extends StatelessWidget {
+  const _MutationProgress();
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final track = soundtrack?.selectedSoundtrack;
-
-    if (track == null) {
-      return Text(
-        l10n.soundtrackNoMusic,
-        style: _bodyStyle,
-      );
-    }
-
-    return _TrackText(track: track);
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 2),
+      child: LinearProgressIndicator(
+        minHeight: 2,
+        color: _pickerAccent,
+        backgroundColor: _pickerAccentSoft,
+      ),
+    );
   }
 }
 
@@ -345,9 +362,11 @@ class _UnavailableSelection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7F8),
+        color: _pickerAccentSoft.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFD6DC)),
+        border: Border.all(
+          color: _pickerAccent.withValues(alpha: 0.22),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,7 +378,7 @@ class _UnavailableSelection extends StatelessWidget {
                 ? l10n.soundtrackUnavailableEditable
                 : l10n.soundtrackCurrentlyUnavailable,
             style: const TextStyle(
-              color: Color(0xFFFF5D72),
+              color: _pickerAccent,
               fontSize: 13,
               height: 1.35,
               fontWeight: FontWeight.w800,
@@ -389,26 +408,32 @@ class _CatalogPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
 
-    return _Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l10n.soundtrackCatalogTitle, style: _sectionTitleStyle),
-          const SizedBox(height: 12),
-          _NoMusicRow(
-            storyId: storyId,
-            editable: editable,
-            soundtrackValue: soundtrackValue,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Text(
+            l10n.soundtrackCatalogTitle,
+            textAlign: TextAlign.center,
+            style: _sectionTitleStyle.copyWith(
+              color: const Color(0xFF8A746A),
+            ),
           ),
-          const SizedBox(height: 10),
-          _CatalogBody(
-            storyId: storyId,
-            editable: editable,
-            soundtrackValue: soundtrackValue,
-            catalogValue: catalogValue,
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 14),
+        _NoMusicRow(
+          storyId: storyId,
+          editable: editable,
+          soundtrackValue: soundtrackValue,
+        ),
+        const SizedBox(height: 10),
+        _CatalogBody(
+          storyId: storyId,
+          editable: editable,
+          soundtrackValue: soundtrackValue,
+          catalogValue: catalogValue,
+        ),
+      ],
     );
   }
 }
@@ -526,9 +551,7 @@ class _NoMusicRow extends ConsumerWidget {
       leading: Icons.music_off_rounded,
       title: AppLocalizations.of(context).soundtrackNoMusic,
       subtitle: null,
-      trailing: selected
-          ? _SelectedBadge(text: AppLocalizations.of(context).soundtrackSelected)
-          : null,
+      selected: selected,
       disabled: disabled,
       onTap: disabled
           ? null
@@ -562,9 +585,7 @@ class _TrackRow extends StatelessWidget {
       title: track.title,
       subtitle:
           '${track.artist} · ${formatMusicDuration(track.durationSeconds)}',
-      trailing: selected
-          ? _SelectedBadge(text: AppLocalizations.of(context).soundtrackSelected)
-          : null,
+      selected: selected,
       disabled: disabled,
       onTap: onTap,
     );
@@ -576,7 +597,7 @@ class _OptionRow extends StatelessWidget {
     required this.leading,
     required this.title,
     required this.subtitle,
-    required this.trailing,
+    required this.selected,
     required this.disabled,
     required this.onTap,
     super.key,
@@ -585,22 +606,32 @@ class _OptionRow extends StatelessWidget {
   final IconData leading;
   final String title;
   final String? subtitle;
-  final Widget? trailing;
+  final bool selected;
   final bool disabled;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final opacity = disabled ? 0.58 : 1.0;
+    final borderColor = selected
+        ? _pickerAccent.withValues(alpha: 0.42)
+        : _pickerWarmBorder.withValues(alpha: 0.72);
+    final iconColor = disabled
+        ? _pickerMuted.withValues(alpha: 0.62)
+        : selected
+            ? _pickerAccent
+            : _pickerMuted;
 
     return Opacity(
       opacity: opacity,
       child: Material(
-        color: const Color(0xFFF7F8FA),
+        color: selected
+            ? _pickerAccentSoft.withValues(alpha: 0.54)
+            : _pickerWarmWhite.withValues(alpha: 0.84),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFEFF1F4)),
+          side: BorderSide(color: borderColor),
         ),
         child: InkWell(
           onTap: onTap,
@@ -608,7 +639,7 @@ class _OptionRow extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
             child: Row(
               children: [
-                Icon(leading, color: const Color(0xFFFF5D72), size: 24),
+                Icon(leading, color: iconColor, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -619,10 +650,10 @@ class _OptionRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF1F2937),
+                          color: _pickerInk,
                           fontSize: 16,
                           height: 1.2,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0,
                         ),
                       ),
@@ -633,7 +664,7 @@ class _OptionRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Color(0xFF6B7280),
+                            color: _pickerMuted,
                             fontSize: 14,
                             height: 1.25,
                             fontWeight: FontWeight.w700,
@@ -644,9 +675,9 @@ class _OptionRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) ...[
+                if (selected) ...[
                   const SizedBox(width: 10),
-                  trailing!,
+                  const _SelectedIndicator(),
                 ],
               ],
             ),
@@ -657,35 +688,15 @@ class _OptionRow extends StatelessWidget {
   }
 }
 
-class _SelectedBadge extends StatelessWidget {
-  const _SelectedBadge({
-    required this.text,
-  });
-
-  final String text;
+class _SelectedIndicator extends StatelessWidget {
+  const _SelectedIndicator();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(
-          Icons.check_circle_rounded,
-          color: Color(0xFFFF5D72),
-          size: 19,
-        ),
-        const SizedBox(width: 5),
-        Text(
-          text,
-          style: const TextStyle(
-            color: Color(0xFFFF5D72),
-            fontSize: 13,
-            height: 1.2,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
-          ),
-        ),
-      ],
+    return const Icon(
+      Icons.check_circle_rounded,
+      color: _pickerAccent,
+      size: 20,
     );
   }
 }
@@ -707,10 +718,10 @@ class _TrackText extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Color(0xFF1F2937),
+            color: _pickerInk,
             fontSize: 16,
             height: 1.2,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
             letterSpacing: 0,
           ),
         ),
@@ -740,7 +751,7 @@ class _MutationFailure extends StatelessWidget {
       children: [
         const Icon(
           Icons.info_outline_rounded,
-          color: Color(0xFFFF5D72),
+          color: _pickerAccent,
           size: 20,
         ),
         const SizedBox(width: 8),
@@ -748,7 +759,7 @@ class _MutationFailure extends StatelessWidget {
           child: Text(
             message,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _pickerMuted,
               fontSize: 14,
               height: 1.35,
               fontWeight: FontWeight.w700,
@@ -770,8 +781,8 @@ class _InlineLoading extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 12),
       child: LinearProgressIndicator(
         minHeight: 3,
-        color: Color(0xFFFF5D72),
-        backgroundColor: Color(0xFFFFE6EA),
+        color: _pickerAccent,
+        backgroundColor: _pickerAccentSoft,
       ),
     );
   }
@@ -798,7 +809,7 @@ class _InlineFailure extends StatelessWidget {
       children: [
         const Icon(
           Icons.info_outline_rounded,
-          color: Color(0xFFFF5D72),
+          color: _pickerAccent,
           size: 20,
         ),
         const SizedBox(width: 10),
@@ -808,7 +819,7 @@ class _InlineFailure extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _pickerMuted,
               fontSize: 14,
               height: 1.35,
               fontWeight: FontWeight.w700,
@@ -833,7 +844,7 @@ class _ScreenLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Center(
       child: CircularProgressIndicator(
-        color: Color(0xFFFF5D72),
+        color: _pickerAccent,
       ),
     );
   }
@@ -863,7 +874,7 @@ class _ScreenFailure extends StatelessWidget {
             children: [
               const Icon(
                 Icons.info_outline_rounded,
-                color: Color(0xFFFF5D72),
+                color: _pickerAccent,
                 size: 32,
               ),
               const SizedBox(height: 12),
@@ -882,6 +893,9 @@ class _ScreenFailure extends StatelessWidget {
               TextButton(
                 key: const ValueKey('soundtrack-selection.story.retry'),
                 onPressed: onRetry,
+                style: TextButton.styleFrom(
+                  foregroundColor: _pickerAccent,
+                ),
                 child: Text(l10n.retry),
               ),
             ],
@@ -905,9 +919,11 @@ class _Panel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFEFF1F4)),
+        color: _pickerWarmWhite.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _pickerWarmBorder.withValues(alpha: 0.72),
+        ),
       ),
       child: child,
     );
@@ -915,15 +931,17 @@ class _Panel extends StatelessWidget {
 }
 
 const _sectionTitleStyle = TextStyle(
-  color: Color(0xFF1F2937),
+  color: _pickerInk,
   fontSize: 17,
   height: 1.2,
-  fontWeight: FontWeight.w900,
+  fontWeight: FontWeight.w700,
+  fontFamily: _pickerDisplayFontFamily,
+  fontFamilyFallback: _pickerDisplayFontFallback,
   letterSpacing: 0,
 );
 
 const _bodyStyle = TextStyle(
-  color: Color(0xFF6B7280),
+  color: _pickerMuted,
   fontSize: 14,
   height: 1.35,
   fontWeight: FontWeight.w700,

@@ -6,6 +6,13 @@ import 'package:memory_map/features/music/domain/story_soundtrack.dart';
 import 'package:memory_map/features/music/presentation/music_failure_message.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _storyHubInk = Color(0xFF182331);
+const _storyHubMuted = Color(0xFF747B86);
+const _storyHubAccent = Color(0xFFD16A74);
+const _storyHubAccentSoft = Color(0xFFFFEEF0);
+const _storyHubWarmWhite = Color(0xFFFFFDFB);
+const _storyHubWarmBorder = Color(0xFFEFE5E1);
+
 class StorySoundtrackSummaryCard extends ConsumerWidget {
   const StorySoundtrackSummaryCard({
     required this.storyId,
@@ -25,16 +32,16 @@ class StorySoundtrackSummaryCard extends ConsumerWidget {
 
     return Material(
       key: const ValueKey('story-details.soundtrack-summary'),
-      color: Colors.white,
+      color: _storyHubWarmWhite.withValues(alpha: 0.86),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: const BorderSide(color: Color(0xFFEFF1F4)),
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: _storyHubWarmBorder),
       ),
       child: InkWell(
         onTap: enabled ? onSelected : null,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 17, 16, 17),
+          padding: const EdgeInsets.fromLTRB(16, 15, 14, 15),
           child: Row(
             children: [
               const _SoundtrackIcon(),
@@ -49,7 +56,7 @@ class StorySoundtrackSummaryCard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 const Icon(
                   Icons.chevron_right_rounded,
-                  color: Color(0xFF8A93A3),
+                  color: _storyHubMuted,
                   size: 26,
                 ),
               ],
@@ -144,10 +151,10 @@ class _SoundtrackSummary extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Color(0xFF1F2937),
+            color: _storyHubInk,
             fontSize: 16,
             height: 1.2,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
             letterSpacing: 0,
           ),
         ),
@@ -159,7 +166,7 @@ class _SoundtrackSummary extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Color(0xFF6B7280),
+            color: _storyHubMuted,
             fontSize: 14,
             height: 1.25,
             fontWeight: FontWeight.w700,
@@ -193,7 +200,7 @@ class _SummaryText extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Color(0xFF6B7280),
+            color: _storyHubMuted,
             fontSize: 15,
             height: 1.3,
             fontWeight: FontWeight.w800,
@@ -219,10 +226,10 @@ class _SummaryTitle extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
-        color: Color(0xFF1F2937),
+        color: _storyHubInk,
         fontSize: 17,
         height: 1.2,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w800,
         letterSpacing: 0,
       ),
     );
@@ -250,7 +257,7 @@ class _SummaryFailure extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _storyHubMuted,
               fontSize: 14,
               height: 1.35,
               fontWeight: FontWeight.w700,
@@ -277,12 +284,12 @@ class _SoundtrackIcon extends StatelessWidget {
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFE6EA),
+        color: _storyHubAccentSoft,
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Icon(
         Icons.music_note_rounded,
-        color: Color(0xFFFF5D72),
+        color: _storyHubAccent,
         size: 26,
       ),
     );

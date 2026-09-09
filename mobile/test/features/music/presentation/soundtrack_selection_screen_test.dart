@@ -33,7 +33,7 @@ void main() {
 
       expect(find.text('Choose soundtrack'), findsOneWidget);
       expect(find.text('No music'), findsWidgets);
-      expect(find.text('Selected'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
       expect(find.text('Walk'), findsOneWidget);
       expect(find.text('Ikson · 3:00'), findsOneWidget);
       expect(find.text('Autumn Leaves'), findsOneWidget);
@@ -57,7 +57,6 @@ void main() {
       );
 
       expect(find.text('Autumn Leaves'), findsWidgets);
-      expect(find.text('Selected'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
     });
 
@@ -208,7 +207,7 @@ void main() {
         'set:story-1:track-a',
       ]);
       expect(find.text('Choose soundtrack'), findsOneWidget);
-      expect(find.text('Selected'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
     });
 
     testWidgets('shouldRemoveSoundtrackThroughNoMusicRow', (tester) async {
@@ -303,7 +302,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Autumn Leaves'), findsWidgets);
-      expect(find.text('Selected'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
     });
 
     testWidgets('shouldAllowCoOwnerToMutate', (tester) async {
