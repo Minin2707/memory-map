@@ -6,6 +6,19 @@ import 'package:memory_map/features/invite/domain/invite_failure.dart';
 import 'package:memory_map/features/story/domain/user_story.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _acceptInviteBackground = Color(0xFFFBF6F1);
+const _acceptInviteInk = Color(0xFF182331);
+const _acceptInviteMuted = Color(0xFF747B86);
+const _acceptInviteAccent = Color(0xFFD16A74);
+const _acceptInviteAccentSoft = Color(0xFFFFEEF0);
+const _acceptInviteWarmWhite = Color(0xFFFFFDFB);
+const _acceptInviteWarmBorder = Color(0x1FD16A74);
+const _acceptInviteDisplayFontFamily = 'NotoSerif';
+const _acceptInviteTopDecorationAsset =
+    'assets/transparent_accept_invite_open_envelope_polaroid_flowers.png';
+const _acceptInviteBottomDecorationAsset =
+    'assets/transparent_bottom-left_leaves.png';
+
 class AcceptInviteScreen extends ConsumerStatefulWidget {
   const AcceptInviteScreen({
     required String rawToken,
@@ -56,116 +69,146 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
         widget.onCancel?.call();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
-        body: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _AcceptInviteAppBar(
-                    isAccepting: isAccepting,
-                    onCancel: widget.onCancel,
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                sliver: SliverToBoxAdapter(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _AcceptInviteHero(
-                            invalid: widget._invalidLink,
-                          ),
-                          const SizedBox(height: 28),
-                          _AcceptInviteCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _InfoRow(
-                                  icon: Icons.lock_outline_rounded,
-                                  title: l10n.acceptInviteDetailsAccessTitle,
-                                  body: l10n.acceptInviteDetailsAccessBody,
-                                ),
-                                const SizedBox(height: 18),
-                                const Divider(color: Color(0xFFE8EBEF)),
-                                const SizedBox(height: 18),
-                                _InfoRow(
-                                  icon: Icons.verified_user_outlined,
-                                  title: l10n.acceptInviteDetailsSingleUseTitle,
-                                  body: l10n.acceptInviteDetailsSingleUseBody,
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (failureMessage != null) ...[
-                            const SizedBox(height: 16),
-                            _AcceptInviteFailureBanner(message: failureMessage),
-                          ],
-                          const SizedBox(height: 24),
-                          if (!widget._invalidLink)
-                            Semantics(
-                              label: l10n.acceptInviteAcceptSemanticsLabel,
-                              button: true,
-                              enabled: canSubmit,
-                              child: FilledButton.icon(
-                                key: const ValueKey('accept-invite.accept-action'),
-                                onPressed: canSubmit ? _acceptInvite : null,
-                                style: _primaryButtonStyle,
-                                icon: isAccepting
-                                    ? const SizedBox.square(
-                                        dimension: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Icon(Icons.check_rounded),
-                                label: Text(
-                                  isAccepting
-                                      ? l10n.acceptInviteAcceptingAction
-                                      : failureMessage == null
-                                      ? l10n.acceptInviteAcceptAction
-                                      : l10n.acceptInviteRetryAction,
-                                ),
-                              ),
-                            ),
-                          if (widget._invalidLink) ...[
-                            FilledButton.icon(
-                              key: const ValueKey(
-                                'accept-invite.back-to-stories-action',
-                              ),
-                              onPressed: widget.onCancel,
-                              style: _primaryButtonStyle,
-                              icon: const Icon(Icons.arrow_back_rounded),
-                              label: Text(l10n.acceptInviteBackToStoriesAction),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                          Semantics(
-                            label: l10n.acceptInviteCancelSemanticsLabel,
-                            button: true,
-                            enabled: !isAccepting,
-                            child: OutlinedButton.icon(
-                              key: const ValueKey('accept-invite.cancel-action'),
-                              onPressed: isAccepting ? null : widget.onCancel,
-                              style: _secondaryButtonStyle,
-                              icon: const Icon(Icons.close_rounded),
-                              label: Text(l10n.acceptInviteCancelAction),
-                            ),
-                          ),
-                        ],
+        backgroundColor: _acceptInviteBackground,
+        body: Stack(
+          children: [
+            const Positioned(
+              right: -44,
+              top: -30,
+              child: _AcceptInviteTopDecoration(),
+            ),
+            const Positioned(
+              left: -34,
+              bottom: -18,
+              child: _AcceptInviteBottomDecoration(),
+            ),
+            SafeArea(
+              bottom: false,
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _AcceptInviteAppBar(
+                        isAccepting: isAccepting,
+                        onCancel: widget.onCancel,
                       ),
                     ),
                   ),
-                ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(24, 38, 24, 22),
+                    sliver: SliverToBoxAdapter(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 560),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _AcceptInviteHeader(
+                                invalid: widget._invalidLink,
+                              ),
+                              const SizedBox(height: 32),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _InfoRow(
+                                    icon: Icons.lock_outline_rounded,
+                                    title: l10n.acceptInviteDetailsAccessTitle,
+                                    body: l10n.acceptInviteDetailsAccessBody,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _InfoRow(
+                                    icon: Icons.verified_user_outlined,
+                                    title: l10n
+                                        .acceptInviteDetailsSingleUseTitle,
+                                    body:
+                                        l10n.acceptInviteDetailsSingleUseBody,
+                                  ),
+                                ],
+                              ),
+                              if (failureMessage != null) ...[
+                                const SizedBox(height: 18),
+                                _AcceptInviteFailureBanner(
+                                  message: failureMessage,
+                                ),
+                              ],
+                              const SizedBox(height: 26),
+                              if (!widget._invalidLink)
+                                Semantics(
+                                  label: l10n.acceptInviteAcceptSemanticsLabel,
+                                  button: true,
+                                  enabled: canSubmit,
+                                  child: FilledButton(
+                                    key: const ValueKey(
+                                      'accept-invite.accept-action',
+                                    ),
+                                    onPressed: canSubmit ? _acceptInvite : null,
+                                    style: _primaryButtonStyle,
+                                    child: isAccepting
+                                        ? Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const SizedBox.square(
+                                                dimension: 18,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Text(
+                                                l10n
+                                                    .acceptInviteAcceptingAction,
+                                              ),
+                                            ],
+                                          )
+                                        : Text(
+                                            failureMessage == null
+                                                ? l10n
+                                                    .acceptInviteAcceptAction
+                                                : l10n.acceptInviteRetryAction,
+                                          ),
+                                  ),
+                                ),
+                              if (widget._invalidLink)
+                                FilledButton(
+                                  key: const ValueKey(
+                                    'accept-invite.back-to-stories-action',
+                                  ),
+                                  onPressed: widget.onCancel,
+                                  style: _primaryButtonStyle,
+                                  child: Text(
+                                    l10n.acceptInviteBackToStoriesAction,
+                                  ),
+                                ),
+                              const SizedBox(height: 10),
+                              Semantics(
+                                label: l10n.acceptInviteCancelSemanticsLabel,
+                                button: true,
+                                enabled: !isAccepting,
+                                child: TextButton(
+                                  key: const ValueKey(
+                                    'accept-invite.cancel-action',
+                                  ),
+                                  onPressed:
+                                      isAccepting ? null : widget.onCancel,
+                                  style: _secondaryButtonStyle,
+                                  child: Text(l10n.acceptInviteCancelAction),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -238,36 +281,59 @@ class _AcceptInviteAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Row(
-      children: [
-        IconButton(
-          key: const ValueKey('accept-invite.back-action'),
-          onPressed: isAccepting ? null : onCancel,
-          tooltip: l10n.acceptInviteBackLabel,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        Expanded(
-          child: Text(
-            l10n.acceptInvitePageTitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        const SizedBox(width: 48),
-      ],
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: IconButton(
+        key: const ValueKey('accept-invite.back-action'),
+        onPressed: isAccepting ? null : onCancel,
+        tooltip: l10n.acceptInviteBackLabel,
+        color: _acceptInviteInk,
+        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+      ),
     );
   }
 }
 
-class _AcceptInviteHero extends StatelessWidget {
-  const _AcceptInviteHero({
+class _AcceptInviteTopDecoration extends StatelessWidget {
+  const _AcceptInviteTopDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: Image.asset(
+          _acceptInviteTopDecorationAsset,
+          width: screenWidth.clamp(290, 390).toDouble(),
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+}
+
+class _AcceptInviteBottomDecoration extends StatelessWidget {
+  const _AcceptInviteBottomDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: Image.asset(
+          _acceptInviteBottomDecorationAsset,
+          width: (screenWidth * 0.54).clamp(170, 250).toDouble(),
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+}
+
+class _AcceptInviteHeader extends StatelessWidget {
+  const _AcceptInviteHeader({
     required this.invalid,
   });
 
@@ -277,87 +343,40 @@ class _AcceptInviteHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Column(
-      children: [
-        Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            color: invalid ? const Color(0xFFFFF1F3) : const Color(0xFFE7F1FF),
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x121D4ED8),
-                offset: Offset(0, 14),
-                blurRadius: 28,
-              ),
-            ],
-          ),
-          child: Icon(
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, right: 84),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
             invalid
-                ? Icons.link_off_rounded
-                : Icons.mark_email_read_outlined,
-            color: invalid ? const Color(0xFFFF5D72) : const Color(0xFF2563EB),
-            size: 46,
+                ? l10n.acceptInviteInvalidLinkTitle
+                : l10n.acceptInviteHeroTitle,
+            style: const TextStyle(
+              color: _acceptInviteInk,
+              fontFamily: _acceptInviteDisplayFontFamily,
+              fontFamilyFallback: <String>['NotoSerifGeorgian'],
+              fontSize: 33,
+              fontWeight: FontWeight.w500,
+              height: 1.12,
+              letterSpacing: 0,
+            ),
           ),
-        ),
-        const SizedBox(height: 22),
-        Text(
-          invalid
-              ? l10n.acceptInviteInvalidLinkTitle
-              : l10n.acceptInviteHeroTitle,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF1F2937),
-            fontSize: 32,
-            fontWeight: FontWeight.w900,
-            height: 1.12,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          invalid
-              ? l10n.acceptInviteInvalidLinkDescription
-              : l10n.acceptInviteHeroDescription,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 17,
-            height: 1.45,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AcceptInviteCard extends StatelessWidget {
-  const _AcceptInviteCard({
-    required this.child,
-  });
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
+          const SizedBox(height: 10),
+          Text(
+            invalid
+                ? l10n.acceptInviteInvalidLinkDescription
+                : l10n.acceptInviteHeroDescription,
+            style: const TextStyle(
+              color: _acceptInviteMuted,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              letterSpacing: 0,
+            ),
           ),
         ],
       ),
-      child: child,
     );
   }
 }
@@ -382,12 +401,12 @@ class _InfoRow extends StatelessWidget {
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: const Color(0xFFE7F1FF),
+            color: _acceptInviteAccentSoft,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Icon(
             icon,
-            color: const Color(0xFF2563EB),
+            color: _acceptInviteAccent,
             size: 24,
           ),
         ),
@@ -423,23 +442,23 @@ class _AcceptInviteFailureBanner extends StatelessWidget {
         key: const ValueKey('accept-invite.failure-banner'),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7F8),
+          color: _acceptInviteWarmWhite,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFFD6DC)),
+          border: Border.all(color: _acceptInviteWarmBorder),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(
               Icons.info_outline_rounded,
-              color: Color(0xFFFF5D72),
+              color: _acceptInviteAccent,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: const TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: _acceptInviteMuted,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   letterSpacing: 0,
@@ -455,49 +474,46 @@ class _AcceptInviteFailureBanner extends StatelessWidget {
 
 ButtonStyle get _primaryButtonStyle {
   return FilledButton.styleFrom(
-    backgroundColor: const Color(0xFFFF5D72),
+    backgroundColor: _acceptInviteAccent,
     foregroundColor: Colors.white,
-    disabledBackgroundColor: const Color(0xFFFFB3BD),
+    disabledBackgroundColor: const Color(0x99D16A74),
     disabledForegroundColor: Colors.white,
-    minimumSize: const Size.fromHeight(58),
+    minimumSize: const Size.fromHeight(56),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
     ),
     textStyle: const TextStyle(
       fontSize: 17,
-      fontWeight: FontWeight.w900,
-      letterSpacing: 0,
-    ),
-  );
-}
-
-ButtonStyle get _secondaryButtonStyle {
-  return OutlinedButton.styleFrom(
-    foregroundColor: const Color(0xFFFF5D72),
-    side: const BorderSide(color: Color(0xFFFF8A99)),
-    minimumSize: const Size.fromHeight(52),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-    ),
-    textStyle: const TextStyle(
-      fontSize: 15,
       fontWeight: FontWeight.w800,
       letterSpacing: 0,
     ),
   );
 }
 
+ButtonStyle get _secondaryButtonStyle {
+  return TextButton.styleFrom(
+    foregroundColor: _acceptInviteAccent,
+    disabledForegroundColor: _acceptInviteMuted.withValues(alpha: 0.55),
+    minimumSize: const Size.fromHeight(48),
+    textStyle: const TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0,
+    ),
+  );
+}
+
 const TextStyle _sectionTitleStyle = TextStyle(
-  color: Color(0xFF1F2937),
+  color: _acceptInviteInk,
   fontSize: 17,
-  fontWeight: FontWeight.w900,
+  fontWeight: FontWeight.w800,
   letterSpacing: 0,
 );
 
 const TextStyle _bodyTextStyle = TextStyle(
-  color: Color(0xFF6B7280),
+  color: _acceptInviteMuted,
   fontSize: 15,
   height: 1.45,
-  fontWeight: FontWeight.w600,
+  fontWeight: FontWeight.w500,
   letterSpacing: 0,
 );

@@ -753,6 +753,15 @@ class AppLocalizationsKa extends AppLocalizations {
   String get createMemoryBackLabel => 'მოგონებებზე დაბრუნება';
 
   @override
+  String get createMemorySubtitle => 'შეინახეთ მნიშვნელოვანი მომენტები.';
+
+  @override
+  String get createMemoryAboutSection => 'მოგონების შესახებ';
+
+  @override
+  String get createMemoryWhenWhereSection => 'როდის და სად';
+
+  @override
   String get createMemoryTitleLabel => 'სათაური';
 
   @override
@@ -1130,6 +1139,13 @@ class AppLocalizationsKa extends AppLocalizations {
       'გაუზიარეთ ერთჯერადი მოწვევის ბმული, რათა თქვენს ისტორიას შეუერთდეს.';
 
   @override
+  String get inviteEditorialSubtitle =>
+      'გაუზიარეთ თქვენი ისტორია მას, ვისაც ის ნამდვილად მნიშვნელოვანია.';
+
+  @override
+  String get inviteAboutSectionTitle => 'მოწვევის შესახებ';
+
+  @override
   String get inviteLinkLabel => 'მოწვევის ბმული';
 
   @override
@@ -1142,6 +1158,9 @@ class AppLocalizationsKa extends AppLocalizations {
   @override
   String get inviteExpirationDescription =>
       'მოწვევა ძალაშია სერვერის მიერ დაბრუნებულ თარიღამდე.';
+
+  @override
+  String get inviteAccessSectionTitle => 'წვდომა';
 
   @override
   String get inviteTargetRoleTitle => 'წვდომის არჩევა';
@@ -1166,6 +1185,9 @@ class AppLocalizationsKa extends AppLocalizations {
   @override
   String get inviteRoleViewerDescription =>
       'შეუძლია ისტორიისა და მოგონებების ნახვა.';
+
+  @override
+  String get inviteHowLinkWorksSectionTitle => 'როგორ მუშაობს ბმული';
 
   @override
   String get inviteWhatCanDoTitle => 'რა შეგიძლიათ გააკეთოთ ამ ბმულით?';

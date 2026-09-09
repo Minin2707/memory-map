@@ -35,7 +35,7 @@ void main() {
       expect(find.text('Original description'), findsOneWidget);
       expect(find.text('Original place'), findsOneWidget);
       expect(find.text('Location selected'), findsOneWidget);
-      expect(find.text('Make a change to save.'), findsOneWidget);
+      expect(find.text('Make a change to save.'), findsNothing);
       expect(find.textContaining(defaultMemoryId), findsNothing);
       expect(find.textContaining(defaultStoryId), findsNothing);
       expect(find.textContaining('41.715'), findsNothing);
@@ -81,7 +81,7 @@ void main() {
       );
 
       expect(find.text('null'), findsNothing);
-      expect(find.text('Make a change to save.'), findsOneWidget);
+      expect(find.text('Make a change to save.'), findsNothing);
       expect(saveButton(tester).onPressed, isNull);
     });
   });
@@ -245,7 +245,7 @@ void main() {
         find.byKey(const ValueKey('edit-memory.location-action')),
       );
 
-      expect(find.text('Make a change to save.'), findsOneWidget);
+      expect(find.text('Make a change to save.'), findsNothing);
       expect(saveButton(tester).onPressed, isNull);
       expect(repository.updateMemoryCalls, 0);
     });
@@ -303,7 +303,7 @@ void main() {
         find.byKey(const ValueKey('edit-memory.location-action')),
       );
 
-      expect(find.text('Make a change to save.'), findsOneWidget);
+      expect(find.text('Make a change to save.'), findsNothing);
       expect(saveButton(tester).onPressed, isNull);
       expect(repository.updateMemoryCalls, 0);
     });
@@ -471,7 +471,7 @@ void main() {
       );
 
       expect(find.text('Authoritative server title'), findsOneWidget);
-      expect(find.text('Make a change to save.'), findsOneWidget);
+      expect(find.text('Make a change to save.'), findsNothing);
       expect(saveButton(tester).onPressed, isNull);
     });
   });

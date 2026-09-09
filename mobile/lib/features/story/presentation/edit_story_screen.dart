@@ -18,6 +18,15 @@ import 'package:memory_map/features/story/presentation/story_failure_message.dar
 import 'package:memory_map/features/story/presentation/widgets/story_form_failure_banner.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _editStoryBackground = Color(0xFFFBF6F1);
+const _editStoryInk = Color(0xFF182331);
+const _editStoryMuted = Color(0xFF747B86);
+const _editStoryAccent = Color(0xFFD16A74);
+const _editStoryAccentSoft = Color(0xFFFFEEF0);
+const _editStoryInputFill = Color(0xFFFFFDFB);
+const _editStoryBorder = Color(0xFFEFE5E1);
+const _editStoryDisplayFontFamily = 'NotoSerif';
+
 class EditStoryScreen extends ConsumerStatefulWidget {
   const EditStoryScreen({
     required this.userStory,
@@ -134,11 +143,6 @@ class _EditStoryScreenState extends ConsumerState<EditStoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _EditStoryHero(
-              title: l10n.editStoryHeroTitle,
-              subtitle: l10n.editStoryHeroSubtitle,
-            ),
-            const SizedBox(height: 24),
             _EditStoryFormCard(
               titleController: _titleController,
               descriptionController: _descriptionController,
@@ -159,62 +163,26 @@ class _EditStoryScreenState extends ConsumerState<EditStoryScreen> {
               const SizedBox(height: 16),
               StoryFormFailureBanner(message: failureMessage),
             ],
-            if (!hasChanges) ...[
-              const SizedBox(height: 14),
-              _NoChangesHint(message: _noChangesHintMessage(l10n)),
-            ],
             const SizedBox(height: 24),
-            FilledButton(
-              key: const ValueKey('edit-story.save-action'),
+            _EditStorySaveButton(
+              isSaving: isSaving,
               onPressed: canSave ? _submit : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF5D72),
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: const Color(0xFFFFC8D0),
-                disabledForegroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
-              ),
-              child: isSaving
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(l10n.editStorySavingButton),
-                      ],
-                    )
-                  : Text(l10n.editStorySaveButton),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton(
+            const SizedBox(height: 10),
+            TextButton(
               key: const ValueKey('edit-story.cancel-action'),
               onPressed: isSaving ? null : widget.onCancel,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFF5D72),
-                side: const BorderSide(color: Color(0xFFFF8A99)),
-                minimumSize: const Size.fromHeight(56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+              style: TextButton.styleFrom(
+                foregroundColor: _editStoryAccent,
+                disabledForegroundColor: _editStoryMuted,
+                minimumSize: const Size.fromHeight(48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
                 ),
                 textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 0,
                 ),
               ),
@@ -277,15 +245,6 @@ class _EditStoryScreenState extends ConsumerState<EditStoryScreen> {
 
     return null;
   }
-
-  String _noChangesHintMessage(AppLocalizations l10n) {
-    if (_coverFeedback != null) {
-      return l10n.editStoryCoverAutosaveHint;
-    }
-
-    return l10n.editStoryNoChangesHint;
-  }
-
   Future<void> _chooseCover() async {
     if (_isCoverFlowBusy) {
       return;
@@ -491,8 +450,9 @@ class _EditStoryScaffold extends StatelessWidget {
         onCancel?.call();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
+        backgroundColor: _editStoryBackground,
         body: SafeArea(
+          bottom: false,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
@@ -502,9 +462,9 @@ class _EditStoryScaffold extends StatelessWidget {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 24, 8),
                   sliver: SliverToBoxAdapter(
-                    child: _EditStoryAppBar(
+                    child: _EditStoryHeader(
                       isSaving: isSaving,
                       onCancel: onCancel,
                     ),
@@ -513,7 +473,7 @@ class _EditStoryScaffold extends StatelessWidget {
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
                     24,
-                    24,
+                    8,
                     24,
                     24 + MediaQuery.viewInsetsOf(context).bottom,
                   ),
@@ -528,8 +488,8 @@ class _EditStoryScaffold extends StatelessWidget {
   }
 }
 
-class _EditStoryAppBar extends StatelessWidget {
-  const _EditStoryAppBar({
+class _EditStoryHeader extends StatelessWidget {
+  const _EditStoryHeader({
     required this.isSaving,
     required this.onCancel,
   });
@@ -542,88 +502,43 @@ class _EditStoryAppBar extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        IconButton(
-          key: const ValueKey('edit-story.back-action'),
-          onPressed: isSaving ? null : onCancel,
-          tooltip: l10n.editStoryBackLabel,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        Expanded(
-          child: Text(
-            l10n.editStoryPageTitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: _editStoryInputFill.withValues(alpha: 0.76),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.68),
+              width: 0.8,
             ),
           ),
+          child: IconButton(
+            key: const ValueKey('edit-story.back-action'),
+            onPressed: isSaving ? null : onCancel,
+            tooltip: l10n.editStoryBackLabel,
+            color: _editStoryInk,
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          ),
         ),
-        const SizedBox(width: 48),
-      ],
-    );
-  }
-}
-
-class _EditStoryHero extends StatelessWidget {
-  const _EditStoryHero({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 82,
-          height: 82,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFE6EA),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1FFF5D72),
-                offset: Offset(0, 14),
-                blurRadius: 28,
+        const SizedBox(width: 16),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              l10n.editStoryPageTitle,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _editStoryInk,
+                fontFamily: _editStoryDisplayFontFamily,
+                fontFamilyFallback: <String>['NotoSerifGeorgian'],
+                fontSize: 33,
+                fontWeight: FontWeight.w500,
+                height: 1.08,
+                letterSpacing: 0,
               ),
-            ],
-          ),
-          child: const Icon(
-            Icons.edit_location_alt_rounded,
-            color: Color(0xFFFF5D72),
-            size: 38,
-          ),
-        ),
-        const SizedBox(height: 22),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF1F2937),
-            fontSize: 32,
-            fontWeight: FontWeight.w900,
-            height: 1.12,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          subtitle,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 17,
-            height: 1.45,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0,
+            ),
           ),
         ),
       ],
@@ -668,95 +583,73 @@ class _EditStoryFormCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return _FormCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _EditStoryCoverSection(
-            userStory: userStory,
-            coverState: coverState,
-            isSelecting: isCoverSelecting,
-            isPreparing: isCoverPreparing,
-            isBusy: isCoverBusy,
-            failureMessage: coverFailureMessage,
-            successMessage: coverSuccessMessage,
-            onChooseCover: onChooseCover,
-            onRemoveCover: onRemoveCover,
-          ),
-          const SizedBox(height: 24),
-          _FieldLabel(
-            label: l10n.editStoryTitleLabel,
-            required: true,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('edit-story.title-field'),
-            controller: titleController,
-            focusNode: titleFocusNode,
-            enabled: enabled,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.next,
-            onFieldSubmitted: (_) {
-              descriptionFocusNode.requestFocus();
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return l10n.editStoryTitleRequired;
-              }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeading(text: l10n.storyDetailsDescriptionTitle),
+        const SizedBox(height: 14),
+        _EditStoryCoverSection(
+          userStory: userStory,
+          coverState: coverState,
+          isSelecting: isCoverSelecting,
+          isPreparing: isCoverPreparing,
+          isBusy: isCoverBusy,
+          failureMessage: coverFailureMessage,
+          successMessage: coverSuccessMessage,
+          onChooseCover: onChooseCover,
+          onRemoveCover: onRemoveCover,
+        ),
+        const SizedBox(height: 28),
+        _FieldLabel(
+          label: l10n.editStoryTitleLabel,
+          required: true,
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          key: const ValueKey('edit-story.title-field'),
+          controller: titleController,
+          focusNode: titleFocusNode,
+          enabled: enabled,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.next,
+          onFieldSubmitted: (_) {
+            descriptionFocusNode.requestFocus();
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return l10n.editStoryTitleRequired;
+            }
 
-              if (value.trim().isEmpty) {
-                return l10n.editStoryTitleBlank;
-              }
+            if (value.trim().isEmpty) {
+              return l10n.editStoryTitleBlank;
+            }
 
-              return null;
-            },
-            decoration: _inputDecoration(
-              hintText: l10n.editStoryTitleHint,
-            ),
+            return null;
+          },
+          decoration: _inputDecoration(
+            hintText: l10n.editStoryTitleHint,
           ),
-          const SizedBox(height: 10),
-          Text(
-            l10n.editStoryTitleHelp,
-            style: const TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 14,
-              height: 1.35,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0,
-            ),
+        ),
+        const SizedBox(height: 18),
+        _FieldLabel(
+          label: l10n.editStoryDescriptionLabel,
+          optionalText: l10n.editStoryDescriptionOptional,
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          key: const ValueKey('edit-story.description-field'),
+          controller: descriptionController,
+          focusNode: descriptionFocusNode,
+          enabled: enabled,
+          minLines: 4,
+          maxLines: 8,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.newline,
+          decoration: _inputDecoration(
+            hintText: l10n.editStoryDescriptionHint,
           ),
-          const SizedBox(height: 22),
-          _FieldLabel(
-            label: l10n.editStoryDescriptionLabel,
-            optionalText: l10n.editStoryDescriptionOptional,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('edit-story.description-field'),
-            controller: descriptionController,
-            focusNode: descriptionFocusNode,
-            enabled: enabled,
-            minLines: 4,
-            maxLines: 8,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.newline,
-            decoration: _inputDecoration(
-              hintText: l10n.editStoryDescriptionHint,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            l10n.editStoryDescriptionHelp,
-            style: const TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 14,
-              height: 1.35,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -814,29 +707,62 @@ class _EditStoryCoverSection extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           children: [
-            OutlinedButton.icon(
+            TextButton.icon(
               key: const ValueKey('edit-story.cover.choose-action'),
               onPressed: isBusy ? null : onChooseCover,
+              style: TextButton.styleFrom(
+                foregroundColor: _editStoryAccent,
+                disabledForegroundColor: _editStoryMuted,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 8,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
               icon: isSelecting || isPreparing || coverState.isUploading
                   ? const _ButtonProgressIndicator()
-                  : const Icon(Icons.photo_library_rounded),
+                  : const Icon(Icons.photo_library_rounded, size: 18),
               label: Text(chooseLabel),
             ),
             if (hasExplicitCover)
               TextButton.icon(
                 key: const ValueKey('edit-story.cover.remove-action'),
                 onPressed: isBusy ? null : onRemoveCover,
+                style: TextButton.styleFrom(
+                  foregroundColor: _editStoryMuted,
+                  disabledForegroundColor: _editStoryMuted.withValues(
+                    alpha: 0.62,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 8,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
                 icon: coverState.isRemoving
                     ? const _ButtonProgressIndicator()
-                    : const Icon(Icons.delete_outline_rounded),
+                    : const Icon(Icons.delete_outline_rounded, size: 18),
                 label: Text(l10n.editStoryCoverRemoveAction),
               ),
           ],
         ),
-        if (statusMessage != null) ...[
-          const SizedBox(height: 10),
-          _CoverStatusMessage(message: statusMessage),
-        ] else if (successMessage != null) ...[
+        if (statusMessage != null)
+          Semantics(
+            liveRegion: true,
+            label: statusMessage,
+            child: const SizedBox.shrink(
+              key: ValueKey('edit-story.cover.status'),
+            ),
+          )
+        else if (successMessage != null) ...[
           const SizedBox(height: 10),
           _CoverSuccessMessage(message: successMessage!),
         ],
@@ -892,7 +818,7 @@ class _StoryCoverPreview extends StatelessWidget {
         width: double.infinity,
         child: DecoratedBox(
           decoration: const BoxDecoration(
-            color: Color(0xFFFFF1F3),
+            color: _editStoryAccentSoft,
             borderRadius: borderRadius,
           ),
           child: currentPreview == null
@@ -961,12 +887,12 @@ class _StoryCoverEmptyState extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _editStoryInputFill,
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Icon(
               Icons.image_outlined,
-              color: Color(0xFFFF5D72),
+              color: _editStoryAccent,
               size: 28,
             ),
           ),
@@ -975,52 +901,11 @@ class _StoryCoverEmptyState extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _editStoryMuted,
               fontSize: 14,
               height: 1.25,
               fontWeight: FontWeight.w700,
               letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CoverStatusMessage extends StatelessWidget {
-  const _CoverStatusMessage({
-    required this.message,
-  });
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      child: Row(
-        key: const ValueKey('edit-story.cover.status'),
-        children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Color(0xFFFF5D72),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 13,
-                height: 1.3,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
             ),
           ),
         ],
@@ -1046,14 +931,14 @@ class _CoverSuccessMessage extends StatelessWidget {
           const Icon(
             Icons.check_circle_outline_rounded,
             size: 18,
-            color: Color(0xFFFF5D72),
+            color: _editStoryAccent,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
-                color: Color(0xFF4B5563),
+                color: _editStoryMuted,
                 fontSize: 13,
                 height: 1.3,
                 fontWeight: FontWeight.w700,
@@ -1077,7 +962,7 @@ class _ButtonProgressIndicator extends StatelessWidget {
       height: 18,
       child: CircularProgressIndicator(
         strokeWidth: 2,
-        color: Color(0xFFFF5D72),
+        color: _editStoryAccent,
       ),
     );
   }
@@ -1094,120 +979,131 @@ class _UnavailableView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return _FormCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFE6EA),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: const Icon(
-              Icons.lock_outline_rounded,
-              color: Color(0xFFFF5D72),
-              size: 34,
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: _editStoryAccentSoft,
+            borderRadius: BorderRadius.circular(18),
           ),
-          const SizedBox(height: 20),
-          Text(
-            l10n.editStoryUnavailableTitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
+          child: const Icon(
+            Icons.lock_outline_rounded,
+            color: _editStoryAccent,
+            size: 30,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          l10n.editStoryUnavailableTitle,
+          style: const TextStyle(
+            color: _editStoryInk,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          l10n.editStoryUnavailableDescription,
+          style: const TextStyle(
+            color: _editStoryMuted,
+            fontSize: 16,
+            height: 1.45,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 22),
+        TextButton(
+          key: const ValueKey('edit-story.unavailable.back-action'),
+          onPressed: onCancel,
+          style: TextButton.styleFrom(
+            foregroundColor: _editStoryAccent,
+            padding: EdgeInsets.zero,
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            l10n.editStoryUnavailableDescription,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 16,
-              height: 1.45,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 22),
-          OutlinedButton(
-            key: const ValueKey('edit-story.unavailable.back-action'),
-            onPressed: onCancel,
-            child: Text(l10n.editStoryUnavailableBackAction),
-          ),
-        ],
+          child: Text(l10n.editStoryUnavailableBackAction),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Color(0xFF9A8178),
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
       ),
     );
   }
 }
 
-class _NoChangesHint extends StatelessWidget {
-  const _NoChangesHint({
-    required this.message,
+class _EditStorySaveButton extends StatelessWidget {
+  const _EditStorySaveButton({
+    required this.isSaving,
+    required this.onPressed,
   });
 
-  final String message;
+  final bool isSaving;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      child: Row(
-        key: const ValueKey('edit-story.no-changes-hint'),
-        children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            size: 18,
-            color: Color(0xFF8A93A3),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 14,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-        ],
+    final l10n = AppLocalizations.of(context);
+
+    return FilledButton(
+      key: const ValueKey('edit-story.save-action'),
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: _editStoryAccent,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: const Color(0xFFE9A5AD),
+        disabledForegroundColor: Colors.white,
+        minimumSize: const Size.fromHeight(56),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
       ),
-    );
-  }
-}
-
-class _FormCard extends StatelessWidget {
-  const _FormCard({
-    required this.child,
-  });
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
-      ),
-      child: child,
+      child: isSaving
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(l10n.editStorySavingButton),
+              ],
+            )
+          : Text(l10n.editStorySaveButton),
     );
   }
 }
@@ -1233,9 +1129,9 @@ class _FieldLabel extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF1F2937),
+            color: _editStoryInk,
             fontSize: 17,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0,
           ),
         ),
@@ -1243,9 +1139,9 @@ class _FieldLabel extends StatelessWidget {
           const Text(
             '*',
             style: TextStyle(
-              color: Color(0xFFFF5D72),
+              color: _editStoryAccent,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
           ),
@@ -1253,7 +1149,7 @@ class _FieldLabel extends StatelessWidget {
           Text(
             optionalText!,
             style: const TextStyle(
-              color: Color(0xFF8A93A3),
+              color: _editStoryMuted,
               fontSize: 14,
               fontWeight: FontWeight.w600,
               letterSpacing: 0,
@@ -1274,27 +1170,27 @@ InputDecoration _inputDecoration({
       fontWeight: FontWeight.w500,
     ),
     filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+    fillColor: _editStoryInputFill,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFD8DDE5)),
+      borderSide: const BorderSide(color: _editStoryBorder, width: 0.8),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFFF6B7D), width: 1.5),
+      borderSide: const BorderSide(color: Color(0xB8D16A74), width: 1.1),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFFF5D72), width: 1.5),
+      borderSide: const BorderSide(color: _editStoryAccent, width: 1.4),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFFF5D72), width: 1.5),
+      borderSide: const BorderSide(color: _editStoryAccent, width: 1.4),
     ),
     disabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      borderSide: const BorderSide(color: Color(0xFFF2EBE8), width: 0.8),
     ),
   );
 }

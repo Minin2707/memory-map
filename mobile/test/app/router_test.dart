@@ -584,9 +584,11 @@ void main() {
       GoRouter.of(tester.element(find.text('Your stories'))).go(route);
       await tester.pumpAndSettle();
 
-      expect(find.text('Invitation'), findsOneWidget);
+      expect(find.text('You were invited to a story'), findsOneWidget);
       expect(
-        routerLocation(tester.element(find.text('Invitation'))),
+        routerLocation(
+          tester.element(find.text('You were invited to a story')),
+        ),
         '/invite/$validInviteToken',
       );
       expect(find.textContaining(validInviteToken), findsNothing);
@@ -3469,7 +3471,7 @@ void main() {
       GoRouter.of(context).go('/invite/$validInviteToken');
       await tester.pumpAndSettle();
 
-      expect(find.text('Invitation'), findsOneWidget);
+      expect(find.text('You were invited to a story'), findsOneWidget);
       expect(find.textContaining(validInviteToken), findsNothing);
       expect(fakeInviteRepository.acceptCalls, 0);
 

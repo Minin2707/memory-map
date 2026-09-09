@@ -37,7 +37,7 @@ void main() {
 
       expect(find.text('First picnic'), findsOneWidget);
       expect(find.text('Near the river'), findsOneWidget);
-      expect(find.text('Place'), findsOneWidget);
+      expect(find.text('Place'), findsNothing);
       expect(find.text('Riverside Park'), findsOneWidget);
       expect(find.text('Open on map'), findsOneWidget);
       expect(
@@ -57,7 +57,7 @@ void main() {
         tester.element(find.byType(MemoryDetailsScreen)),
       );
 
-      expect(find.text(l10n.memoryDetailsPlaceTitle), findsOneWidget);
+      expect(find.text(l10n.memoryDetailsPlaceTitle), findsNothing);
       expect(find.text(l10n.memoryDetailsOpenOnMapAction), findsOneWidget);
       expect(
         find.text(formatMemoryDate(l10n, memoryA.eventDate)),
@@ -280,10 +280,27 @@ void main() {
         find.byKey(const ValueKey('memory-details.hero.no-photo')),
         findsOneWidget,
       );
+      final noPhotoImage = tester.widget<Image>(
+        find.descendant(
+          of: find.byKey(const ValueKey('memory-details.hero.no-photo')),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(noPhotoImage.image, isA<AssetImage>());
+      expect(
+        (noPhotoImage.image as AssetImage).assetName,
+        'assets/memory_details_no_photo_hero.png',
+      );
+      expect(noPhotoImage.fit, BoxFit.cover);
+      expect(find.byIcon(Icons.photo_camera_outlined), findsNothing);
       expect(find.text('First picnic'), findsOneWidget);
       expect(find.text('Aug 9, 2026'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('memory-details.hero.photo-counter')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('memory-media.refresh-action')),
         findsNothing,
       );
     });
@@ -302,8 +319,12 @@ void main() {
       await tester.pump();
 
       expect(
-        find.byKey(const ValueKey('memory-details.hero.no-photo')),
+        find.byKey(const ValueKey('memory-details.hero.loading')),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('memory-details.hero.no-photo')),
+        findsNothing,
       );
       expect(find.text('First picnic'), findsOneWidget);
 

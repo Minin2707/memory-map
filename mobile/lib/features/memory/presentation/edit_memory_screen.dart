@@ -11,6 +11,84 @@ import 'package:memory_map/features/memory/presentation/memory_date_format.dart'
 import 'package:memory_map/features/memory/presentation/memory_failure_message.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _editMemoryBackground = Color(0xFFFBF6F1);
+const _editMemoryInk = Color(0xFF182331);
+const _editMemoryMuted = Color(0xFF747B86);
+const _editMemoryAccent = Color(0xFFD16A74);
+const _editMemoryAccentSoft = Color(0xFFFFEEF0);
+const _editMemoryInputFill = Color(0xFFFFFDFB);
+const _editMemoryDisplayFontFamily = 'NotoSerif';
+
+class _EditMemorySpacing {
+  const _EditMemorySpacing({
+    required this.formTopPadding,
+    required this.formBottomPadding,
+    required this.headerTopPadding,
+    required this.headerBackTitleGap,
+    required this.headerBottomPadding,
+    required this.sectionFirstFieldGap,
+    required this.fieldLabelGap,
+    required this.fieldBlockGap,
+    required this.sectionTransitionGap,
+    required this.whenWhereFirstFieldGap,
+    required this.dateLocationGap,
+    required this.locationCtaGap,
+  });
+
+  const _EditMemorySpacing.normal()
+      : this(
+          formTopPadding: 8,
+          formBottomPadding: 16,
+          headerTopPadding: 8,
+          headerBackTitleGap: 20,
+          headerBottomPadding: 16,
+          sectionFirstFieldGap: 14,
+          fieldLabelGap: 8,
+          fieldBlockGap: 18,
+          sectionTransitionGap: 24,
+          whenWhereFirstFieldGap: 14,
+          dateLocationGap: 12,
+          locationCtaGap: 24,
+        );
+
+  const _EditMemorySpacing.compact()
+      : this(
+          formTopPadding: 4,
+          formBottomPadding: 8,
+          headerTopPadding: 12,
+          headerBackTitleGap: 14,
+          headerBottomPadding: 8,
+          sectionFirstFieldGap: 8,
+          fieldLabelGap: 8,
+          fieldBlockGap: 12,
+          sectionTransitionGap: 14,
+          whenWhereFirstFieldGap: 8,
+          dateLocationGap: 6,
+          locationCtaGap: 12,
+        );
+
+  factory _EditMemorySpacing.forAvailableHeight(double availableHeight) {
+    if (availableHeight < 860) {
+      return const _EditMemorySpacing.compact();
+    }
+
+    return const _EditMemorySpacing.normal();
+  }
+
+  final double formTopPadding;
+  final double formBottomPadding;
+  final double headerTopPadding;
+  final double headerBackTitleGap;
+  final double headerBottomPadding;
+  final double sectionFirstFieldGap;
+  final double fieldLabelGap;
+  final double fieldBlockGap;
+  final double sectionTransitionGap;
+  final double whenWhereFirstFieldGap;
+  final double dateLocationGap;
+  final double locationCtaGap;
+}
+
 typedef EditMemoryLocationPicker = Future<MemoryLocation?> Function(
   MemoryLocation? initialLocation,
 );
@@ -109,6 +187,10 @@ class _EditMemoryScreenState extends ConsumerState<EditMemoryScreen> {
     final failureMessage = _failureMessage(l10n, editValue, editState);
     final hasChanges = _hasChanges;
     final canSave = hasChanges && !isSaving;
+    final mediaQuery = MediaQuery.of(context);
+    final availableHeight =
+        mediaQuery.size.height - mediaQuery.padding.vertical;
+    final spacing = _EditMemorySpacing.forAvailableHeight(availableHeight);
 
     return PopScope(
       canPop: false,
@@ -120,8 +202,9 @@ class _EditMemoryScreenState extends ConsumerState<EditMemoryScreen> {
         widget.onBack?.call();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
+        backgroundColor: _editMemoryBackground,
         body: SafeArea(
+          bottom: false,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
@@ -130,21 +213,19 @@ class _EditMemoryScreenState extends ConsumerState<EditMemoryScreen> {
             child: CustomScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: _EditMemoryAppBar(
-                      isSaving: isSaving,
-                      onBack: widget.onBack,
-                    ),
+                SliverToBoxAdapter(
+                  child: _EditMemoryHeader(
+                    isSaving: isSaving,
+                    onBack: widget.onBack,
+                    spacing: spacing,
                   ),
                 ),
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
                     24,
+                    spacing.formTopPadding,
                     24,
-                    24,
-                    24 + MediaQuery.viewInsetsOf(context).bottom,
+                    spacing.formBottomPadding + mediaQuery.viewInsets.bottom,
                   ),
                   sliver: SliverToBoxAdapter(
                     child: Form(
@@ -152,7 +233,7 @@ class _EditMemoryScreenState extends ConsumerState<EditMemoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _EditMemoryFormCard(
+                          _EditMemoryForm(
                             titleController: _titleController,
                             descriptionController: _descriptionController,
                             placeNameController: _placeNameController,
@@ -165,43 +246,34 @@ class _EditMemoryScreenState extends ConsumerState<EditMemoryScreen> {
                             enabled: !isSaving,
                             onPickDate: _pickDate,
                             onPickLocation: _pickLocation,
+                            spacing: spacing,
                           ),
                           if (failureMessage != null) ...[
                             const SizedBox(height: 16),
                             _EditMemoryFailureBanner(message: failureMessage),
                           ],
-                          if (!hasChanges) ...[
-                            const SizedBox(height: 14),
-                            _NoChangesHint(
-                              message: l10n.editMemoryNoChangesHint,
-                            ),
-                          ],
-                          const SizedBox(height: 24),
+                          SizedBox(height: spacing.locationCtaGap),
                           _EditMemorySaveButton(
                             isSaving: isSaving,
                             onPressed: canSave ? _submit : null,
                           ),
                           const SizedBox(height: 12),
-                          OutlinedButton(
+                          TextButton(
                             key: const ValueKey('edit-memory.cancel-action'),
                             onPressed: isSaving ? null : widget.onBack,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFFF5D72),
-                              side: const BorderSide(
-                                color: Color(0xFFFF8A99),
-                              ),
-                              minimumSize: const Size.fromHeight(56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: _editMemoryAccent,
+                              disabledForegroundColor: _editMemoryMuted,
+                              minimumSize: const Size.fromHeight(44),
                               textStyle: const TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 letterSpacing: 0,
                               ),
                             ),
                             child: Text(l10n.cancel),
                           ),
+                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
@@ -454,49 +526,72 @@ class _EditMemoryScreenState extends ConsumerState<EditMemoryScreen> {
   }
 }
 
-class _EditMemoryAppBar extends StatelessWidget {
-  const _EditMemoryAppBar({
+class _EditMemoryHeader extends StatelessWidget {
+  const _EditMemoryHeader({
     required this.isSaving,
     required this.onBack,
+    required this.spacing,
   });
 
   final bool isSaving;
   final VoidCallback? onBack;
+  final _EditMemorySpacing spacing;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Row(
-      children: [
-        IconButton(
-          key: const ValueKey('edit-memory.back-action'),
-          onPressed: isSaving ? null : onBack,
-          tooltip: l10n.editMemoryBackLabel,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        Expanded(
-          child: Text(
-            l10n.editMemoryPageTitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        12,
+        spacing.headerTopPadding,
+        24,
+        spacing.headerBottomPadding,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: _editMemoryInputFill.withValues(alpha: 0.76),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.68),
+                width: 0.8,
+              ),
+            ),
+            child: IconButton(
+              key: const ValueKey('edit-memory.back-action'),
+              onPressed: isSaving ? null : onBack,
+              tooltip: l10n.editMemoryBackLabel,
+              color: _editMemoryInk,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
             ),
           ),
-        ),
-        const SizedBox(width: 48),
-      ],
+          SizedBox(height: spacing.headerBackTitleGap),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              l10n.editMemoryPageTitle,
+              style: const TextStyle(
+                color: _editMemoryInk,
+                fontFamily: _editMemoryDisplayFontFamily,
+                fontFamilyFallback: <String>['NotoSerifGeorgian'],
+                fontSize: 33,
+                fontWeight: FontWeight.w500,
+                height: 1.08,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _EditMemoryFormCard extends StatelessWidget {
-  const _EditMemoryFormCard({
+class _EditMemoryForm extends StatelessWidget {
+  const _EditMemoryForm({
     required this.titleController,
     required this.descriptionController,
     required this.placeNameController,
@@ -509,6 +604,7 @@ class _EditMemoryFormCard extends StatelessWidget {
     required this.enabled,
     required this.onPickDate,
     required this.onPickLocation,
+    required this.spacing,
   });
 
   final TextEditingController titleController;
@@ -523,113 +619,116 @@ class _EditMemoryFormCard extends StatelessWidget {
   final bool enabled;
   final VoidCallback onPickDate;
   final VoidCallback onPickLocation;
+  final _EditMemorySpacing spacing;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return _EditMemoryCardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _FieldLabel(label: l10n.createMemoryTitleLabel, required: true),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('edit-memory.title-field'),
-            controller: titleController,
-            focusNode: titleFocusNode,
-            enabled: enabled,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.next,
-            onFieldSubmitted: (_) {
-              descriptionFocusNode.requestFocus();
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return l10n.createMemoryTitleRequired;
-              }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeading(text: l10n.createMemoryAboutSection),
+        SizedBox(height: spacing.sectionFirstFieldGap),
+        _FieldLabel(label: l10n.createMemoryTitleLabel, required: true),
+        SizedBox(height: spacing.fieldLabelGap),
+        TextFormField(
+          key: const ValueKey('edit-memory.title-field'),
+          controller: titleController,
+          focusNode: titleFocusNode,
+          enabled: enabled,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.next,
+          onFieldSubmitted: (_) {
+            descriptionFocusNode.requestFocus();
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return l10n.createMemoryTitleRequired;
+            }
 
-              if (value.trim().isEmpty) {
-                return l10n.createMemoryTitleBlank;
-              }
+            if (value.trim().isEmpty) {
+              return l10n.createMemoryTitleBlank;
+            }
 
-              if (value.length > Memory.maxTitleLength) {
-                return l10n.createMemoryTitleMax;
-              }
+            if (value.length > Memory.maxTitleLength) {
+              return l10n.createMemoryTitleMax;
+            }
 
-              return null;
-            },
-            decoration: _inputDecoration(hintText: l10n.createMemoryTitleHint),
+            return null;
+          },
+          decoration: _inputDecoration(hintText: l10n.createMemoryTitleHint),
+        ),
+        SizedBox(height: spacing.fieldBlockGap),
+        _FieldLabel(
+          label: l10n.createMemoryDescriptionLabel,
+          optionalText: l10n.createMemoryOptionalLabel,
+        ),
+        SizedBox(height: spacing.fieldLabelGap),
+        TextFormField(
+          key: const ValueKey('edit-memory.description-field'),
+          controller: descriptionController,
+          focusNode: descriptionFocusNode,
+          enabled: enabled,
+          minLines: 3,
+          maxLines: 6,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.newline,
+          decoration: _inputDecoration(
+            hintText: l10n.createMemoryDescriptionHint,
           ),
-          const SizedBox(height: 22),
-          _FieldLabel(
-            label: l10n.createMemoryDescriptionLabel,
-            optionalText: l10n.createMemoryOptionalLabel,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('edit-memory.description-field'),
-            controller: descriptionController,
-            focusNode: descriptionFocusNode,
-            enabled: enabled,
-            minLines: 3,
-            maxLines: 6,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.newline,
-            decoration: _inputDecoration(
-              hintText: l10n.createMemoryDescriptionHint,
-            ),
-          ),
-          const SizedBox(height: 22),
-          _FieldLabel(
-            label: l10n.createMemoryPlaceNameLabel,
-            optionalText: l10n.createMemoryOptionalLabel,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('edit-memory.place-name-field'),
-            controller: placeNameController,
-            focusNode: placeNameFocusNode,
-            enabled: enabled,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.done,
-            validator: (value) {
-              if (value != null && value.length > Memory.maxPlaceNameLength) {
-                return l10n.createMemoryPlaceNameMax;
-              }
+        ),
+        SizedBox(height: spacing.fieldBlockGap),
+        _FieldLabel(
+          label: l10n.createMemoryPlaceNameLabel,
+          optionalText: l10n.createMemoryOptionalLabel,
+        ),
+        SizedBox(height: spacing.fieldLabelGap),
+        TextFormField(
+          key: const ValueKey('edit-memory.place-name-field'),
+          controller: placeNameController,
+          focusNode: placeNameFocusNode,
+          enabled: enabled,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          validator: (value) {
+            if (value != null && value.length > Memory.maxPlaceNameLength) {
+              return l10n.createMemoryPlaceNameMax;
+            }
 
-              return null;
-            },
-            decoration: _inputDecoration(
-              hintText: l10n.createMemoryPlaceNameHint,
-            ),
+            return null;
+          },
+          decoration: _inputDecoration(
+            hintText: l10n.createMemoryPlaceNameHint,
           ),
-          const SizedBox(height: 24),
-          const Divider(color: Color(0xFFE8EBEF)),
-          const SizedBox(height: 22),
-          _PickerField(
-            key: const ValueKey('edit-memory.date-field'),
-            actionKey: const ValueKey('edit-memory.date-action'),
-            icon: Icons.calendar_today_rounded,
-            label: l10n.createMemoryEventDateLabel,
-            value: formatMemoryDate(l10n, selectedDate),
-            actionLabel: l10n.createMemoryChangeDate,
-            enabled: enabled,
-            onPressed: onPickDate,
-          ),
-          const SizedBox(height: 16),
-          _PickerField(
-            key: const ValueKey('edit-memory.location-field'),
-            actionKey: const ValueKey('edit-memory.location-action'),
-            icon: Icons.location_on_rounded,
-            label: l10n.createMemoryLocationLabel,
-            value: l10n.createMemoryLocationSelected,
-            actionLabel: l10n.createMemoryChangeLocation,
-            enabled: enabled && canPickLocation,
-            onPressed: onPickLocation,
-          ),
-        ],
-      ),
+        ),
+        SizedBox(height: spacing.sectionTransitionGap),
+        _SectionHeading(text: l10n.createMemoryWhenWhereSection),
+        SizedBox(height: spacing.whenWhereFirstFieldGap),
+        _PickerField(
+          key: const ValueKey('edit-memory.date-field'),
+          actionKey: const ValueKey('edit-memory.date-action'),
+          icon: Icons.calendar_today_rounded,
+          label: l10n.createMemoryEventDateLabel,
+          required: true,
+          value: formatMemoryDate(l10n, selectedDate),
+          actionLabel: l10n.createMemoryChangeDate,
+          enabled: enabled,
+          onPressed: onPickDate,
+        ),
+        SizedBox(height: spacing.dateLocationGap),
+        _PickerField(
+          key: const ValueKey('edit-memory.location-field'),
+          actionKey: const ValueKey('edit-memory.location-action'),
+          icon: Icons.location_on_rounded,
+          label: l10n.createMemoryLocationLabel,
+          required: true,
+          value: l10n.createMemoryLocationSelected,
+          actionLabel: l10n.createMemoryChangeLocation,
+          enabled: enabled && canPickLocation,
+          onPressed: onPickLocation,
+        ),
+      ],
     );
   }
 }
@@ -639,6 +738,7 @@ class _PickerField extends StatelessWidget {
     required this.actionKey,
     required this.icon,
     required this.label,
+    required this.required,
     required this.value,
     required this.actionLabel,
     required this.enabled,
@@ -649,6 +749,7 @@ class _PickerField extends StatelessWidget {
   final Key actionKey;
   final IconData icon;
   final String label;
+  final bool required;
   final String value;
   final String actionLabel;
   final bool enabled;
@@ -659,40 +760,80 @@ class _PickerField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _FieldLabel(label: label, required: true),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: enabled ? Colors.white : const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFD8DDE5)),
+        TextButton(
+          key: actionKey,
+          onPressed: enabled ? onPressed : null,
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            foregroundColor: _editMemoryAccent,
+            disabledForegroundColor: _editMemoryMuted,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(icon, color: const Color(0xFFFF5D72)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: enabled
+                  ? _editMemoryInputFill
+                  : _editMemoryInputFill.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFFEFE5E1),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _editMemoryAccentSoft,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, color: _editMemoryAccent),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _FieldLabel(label: label, required: required),
+                      const SizedBox(height: 5),
+                      Text(
+                        value,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _editMemoryMuted,
+                          fontSize: 15,
+                          height: 1.25,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  actionLabel,
                   style: const TextStyle(
-                    color: Color(0xFF4B5563),
-                    fontSize: 16,
+                    color: _editMemoryAccent,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              TextButton(
-                key: actionKey,
-                onPressed: enabled ? onPressed : null,
-                child: Text(actionLabel),
-              ),
-            ],
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _editMemoryAccent,
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -721,9 +862,9 @@ class _FieldLabel extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF1F2937),
+            color: _editMemoryInk,
             fontSize: 17,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0,
           ),
         ),
@@ -731,9 +872,9 @@ class _FieldLabel extends StatelessWidget {
           const Text(
             '*',
             style: TextStyle(
-              color: Color(0xFFFF5D72),
+              color: _editMemoryAccent,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
           ),
@@ -741,13 +882,32 @@ class _FieldLabel extends StatelessWidget {
           Text(
             optionalText!,
             style: const TextStyle(
-              color: Color(0xFF8A93A3),
+              color: _editMemoryMuted,
               fontSize: 14,
               fontWeight: FontWeight.w600,
               letterSpacing: 0,
             ),
           ),
       ],
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Color(0xFF9A8178),
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+      ),
     );
   }
 }
@@ -765,36 +925,40 @@ class _EditMemorySaveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return FilledButton.icon(
+    return FilledButton(
       key: const ValueKey('edit-memory.save-action'),
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFFFF5D72),
+        backgroundColor: _editMemoryAccent,
         foregroundColor: Colors.white,
-        disabledBackgroundColor: const Color(0xFFFFB3BD),
+        disabledBackgroundColor: const Color(0xFFE9A5AD),
         disabledForegroundColor: Colors.white,
-        minimumSize: const Size.fromHeight(58),
+        minimumSize: const Size.fromHeight(56),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),
         textStyle: const TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w900,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
           letterSpacing: 0,
         ),
       ),
-      icon: isSaving
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
+      child: isSaving
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(l10n.editMemorySavingButton),
+              ],
             )
-          : const Icon(Icons.save_rounded),
-      label: Text(
-        isSaving ? l10n.editMemorySavingButton : l10n.editMemorySaveButton,
-      ),
+          : Text(l10n.editMemorySaveButton),
     );
   }
 }
@@ -812,23 +976,23 @@ class _EditMemoryFailureBanner extends StatelessWidget {
         key: const ValueKey('edit-memory.failure-banner'),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7F8),
+          color: _editMemoryAccentSoft,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFFD6DC)),
+          border: Border.all(color: const Color(0x2ED16A74)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(
               Icons.info_outline_rounded,
-              color: Color(0xFFFF5D72),
+              color: _editMemoryAccent,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: const TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: _editMemoryMuted,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   letterSpacing: 0,
@@ -842,99 +1006,35 @@ class _EditMemoryFailureBanner extends StatelessWidget {
   }
 }
 
-class _NoChangesHint extends StatelessWidget {
-  const _NoChangesHint({
-    required this.message,
-  });
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      child: Row(
-        key: const ValueKey('edit-memory.no-changes-hint'),
-        children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            size: 18,
-            color: Color(0xFF8A93A3),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 14,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EditMemoryCardShell extends StatelessWidget {
-  const _EditMemoryCardShell({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
 InputDecoration _inputDecoration({required String hintText}) {
   return InputDecoration(
     hintText: hintText,
     hintStyle: const TextStyle(
-      color: Color(0xFFA8AFBA),
+      color: Color(0xFFA0A7B1),
       fontWeight: FontWeight.w500,
     ),
     filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+    fillColor: _editMemoryInputFill,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFD8DDE5)),
+      borderSide: const BorderSide(color: Color(0xFFEFE5E1), width: 0.8),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFFF6B7D), width: 1.5),
+      borderSide: const BorderSide(color: Color(0xB8D16A74), width: 1.1),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFFF5D72), width: 1.5),
+      borderSide: const BorderSide(color: _editMemoryAccent, width: 1.4),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFFF5D72), width: 1.5),
+      borderSide: const BorderSide(color: _editMemoryAccent, width: 1.4),
     ),
     disabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      borderSide: const BorderSide(color: Color(0xFFF2EBE8), width: 0.8),
     ),
   );
 }

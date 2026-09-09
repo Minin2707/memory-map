@@ -17,6 +17,19 @@ typedef InviteDateFormatter = String Function(
   DateTime value,
 );
 
+const _inviteBackground = Color(0xFFFBF6F1);
+const _inviteInk = Color(0xFF182331);
+const _inviteMuted = Color(0xFF747B86);
+const _inviteAccent = Color(0xFFD16A74);
+const _inviteAccentSoft = Color(0xFFFFEEF0);
+const _inviteWarmWhite = Color(0xFFFFFDFB);
+const _inviteWarmBorder = Color(0x1FD16A74);
+const _inviteDisplayFontFamily = 'NotoSerif';
+const _inviteTopDecorationAsset =
+    'assets/transparent_invite_envelope_polaroid_flowers.png';
+const _inviteBottomDecorationAsset =
+    'assets/transparent_bottom-left_leaves.png';
+
 class InviteScreen extends ConsumerStatefulWidget {
   const InviteScreen({
     required this.storyId,
@@ -64,62 +77,74 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
         widget.onBack?.call();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
-        body: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _InviteAppBar(
-                    title: invite == null
-                        ? l10n.invitePageTitle
-                        : l10n.inviteCreatedPageTitle,
-                    isCreating: isCreating,
-                    onBack: widget.onBack,
+        backgroundColor: _inviteBackground,
+        body: Stack(
+          children: [
+            const Positioned(
+              right: -42,
+              top: -28,
+              child: _InviteTopDecoration(),
+            ),
+            if (invite != null) const _InviteSuccessDecorationScrim(),
+            const Positioned(
+              left: -34,
+              bottom: -18,
+              child: _InviteBottomDecoration(),
+            ),
+            SafeArea(
+              bottom: false,
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _InviteAppBar(
+                        isCreating: isCreating,
+                        onBack: widget.onBack,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (invite == null)
-                        _InviteInitialView(
-                          targetRoles: targetRoles,
-                          selectedTargetRole: _selectedTargetRole,
-                          isCreating: isCreating,
-                          failureMessage: failureMessage ??
-                              (targetRoles.isEmpty
-                                  ? l10n.inviteFailureNotFound
-                                  : null),
-                          onTargetRoleChanged: isCreating
-                              ? null
-                              : _selectTargetRole,
-                          onCreate: canCreateInvite ? _createInvite : null,
-                        )
-                      else
-                        _InviteSuccessView(
-                          invite: invite,
-                          expiresAtText: dateFormatter(
-                            context,
-                            invite.expiresAt,
-                          ),
-                          canShare: widget.onShareInvite != null,
-                          onCopy: _copyInviteLink,
-                          onShare: widget.onShareInvite == null
-                              ? null
-                              : _shareInviteLink,
-                          onDone: isCreating ? null : widget.onBack,
-                        ),
-                    ],
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (invite == null)
+                            _InviteInitialView(
+                              targetRoles: targetRoles,
+                              selectedTargetRole: _selectedTargetRole,
+                              isCreating: isCreating,
+                              failureMessage: failureMessage ??
+                                  (targetRoles.isEmpty
+                                      ? l10n.inviteFailureNotFound
+                                      : null),
+                              onTargetRoleChanged:
+                                  isCreating ? null : _selectTargetRole,
+                              onCreate: canCreateInvite ? _createInvite : null,
+                            )
+                          else
+                            _InviteSuccessView(
+                              invite: invite,
+                              expiresAtText: dateFormatter(
+                                context,
+                                invite.expiresAt,
+                              ),
+                              canShare: widget.onShareInvite != null,
+                              onCopy: _copyInviteLink,
+                              onShare: widget.onShareInvite == null
+                                  ? null
+                                  : _shareInviteLink,
+                              onDone: isCreating ? null : widget.onBack,
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -237,12 +262,10 @@ List<StoryRole> _targetRolesForInviterRole(StoryRole? inviterRole) {
 
 class _InviteAppBar extends StatelessWidget {
   const _InviteAppBar({
-    required this.title,
     required this.isCreating,
     required this.onBack,
   });
 
-  final String title;
   final bool isCreating;
   final VoidCallback? onBack;
 
@@ -250,30 +273,83 @@ class _InviteAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Row(
-      children: [
-        IconButton(
-          key: const ValueKey('invite.back-action'),
-          onPressed: isCreating ? null : onBack,
-          tooltip: l10n.inviteBackLabel,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: IconButton(
+        key: const ValueKey('invite.back-action'),
+        onPressed: isCreating ? null : onBack,
+        tooltip: l10n.inviteBackLabel,
+        color: _inviteInk,
+        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+      ),
+    );
+  }
+}
+
+class _InviteTopDecoration extends StatelessWidget {
+  const _InviteTopDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: Image.asset(
+          _inviteTopDecorationAsset,
+          width: screenWidth.clamp(290, 390).toDouble(),
+          fit: BoxFit.contain,
         ),
-        Expanded(
-          child: Text(
-            title,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
+      ),
+    );
+  }
+}
+
+class _InviteSuccessDecorationScrim extends StatelessWidget {
+  const _InviteSuccessDecorationScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Positioned.fill(
+      child: IgnorePointer(
+        child: ExcludeSemantics(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(-0.34, -0.48),
+                radius: 1.05,
+                colors: [
+                  Color(0xF7FBF6F1),
+                  Color(0xE8FBF6F1),
+                  Color(0xA3FBF6F1),
+                  Color(0x45FBF6F1),
+                  Color(0x00FBF6F1),
+                ],
+                stops: [0, 0.32, 0.52, 0.72, 0.96],
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 48),
-      ],
+      ),
+    );
+  }
+}
+
+class _InviteBottomDecoration extends StatelessWidget {
+  const _InviteBottomDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: Image.asset(
+          _inviteBottomDecorationAsset,
+          width: (screenWidth * 0.54).clamp(170, 250).toDouble(),
+          fit: BoxFit.contain,
+        ),
+      ),
     );
   }
 }
@@ -302,35 +378,34 @@ class _InviteInitialView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _InviteHero(
-          icon: Icons.mail_rounded,
+        _InviteEditorialHeader(
           title: l10n.inviteHeroTitle,
-          subtitle: l10n.inviteHeroSubtitle,
+          subtitle: l10n.inviteEditorialSubtitle,
         ),
-        const SizedBox(height: 28),
-        _InviteCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _InfoRow(
-                icon: Icons.link_rounded,
-                title: l10n.inviteLinkLabel,
-                body: l10n.inviteSingleUseDescription,
-              ),
-              const SizedBox(height: 18),
-              const Divider(color: Color(0xFFE8EBEF)),
-              const SizedBox(height: 18),
-              _InfoRow(
-                icon: Icons.event_available_rounded,
-                title: l10n.inviteExpirationLabel,
-                body: l10n.inviteExpirationDescription,
-              ),
-            ],
-          ),
+        const SizedBox(height: 32),
+        _InviteSectionTitle(l10n.inviteAboutSectionTitle),
+        const SizedBox(height: 14),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(
+              icon: Icons.link_rounded,
+              title: l10n.inviteLinkLabel,
+              body: l10n.inviteSingleUseDescription,
+            ),
+            const SizedBox(height: 18),
+            _InfoRow(
+              icon: Icons.event_available_rounded,
+              title: l10n.inviteExpirationLabel,
+              body: l10n.inviteExpirationDescription,
+            ),
+          ],
         ),
         if (targetRoles.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          _InviteCard(
+          const SizedBox(height: 30),
+          _InviteSectionTitle(l10n.inviteAccessSectionTitle),
+          const SizedBox(height: 14),
+          KeyedSubtree(
             key: const ValueKey('invite.role-selector-card'),
             child: _InviteRoleSelector(
               targetRoles: targetRoles,
@@ -339,44 +414,107 @@ class _InviteInitialView extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 18),
-        _InviteCard(
-          child: _InstructionList(
-            title: l10n.inviteWhatCanDoTitle,
-            items: [
-              l10n.inviteInstructionShare,
-              l10n.inviteInstructionCopy,
-              l10n.inviteInstructionOneUse,
-            ],
-          ),
+        const SizedBox(height: 30),
+        _InviteSectionTitle(l10n.inviteHowLinkWorksSectionTitle),
+        const SizedBox(height: 14),
+        _InstructionList(
+          items: [
+            l10n.inviteInstructionShare,
+            l10n.inviteInstructionCopy,
+            l10n.inviteInstructionOneUse,
+          ],
         ),
         if (failureMessage != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           _InviteFailureBanner(message: failureMessage!),
         ],
-        const SizedBox(height: 24),
-        FilledButton.icon(
+        const SizedBox(height: 26),
+        FilledButton(
           key: const ValueKey('invite.create-action'),
           onPressed: isCreating ? null : onCreate,
           style: _primaryButtonStyle,
-          icon: isCreating
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
+          child: isCreating
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(l10n.inviteCreatingButton),
+                  ],
                 )
-              : const Icon(Icons.link_rounded),
-          label: Text(
-            isCreating
-                ? l10n.inviteCreatingButton
-                : failureMessage == null
-                    ? l10n.inviteCreateButton
-                    : l10n.tryAgain,
-          ),
+              : Text(
+                  failureMessage == null
+                      ? l10n.inviteCreateButton
+                      : l10n.tryAgain,
+                ),
         ),
       ],
+    );
+  }
+}
+
+class _InviteEditorialHeader extends StatelessWidget {
+  const _InviteEditorialHeader({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, right: 84),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _inviteInk,
+              fontFamily: _inviteDisplayFontFamily,
+              fontFamilyFallback: <String>['NotoSerifGeorgian'],
+              fontSize: 33,
+              fontWeight: FontWeight.w500,
+              height: 1.12,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: _inviteMuted,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InviteSectionTitle extends StatelessWidget {
+  const _InviteSectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: _sectionHeadingStyle,
     );
   }
 }
@@ -394,8 +532,6 @@ class _InviteRoleSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
     return RadioGroup<StoryRole>(
       groupValue: selectedTargetRole,
       onChanged: (role) {
@@ -406,8 +542,6 @@ class _InviteRoleSelector extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l10n.inviteTargetRoleTitle, style: _sectionTitleStyle),
-          const SizedBox(height: 14),
           for (var index = 0; index < targetRoles.length; index += 1) ...[
             if (index > 0) const SizedBox(height: 10),
             _InviteRoleOption(
@@ -447,15 +581,13 @@ class _InviteRoleOption extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFFFF1F3) : const Color(0xFFFFFBFC),
-            borderRadius: BorderRadius.circular(18),
+            color: selected ? _inviteAccentSoft : _inviteWarmWhite,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected
-                  ? const Color(0xFFFF5D72)
-                  : const Color(0xFFE5E7EB),
-              width: selected ? 1.5 : 1,
+              color: selected ? const Color(0x66D16A74) : _inviteWarmBorder,
+              width: selected ? 1.25 : 1,
             ),
           ),
           child: Row(
@@ -464,7 +596,7 @@ class _InviteRoleOption extends StatelessWidget {
               Radio<StoryRole>(
                 value: role,
                 enabled: enabled,
-                activeColor: const Color(0xFFFF5D72),
+                activeColor: _inviteAccent,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
@@ -533,13 +665,12 @@ class _InviteSuccessView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _InviteHero(
-          icon: Icons.check_rounded,
+        _InviteSuccessHeader(
+          pageTitle: l10n.inviteCreatedPageTitle,
           title: l10n.inviteSuccessTitle,
           subtitle: l10n.inviteSuccessSubtitle,
-          success: true,
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 24),
         _InviteCard(
           key: const ValueKey('invite.result-card'),
           child: Column(
@@ -558,15 +689,15 @@ class _InviteSuccessView extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBFC),
+                      color: _inviteBackground,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(color: _inviteWarmBorder),
                     ),
                     child: SelectableText(
                       inviteLink,
                       key: const ValueKey('invite.link-text'),
                       style: const TextStyle(
-                        color: Color(0xFF1F2937),
+                        color: _inviteInk,
                         fontSize: 15,
                         height: 1.45,
                         fontWeight: FontWeight.w600,
@@ -636,49 +767,37 @@ class _InviteSuccessView extends StatelessWidget {
   }
 }
 
-class _InviteHero extends StatelessWidget {
-  const _InviteHero({
-    required this.icon,
+class _InviteSuccessHeader extends StatelessWidget {
+  const _InviteSuccessHeader({
+    required this.pageTitle,
     required this.title,
     required this.subtitle,
-    this.success = false,
   });
 
-  final IconData icon;
+  final String pageTitle;
   final String title;
   final String subtitle;
-  final bool success;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            color: success ? const Color(0xFFDFF8E7) : const Color(0xFFFFE6EA),
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1FFF5D72),
-                offset: Offset(0, 14),
-                blurRadius: 28,
-              ),
-            ],
-          ),
-          child: Icon(
-            icon,
-            color: success ? const Color(0xFF45C46A) : const Color(0xFFFF5D72),
-            size: 46,
+        Text(
+          pageTitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: _inviteMuted,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 8),
         Text(
           title,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Color(0xFF1F2937),
+            color: _inviteInk,
             fontSize: 32,
             fontWeight: FontWeight.w900,
             height: 1.12,
@@ -690,7 +809,7 @@ class _InviteHero extends StatelessWidget {
           subtitle,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Color(0xFF6B7280),
+            color: _inviteMuted,
             fontSize: 17,
             height: 1.45,
             fontWeight: FontWeight.w500,
@@ -716,13 +835,14 @@ class _InviteCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _inviteWarmWhite,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _inviteWarmBorder),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
+            color: Color(0x0FD16A74),
+            offset: Offset(0, 10),
+            blurRadius: 22,
           ),
         ],
       ),
@@ -802,11 +922,11 @@ class _MetadataRow extends StatelessWidget {
 
 class _InstructionList extends StatelessWidget {
   const _InstructionList({
-    required this.title,
+    this.title,
     required this.items,
   });
 
-  final String title;
+  final String? title;
   final List<String> items;
 
   @override
@@ -814,15 +934,17 @@ class _InstructionList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: _sectionTitleStyle),
-        const SizedBox(height: 14),
+        if (title != null) ...[
+          Text(title!, style: _sectionTitleStyle),
+          const SizedBox(height: 14),
+        ],
         for (final item in items) ...[
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(
                 Icons.check_circle_outline_rounded,
-                color: Color(0xFFFF5D72),
+                color: _inviteAccent,
                 size: 20,
               ),
               const SizedBox(width: 10),
@@ -851,23 +973,23 @@ class _InviteFailureBanner extends StatelessWidget {
         key: const ValueKey('invite.failure-banner'),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7F8),
+          color: _inviteWarmWhite,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFFD6DC)),
+          border: Border.all(color: const Color(0x52D16A74)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(
               Icons.info_outline_rounded,
-              color: Color(0xFFFF5D72),
+              color: _inviteAccent,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: const TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: _inviteMuted,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   letterSpacing: 0,
@@ -903,7 +1025,7 @@ class _InviteWarningCard extends StatelessWidget {
         children: [
           const Icon(
             Icons.favorite_rounded,
-            color: Color(0xFFFF5D72),
+            color: _inviteAccent,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -937,12 +1059,12 @@ class _IconBubble extends StatelessWidget {
       width: 46,
       height: 46,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFE6EA),
+        color: _inviteAccentSoft,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Icon(
         icon,
-        color: const Color(0xFFFF5D72),
+        color: _inviteAccent,
         size: 24,
       ),
     );
@@ -951,9 +1073,9 @@ class _IconBubble extends StatelessWidget {
 
 ButtonStyle get _primaryButtonStyle {
   return FilledButton.styleFrom(
-    backgroundColor: const Color(0xFFFF5D72),
+    backgroundColor: _inviteAccent,
     foregroundColor: Colors.white,
-    disabledBackgroundColor: const Color(0xFFFFB3BD),
+    disabledBackgroundColor: const Color(0xFFE8A7AE),
     disabledForegroundColor: Colors.white,
     minimumSize: const Size.fromHeight(58),
     shape: RoundedRectangleBorder(
@@ -969,8 +1091,8 @@ ButtonStyle get _primaryButtonStyle {
 
 ButtonStyle get _secondaryButtonStyle {
   return OutlinedButton.styleFrom(
-    foregroundColor: const Color(0xFFFF5D72),
-    side: const BorderSide(color: Color(0xFFFF8A99)),
+    foregroundColor: _inviteAccent,
+    side: const BorderSide(color: Color(0x8FD16A74)),
     minimumSize: const Size.fromHeight(52),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
@@ -984,17 +1106,25 @@ ButtonStyle get _secondaryButtonStyle {
 }
 
 const TextStyle _sectionTitleStyle = TextStyle(
-  color: Color(0xFF1F2937),
+  color: _inviteInk,
   fontSize: 17,
   fontWeight: FontWeight.w900,
   letterSpacing: 0,
 );
 
 const TextStyle _bodyTextStyle = TextStyle(
-  color: Color(0xFF6B7280),
+  color: _inviteMuted,
   fontSize: 15,
   height: 1.45,
   fontWeight: FontWeight.w600,
+  letterSpacing: 0,
+);
+
+const TextStyle _sectionHeadingStyle = TextStyle(
+  color: Color(0xFF8A7770),
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w800,
   letterSpacing: 0,
 );
 

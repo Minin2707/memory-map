@@ -762,6 +762,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get createMemoryBackLabel => 'Назад к воспоминаниям';
 
   @override
+  String get createMemorySubtitle => 'Сохраните моменты, которые важны.';
+
+  @override
+  String get createMemoryAboutSection => 'О ВОСПОМИНАНИИ';
+
+  @override
+  String get createMemoryWhenWhereSection => 'КОГДА И ГДЕ';
+
+  @override
   String get createMemoryTitleLabel => 'Название';
 
   @override
@@ -1141,6 +1150,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Поделитесь одноразовой ссылкой, чтобы он мог присоединиться к вашей истории.';
 
   @override
+  String get inviteEditorialSubtitle =>
+      'Поделитесь историей с тем, кому она действительно важна.';
+
+  @override
+  String get inviteAboutSectionTitle => 'О ПРИГЛАШЕНИИ';
+
+  @override
   String get inviteLinkLabel => 'Ссылка-приглашение';
 
   @override
@@ -1153,6 +1169,9 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get inviteExpirationDescription =>
       'Приглашение действительно до даты, которую вернул сервер.';
+
+  @override
+  String get inviteAccessSectionTitle => 'ДОСТУП';
 
   @override
   String get inviteTargetRoleTitle => 'Выберите доступ';
@@ -1177,6 +1196,9 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get inviteRoleViewerDescription =>
       'Может просматривать историю и воспоминания.';
+
+  @override
+  String get inviteHowLinkWorksSectionTitle => 'КАК РАБОТАЕТ ССЫЛКА';
 
   @override
   String get inviteWhatCanDoTitle => 'Что можно сделать с этой ссылкой?';

@@ -523,7 +523,7 @@ void main() {
       expect(repository.leaveCalls, 1);
       expect(backCalls, 0);
       expect(
-        tester.widget<FilledButton>(
+        tester.widget<TextButton>(
           find.byKey(const ValueKey('participants.invite-action')),
         ).onPressed,
         isNull,
@@ -761,7 +761,7 @@ void main() {
       expect(find.text('Alex'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(
-        tester.widget<FilledButton>(
+        tester.widget<TextButton>(
           find.byKey(const ValueKey('participants.invite-action')),
         ).onPressed,
         isNull,
@@ -780,7 +780,7 @@ void main() {
       expect(backCalls, 0);
       await scrollToLeaveAction(tester, settle: false);
       expect(
-        tester.widget<OutlinedButton>(leaveActionFinder()).onPressed,
+        tester.widget<TextButton>(leaveActionFinder()).onPressed,
         isNull,
       );
 

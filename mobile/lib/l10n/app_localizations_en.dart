@@ -751,6 +751,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createMemoryBackLabel => 'Back to memories';
 
   @override
+  String get createMemorySubtitle => 'Save the moments that matter.';
+
+  @override
+  String get createMemoryAboutSection => 'ABOUT THE MEMORY';
+
+  @override
+  String get createMemoryWhenWhereSection => 'WHEN AND WHERE';
+
+  @override
   String get createMemoryTitleLabel => 'Title';
 
   @override
@@ -1126,6 +1135,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Share a one-time invitation link so they can join your story.';
 
   @override
+  String get inviteEditorialSubtitle =>
+      'Share your story with someone who truly matters.';
+
+  @override
+  String get inviteAboutSectionTitle => 'ABOUT THE INVITE';
+
+  @override
   String get inviteLinkLabel => 'Invite link';
 
   @override
@@ -1138,6 +1154,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get inviteExpirationDescription =>
       'The invite remains valid until the date returned by the server.';
+
+  @override
+  String get inviteAccessSectionTitle => 'ACCESS';
 
   @override
   String get inviteTargetRoleTitle => 'Choose access';
@@ -1161,6 +1180,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inviteRoleViewerDescription => 'Can view the story and memories.';
+
+  @override
+  String get inviteHowLinkWorksSectionTitle => 'HOW THE LINK WORKS';
 
   @override
   String get inviteWhatCanDoTitle => 'What can you do with this link?';

@@ -26,14 +26,25 @@ void main() {
       await pumpScreen(tester, repository);
 
       expect(find.text('Add memory'), findsOneWidget);
+      expect(find.text('Save the moments that matter.'), findsOneWidget);
+      expect(find.text('ABOUT THE MEMORY'), findsOneWidget);
       expect(find.text('Title'), findsOneWidget);
       expect(find.text('Description'), findsOneWidget);
       expect(find.text('Place name'), findsOneWidget);
+      expect(find.text('WHEN AND WHERE'), findsOneWidget);
       expect(find.text('Event date'), findsOneWidget);
       expect(find.text('Location'), findsOneWidget);
       expect(find.text('No date selected'), findsOneWidget);
       expect(find.text('No location selected'), findsOneWidget);
       expect(find.text('Create memory'), findsOneWidget);
+      expect(
+        findAssetImage('assets/transparent_top-right_polaroid_flowers.png'),
+        findsOneWidget,
+      );
+      expect(
+        findAssetImage('assets/transparent_bottom-left_leaves.png'),
+        findsOneWidget,
+      );
       expect(repository.createMemoryCalls, 0);
       expect(repository.getMemoriesCalls, 0);
     });
@@ -502,6 +513,16 @@ Future<void> pressButton(
   } else {
     await tester.pump();
   }
+}
+
+Finder findAssetImage(String assetName) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! Image || widget.image is! AssetImage) {
+      return false;
+    }
+
+    return (widget.image as AssetImage).assetName == assetName;
+  });
 }
 
 void setSurface(WidgetTester tester, Size size) {

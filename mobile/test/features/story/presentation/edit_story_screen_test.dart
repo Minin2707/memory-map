@@ -31,7 +31,7 @@ void main() {
       await pumpScreen(tester, FakeStoryRepository(), userStory: ownerStory);
 
       expect(find.text('Edit story'), findsOneWidget);
-      expect(find.text('Story details'), findsOneWidget);
+      expect(find.text('About this story'), findsOneWidget);
       expect(find.text('Cover'), findsOneWidget);
       expect(find.text('No cover photo'), findsOneWidget);
       expect(find.text('Choose cover'), findsOneWidget);
@@ -65,7 +65,7 @@ void main() {
       );
 
       expect(find.text('Редактирование истории'), findsOneWidget);
-      expect(find.text('Детали истории'), findsOneWidget);
+      expect(find.text('Об этой истории'), findsOneWidget);
       expect(find.text('Обложка'), findsOneWidget);
       expect(find.text('Название истории'), findsOneWidget);
       expect(find.text('Описание'), findsOneWidget);
@@ -232,10 +232,6 @@ void main() {
       );
       expect(find.text('Cover updated'), findsOneWidget);
       expect(
-        find.text('Cover changes are saved automatically.'),
-        findsOneWidget,
-      );
-      expect(
         buttonOnPressed(
           tester,
           find.byKey(const ValueKey('edit-story.save-action')),
@@ -277,10 +273,6 @@ void main() {
       );
       expect(find.text('Cover removed'), findsOneWidget);
       expect(
-        find.text('Cover changes are saved automatically.'),
-        findsOneWidget,
-      );
-      expect(
         buttonOnPressed(
           tester,
           find.byKey(const ValueKey('edit-story.save-action')),
@@ -317,10 +309,6 @@ void main() {
       );
       expect(find.text('Cover removed'), findsOneWidget);
       expect(
-        find.text('Cover changes are saved automatically.'),
-        findsOneWidget,
-      );
-      expect(
         buttonOnPressed(
           tester,
           find.byKey(const ValueKey('edit-story.save-action')),
@@ -355,7 +343,8 @@ void main() {
         settle: false,
       );
 
-      expect(find.text('Updating cover...'), findsOneWidget);
+      expect(find.text('Updating cover...'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(
         buttonOnPressed(
           tester,
@@ -401,7 +390,8 @@ void main() {
         settle: false,
       );
 
-      expect(find.text('Removing cover...'), findsOneWidget);
+      expect(find.text('Removing cover...'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(
         buttonOnPressed(
           tester,
@@ -557,10 +547,6 @@ void main() {
       );
 
       expect(find.text('Cover updated'), findsOneWidget);
-      expect(
-        find.text('Cover changes are saved automatically.'),
-        findsOneWidget,
-      );
 
       repository.uploadCoverFailure = const StoryApplicationException(
         StoryNetworkUnavailable(),
@@ -837,7 +823,7 @@ void main() {
 
       await tapSave(tester);
 
-      expect(find.text('Make a change to save.'), findsOneWidget);
+      expect(find.text('Make a change to save.'), findsNothing);
       expect(repository.updateStoryCalls, 0);
     });
   });

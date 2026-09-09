@@ -1372,6 +1372,24 @@ abstract class AppLocalizations {
   /// **'Back to memories'**
   String get createMemoryBackLabel;
 
+  /// No description provided for @createMemorySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save the moments that matter.'**
+  String get createMemorySubtitle;
+
+  /// No description provided for @createMemoryAboutSection.
+  ///
+  /// In en, this message translates to:
+  /// **'ABOUT THE MEMORY'**
+  String get createMemoryAboutSection;
+
+  /// No description provided for @createMemoryWhenWhereSection.
+  ///
+  /// In en, this message translates to:
+  /// **'WHEN AND WHERE'**
+  String get createMemoryWhenWhereSection;
+
   /// No description provided for @createMemoryTitleLabel.
   ///
   /// In en, this message translates to:
@@ -2080,6 +2098,18 @@ abstract class AppLocalizations {
   /// **'Share a one-time invitation link so they can join your story.'**
   String get inviteHeroSubtitle;
 
+  /// No description provided for @inviteEditorialSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your story with someone who truly matters.'**
+  String get inviteEditorialSubtitle;
+
+  /// No description provided for @inviteAboutSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'ABOUT THE INVITE'**
+  String get inviteAboutSectionTitle;
+
   /// No description provided for @inviteLinkLabel.
   ///
   /// In en, this message translates to:
@@ -2103,6 +2133,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The invite remains valid until the date returned by the server.'**
   String get inviteExpirationDescription;
+
+  /// No description provided for @inviteAccessSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'ACCESS'**
+  String get inviteAccessSectionTitle;
 
   /// No description provided for @inviteTargetRoleTitle.
   ///
@@ -2145,6 +2181,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Can view the story and memories.'**
   String get inviteRoleViewerDescription;
+
+  /// No description provided for @inviteHowLinkWorksSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'HOW THE LINK WORKS'**
+  String get inviteHowLinkWorksSectionTitle;
 
   /// No description provided for @inviteWhatCanDoTitle.
   ///

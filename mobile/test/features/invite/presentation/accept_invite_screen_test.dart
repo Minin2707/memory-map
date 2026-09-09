@@ -26,7 +26,6 @@ void main() {
 
       await pumpScreen(tester, repository);
 
-      expect(find.text('Invitation'), findsOneWidget);
       expect(find.text('You were invited to a story'), findsOneWidget);
       expect(find.text('Accept invite'), findsOneWidget);
       expect(find.textContaining(rawToken), findsNothing);

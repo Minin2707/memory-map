@@ -8,6 +8,21 @@ import 'package:memory_map/features/participant/presentation/widgets/participant
 import 'package:memory_map/features/story/domain/story_role.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _participantsBackground = Color(0xFFFBF6F1);
+const _participantsInk = Color(0xFF182331);
+const _participantsMuted = Color(0xFF747B86);
+const _participantsAccent = Color(0xFFD16A74);
+const _participantsAccentSoft = Color(0xFFFFEEF0);
+const _participantsAccentDisabled = Color(0x6BD16A74);
+const _participantsWarmWhite = Color(0xFFFFFDFB);
+const _participantsWarmBorder = Color(0x1FD16A74);
+const _participantsDisplayFontFamily = 'NotoSerif';
+const _participantsDisplayFontFallback = <String>['NotoSerifGeorgian'];
+const _participantsTopDecorationAsset =
+    'assets/participants_header_polaroids_flowers.png';
+const _participantsBottomDecorationAsset =
+    'assets/transparent_bottom-left_leaves.png';
+
 class ParticipantsScreen extends ConsumerStatefulWidget {
   const ParticipantsScreen({
     required this.storyId,
@@ -56,6 +71,17 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
       storyParticipantsProvider(widget.storyId),
     );
     final mutationActive = _hasParticipantMutation(participantsValue);
+    final loadedState = participantsValue.asData?.value;
+    final loadedParticipants = loadedState != null && loadedState.isLoaded
+        ? loadedState.participants
+        : null;
+    final participantCount = loadedParticipants?.length;
+    final currentRole = loadedParticipants == null
+        ? null
+        : _currentParticipant(loadedParticipants)?.role;
+    final canInvite =
+        widget.onInvite != null &&
+        (currentRole == StoryRole.owner || currentRole == StoryRole.coOwner);
 
     return PopScope(
       canPop: false,
@@ -67,31 +93,53 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
         widget.onBack?.call();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
-        body: SafeArea(
-          child: RefreshIndicator(
-            color: const Color(0xFFFF5D72),
-            onRefresh: () {
-              return ref
-                  .read(storyParticipantsProvider(widget.storyId).notifier)
-                  .refreshParticipants();
-            },
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: _ParticipantsAppBar(
-                      onBack: mutationActive ? null : widget.onBack,
-                    ),
-                  ),
-                ),
-                ..._contentSlivers(context, ref, participantsValue),
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
-              ],
+        backgroundColor: _participantsBackground,
+        body: Stack(
+          children: [
+            const Positioned(
+              right: -22,
+              top: -18,
+              child: _ParticipantsTopDecoration(),
             ),
-          ),
+            const Positioned(
+              left: -24,
+              bottom: -10,
+              child: _ParticipantsBottomDecoration(),
+            ),
+            SafeArea(
+              child: RefreshIndicator(
+                color: _participantsAccent,
+                onRefresh: () {
+                  return ref
+                      .read(storyParticipantsProvider(widget.storyId).notifier)
+                      .refreshParticipants();
+                },
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: _ParticipantsHeader(
+                          onBack: mutationActive ? null : widget.onBack,
+                          participantCount: participantCount,
+                          canInvite: canInvite,
+                          inviteEnabled: !mutationActive,
+                          onInvite: canInvite
+                              ? () {
+                                  widget.onInvite!(currentRole!);
+                                }
+                              : null,
+                        ),
+                      ),
+                    ),
+                    ..._contentSlivers(context, ref, participantsValue),
+                    const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -165,9 +213,6 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
 
     final currentParticipant = _currentParticipant(state.participants);
     final currentRole = currentParticipant?.role;
-    final canInvite =
-        widget.onInvite != null &&
-        (currentRole == StoryRole.owner || currentRole == StoryRole.coOwner);
     final canLeave = widget.onLeftStory != null && currentParticipant != null;
     final mutationActive = state.isLeaving || state.isRemoving;
 
@@ -178,8 +223,8 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
           sliver: SliverToBoxAdapter(
             child: LinearProgressIndicator(
               minHeight: 3,
-              color: Color(0xFFFF5D72),
-              backgroundColor: Color(0xFFFFE6EA),
+              color: _participantsAccent,
+              backgroundColor: _participantsAccentSoft,
             ),
           ),
         ),
@@ -201,26 +246,10 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
           ),
         ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-        sliver: SliverToBoxAdapter(
-          child: _ParticipantsHeaderCard(
-            participantCount: state.participants.length,
-            canInvite: canInvite,
-            inviteEnabled: !mutationActive,
-            onInvite: canInvite
-                ? () {
-                    widget.onInvite!(currentRole!);
-                  }
-                : null,
-          ),
-        ),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+        padding: const EdgeInsets.fromLTRB(24, 30, 24, 0),
         sliver: SliverToBoxAdapter(
           child: _SectionHeader(
-            title: l10n.participantsSectionTitle,
-            subtitle: l10n.participantsSectionSubtitle,
+            title: l10n.participantsHeaderTitle,
           ),
         ),
       ),
@@ -234,7 +263,7 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
         )
       else
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+          padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
           sliver: SliverToBoxAdapter(
             child: _ParticipantsCard(
               participants: state.participants,
@@ -248,9 +277,16 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
             ),
           ),
         ),
+      if (state.participants.isNotEmpty)
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+          sliver: SliverToBoxAdapter(
+            child: _RoleExplanation(text: l10n.participantsSectionSubtitle),
+          ),
+        ),
       if (canLeave)
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
           sliver: SliverToBoxAdapter(
             child: _LeaveStoryCard(
               isLeaving: state.isLeaving,
@@ -361,7 +397,7 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
                 Navigator.of(context).pop(true);
               },
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF5D72),
+                backgroundColor: _participantsAccent,
                 foregroundColor: Colors.white,
               ),
               child: Text(l10n.participantsLeaveConfirmAction),
@@ -417,7 +453,7 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
                 Navigator.of(context).pop(true);
               },
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF5D72),
+                backgroundColor: _participantsAccent,
                 foregroundColor: Colors.white,
               ),
               child: Text(l10n.participantsRemoveConfirmAction),
@@ -457,54 +493,17 @@ class _ParticipantsScreenState extends ConsumerState<ParticipantsScreen> {
   }
 }
 
-class _ParticipantsAppBar extends StatelessWidget {
-  const _ParticipantsAppBar({
+class _ParticipantsHeader extends StatelessWidget {
+  const _ParticipantsHeader({
     required this.onBack,
-  });
-
-  final VoidCallback? onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Row(
-      children: [
-        IconButton(
-          key: const ValueKey('participants.back-action'),
-          onPressed: onBack,
-          tooltip: l10n.participantsBack,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        Expanded(
-          child: Text(
-            l10n.participantsPageTitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        const SizedBox(width: 48),
-      ],
-    );
-  }
-}
-
-class _ParticipantsHeaderCard extends StatelessWidget {
-  const _ParticipantsHeaderCard({
     required this.participantCount,
     required this.canInvite,
     required this.inviteEnabled,
     required this.onInvite,
   });
 
-  final int participantCount;
+  final VoidCallback? onBack;
+  final int? participantCount;
   final bool canInvite;
   final bool inviteEnabled;
   final VoidCallback? onInvite;
@@ -513,79 +512,59 @@ class _ParticipantsHeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return _ParticipantsCardShell(
+    return KeyedSubtree(
       key: const ValueKey('participants.header-card'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFE6EA),
-                  borderRadius: BorderRadius.circular(22),
+          IconButton(
+            key: const ValueKey('participants.back-action'),
+            onPressed: onBack,
+            tooltip: l10n.participantsBack,
+            color: _participantsInk,
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          ),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 12, end: 112),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.participantsPageTitle,
+                  style: const TextStyle(
+                    color: _participantsInk,
+                    fontFamily: _participantsDisplayFontFamily,
+                    fontFamilyFallback: _participantsDisplayFontFallback,
+                    fontSize: 34,
+                    height: 1.08,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.groups_2_rounded,
-                  color: Color(0xFFFF5D72),
-                  size: 30,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.participantsHeaderTitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF1F2937),
-                        fontSize: 21,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0,
-                      ),
+                if (participantCount != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.participantsCount(participantCount!),
+                    style: const TextStyle(
+                      color: _participantsMuted,
+                      fontSize: 16,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0,
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      l10n.participantsCount(participantCount),
-                      style: const TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontSize: 15,
-                        height: 1.35,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                ],
+              ],
+            ),
           ),
           if (canInvite && onInvite != null) ...[
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              key: const ValueKey('participants.invite-action'),
-              onPressed: inviteEnabled ? onInvite : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF5D72),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: _ParticipantsInviteActionRow(
+                enabled: inviteEnabled,
+                onPressed: onInvite,
               ),
-              icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: Text(l10n.participantsInvite),
             ),
           ],
         ],
@@ -594,43 +573,135 @@ class _ParticipantsHeaderCard extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
+class _ParticipantsTopDecoration extends StatelessWidget {
+  const _ParticipantsTopDecoration();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF1F2937),
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
-          ),
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: Image.asset(
+          _participantsTopDecorationAsset,
+          width: (screenWidth * 0.52).clamp(170, 210).toDouble(),
+          fit: BoxFit.contain,
         ),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 16,
-            height: 1.4,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0,
-          ),
+      ),
+    );
+  }
+}
+
+class _ParticipantsBottomDecoration extends StatelessWidget {
+  const _ParticipantsBottomDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: Image.asset(
+          _participantsBottomDecorationAsset,
+          width: (screenWidth * 0.4).clamp(145, 155).toDouble(),
+          fit: BoxFit.contain,
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _ParticipantsInviteActionRow extends StatelessWidget {
+  const _ParticipantsInviteActionRow({
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return TextButton(
+      key: const ValueKey('participants.invite-action'),
+      onPressed: enabled ? onPressed : null,
+      style: TextButton.styleFrom(
+        backgroundColor: _participantsWarmWhite,
+        disabledBackgroundColor: _participantsWarmWhite,
+        foregroundColor: _participantsInk,
+        disabledForegroundColor: _participantsMuted,
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: _participantsWarmBorder),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _participantsAccentSoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Icons.add_rounded,
+                color: enabled
+                    ? _participantsAccent
+                    : _participantsAccentDisabled,
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                l10n.participantsInvite,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: enabled ? _participantsAccent : _participantsMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+  });
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: _participantsMuted,
+        fontSize: 13,
+        height: 1.25,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0,
+      ),
     );
   }
 }
@@ -654,20 +725,23 @@ class _ParticipantsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ParticipantsCardShell(
+    return SizedBox(
       key: const ValueKey('participants.list-card'),
+      width: double.infinity,
       child: Column(
         children: [
           for (var index = 0; index < participants.length; index += 1) ...[
-            if (index > 0) const Divider(height: 1, color: Color(0xFFE8EBEF)),
-            ParticipantTile(
-              participant: participants[index],
-              isCurrentUser: participants[index].userId == currentUserId,
-              showRemoveAction: _showRemoveAction(participants[index]),
-              removeEnabled: removeEnabled,
-              isRemoving:
-                  removingParticipantUserId == participants[index].userId,
-              onRemove: onRemovePressed,
+            if (index > 0) const SizedBox(height: 12),
+            _ParticipantRowSurface(
+              child: ParticipantTile(
+                participant: participants[index],
+                isCurrentUser: participants[index].userId == currentUserId,
+                showRemoveAction: _showRemoveAction(participants[index]),
+                removeEnabled: removeEnabled,
+                isRemoving:
+                    removingParticipantUserId == participants[index].userId,
+                onRemove: onRemovePressed,
+              ),
             ),
           ],
         ],
@@ -680,6 +754,29 @@ class _ParticipantsCard extends StatelessWidget {
         target.userId != currentUserId &&
         target.role != StoryRole.owner &&
         onRemovePressed != null;
+  }
+}
+
+class _ParticipantRowSurface extends StatelessWidget {
+  const _ParticipantRowSurface({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _participantsWarmWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _participantsWarmBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        child: child,
+      ),
+    );
   }
 }
 
@@ -696,38 +793,79 @@ class _LeaveStoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return _ParticipantsCardShell(
+    return Column(
       key: const ValueKey('participants.leave-card'),
-      child: OutlinedButton.icon(
-        key: const ValueKey('participants.leave-action'),
-        onPressed: isLeaving ? null : onLeavePressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFFFF5D72),
-          side: const BorderSide(color: Color(0xFFFF8A99)),
-          minimumSize: const Size.fromHeight(56),
-          alignment: Alignment.centerLeft,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
+      children: [
+        Center(
+          child: TextButton.icon(
+            key: const ValueKey('participants.leave-action'),
+            onPressed: isLeaving ? null : onLeavePressed,
+            style: TextButton.styleFrom(
+              foregroundColor: _participantsAccent,
+              disabledForegroundColor: const Color(0x85D16A74),
+              minimumSize: const Size(0, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            icon: isLeaving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _participantsAccent,
+                    ),
+                  )
+                : const Icon(Icons.logout_rounded),
+            label: Text(
+              isLeaving
+                  ? l10n.participantsLeaving
+                  : l10n.participantsLeaveStory,
+            ),
           ),
         ),
-        icon: isLeaving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFFFF5D72),
-                ),
-              )
-            : const Icon(Icons.logout_rounded),
-        label: Text(
-          isLeaving ? l10n.participantsLeaving : l10n.participantsLeaveStory,
+      ],
+    );
+  }
+}
+
+class _RoleExplanation extends StatelessWidget {
+  const _RoleExplanation({
+    required this.text,
+  });
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.info_outline_rounded,
+          color: _participantsMuted,
+          size: 18,
         ),
-      ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: _participantsMuted,
+              fontSize: 13.5,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -751,22 +889,22 @@ class _RefreshFailureBanner extends StatelessWidget {
         key: const ValueKey('participants.refresh.failure-banner'),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7F8),
+          color: _participantsAccentSoft,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFFD6DC)),
+          border: Border.all(color: _participantsWarmBorder),
         ),
         child: Row(
           children: [
             const Icon(
               Icons.info_outline_rounded,
-              color: Color(0xFFFF5D72),
+              color: _participantsAccent,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 '${l10n.participantsRefreshFailed}. $message',
                 style: const TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: _participantsMuted,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   letterSpacing: 0,
@@ -809,12 +947,12 @@ class _ParticipantsErrorView extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE6EA),
+              color: _participantsAccentSoft,
               borderRadius: BorderRadius.circular(24),
             ),
             child: const Icon(
               Icons.cloud_off_rounded,
-              color: Color(0xFFFF5D72),
+              color: _participantsAccent,
               size: 34,
             ),
           ),
@@ -823,9 +961,9 @@ class _ParticipantsErrorView extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF1F2937),
+              color: _participantsInk,
               fontSize: 22,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0,
             ),
           ),
@@ -834,7 +972,7 @@ class _ParticipantsErrorView extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _participantsMuted,
               fontSize: 16,
               height: 1.45,
               fontWeight: FontWeight.w500,
@@ -870,12 +1008,12 @@ class _ParticipantsEmptyState extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE6EA),
+              color: _participantsAccentSoft,
               borderRadius: BorderRadius.circular(24),
             ),
             child: const Icon(
               Icons.group_off_rounded,
-              color: Color(0xFFFF5D72),
+              color: _participantsAccent,
               size: 34,
             ),
           ),
@@ -884,9 +1022,9 @@ class _ParticipantsEmptyState extends StatelessWidget {
             l10n.participantsEmptyTitle,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF1F2937),
+              color: _participantsInk,
               fontSize: 22,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0,
             ),
           ),
@@ -895,7 +1033,7 @@ class _ParticipantsEmptyState extends StatelessWidget {
             l10n.participantsEmptyBody,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _participantsMuted,
               fontSize: 16,
               height: 1.45,
               fontWeight: FontWeight.w500,
@@ -917,9 +1055,9 @@ class _ParticipantsLoadingView extends StatelessWidget {
       key: const ValueKey('participants.loading-view'),
       children: const [
         _SkeletonBlock(height: 138),
-        SizedBox(height: 20),
+        SizedBox(height: 16),
         _SkeletonBlock(height: 236),
-        SizedBox(height: 20),
+        SizedBox(height: 16),
         _SkeletonBlock(height: 86),
       ],
     );
@@ -939,15 +1077,9 @@ class _SkeletonBlock extends StatelessWidget {
       width: double.infinity,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x100F172A),
-            offset: Offset(0, 10),
-            blurRadius: 24,
-          ),
-        ],
+        color: _participantsWarmWhite,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _participantsWarmBorder),
       ),
     );
   }
@@ -967,15 +1099,9 @@ class _ParticipantsCardShell extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
+        color: _participantsWarmWhite,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _participantsWarmBorder),
       ),
       child: child,
     );

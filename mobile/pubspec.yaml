@@ -78,6 +78,12 @@ flutter:
     - assets/loginscreen.png
     - assets/hero_create_story.png
     - assets/hero_stories_empty_state.png
+    - assets/memory_details_no_photo_hero.png
+    - assets/transparent_accept_invite_open_envelope_polaroid_flowers.png
+    - assets/transparent_invite_envelope_polaroid_flowers.png
+    - assets/participants_header_polaroids_flowers.png
+    - assets/transparent_top-right_polaroid_flowers.png
+    - assets/transparent_bottom-left_leaves.png
     - assets/branding/login_logo.png
     - assets/google.svg
   fonts:

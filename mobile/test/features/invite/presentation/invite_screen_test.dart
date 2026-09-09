@@ -26,13 +26,32 @@ void main() {
       final repository = FakeInviteRepository();
       await pumpScreen(tester, repository);
 
-      expect(find.text('Invite participant'), findsOneWidget);
       expect(find.text('Invite someone close'), findsOneWidget);
+      expect(
+        find.text('Share your story with someone who truly matters.'),
+        findsOneWidget,
+      );
+      expect(
+        find.image(
+          const AssetImage(
+            'assets/transparent_invite_envelope_polaroid_flowers.png',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.image(
+          const AssetImage('assets/transparent_bottom-left_leaves.png'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('ABOUT THE INVITE'), findsOneWidget);
       expect(find.text('Invite link'), findsOneWidget);
-      expect(find.text('Choose access'), findsOneWidget);
+      expect(find.text('ACCESS'), findsOneWidget);
       expect(find.text('Co-author'), findsOneWidget);
       expect(find.text('Editor'), findsOneWidget);
       expect(find.text('View only'), findsOneWidget);
+      expect(find.text('HOW THE LINK WORKS'), findsOneWidget);
       expect(find.text('Create invite'), findsOneWidget);
       expect(find.textContaining(inviteLink), findsNothing);
       expect(find.byKey(const ValueKey('invite.copy-action')), findsNothing);
@@ -50,9 +69,14 @@ void main() {
         locale: const Locale('ru'),
       );
 
-      expect(find.text('Пригласить участника'), findsOneWidget);
       expect(find.text('Пригласите близкого человека'), findsOneWidget);
-      expect(find.text('Выберите доступ'), findsOneWidget);
+      expect(
+        find.text('Поделитесь историей с тем, кому она действительно важна.'),
+        findsOneWidget,
+      );
+      expect(find.text('О ПРИГЛАШЕНИИ'), findsOneWidget);
+      expect(find.text('ДОСТУП'), findsOneWidget);
+      expect(find.text('КАК РАБОТАЕТ ССЫЛКА'), findsOneWidget);
       expect(find.text('Создать приглашение'), findsOneWidget);
     });
 
@@ -66,7 +90,7 @@ void main() {
         currentInviterRole: StoryRole.viewer,
       );
 
-      expect(find.text('Choose access'), findsNothing);
+      expect(find.text('ACCESS'), findsNothing);
       expect(find.text('Co-author'), findsNothing);
       expect(find.text('Editor'), findsNothing);
       expect(find.text('View only'), findsNothing);

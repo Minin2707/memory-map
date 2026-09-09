@@ -10,6 +10,92 @@ import 'package:memory_map/features/memory/presentation/memory_date_format.dart'
 import 'package:memory_map/features/memory/presentation/memory_failure_message.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const _createMemoryBackground = Color(0xFFFBF6F1);
+const _createMemoryInk = Color(0xFF182331);
+const _createMemoryMuted = Color(0xFF747B86);
+const _createMemoryAccent = Color(0xFFD16A74);
+const _createMemoryAccentSoft = Color(0xFFFFEEF0);
+const _createMemoryInputFill = Color(0xFFFFFDFB);
+const _createMemoryDisplayFontFamily = 'NotoSerif';
+const _createMemoryTopDecorationAsset =
+    'assets/transparent_top-right_polaroid_flowers.png';
+const _createMemoryBottomDecorationAsset =
+    'assets/transparent_bottom-left_leaves.png';
+
+class _CreateMemorySpacing {
+  const _CreateMemorySpacing({
+    required this.formTopPadding,
+    required this.formBottomPadding,
+    required this.headerTopPadding,
+    required this.headerBackTitleGap,
+    required this.headerTitleSubtitleGap,
+    required this.headerBottomPadding,
+    required this.sectionFirstFieldGap,
+    required this.fieldLabelGap,
+    required this.fieldBlockGap,
+    required this.sectionTransitionGap,
+    required this.whenWhereFirstFieldGap,
+    required this.dateLocationGap,
+    required this.locationCtaGap,
+  });
+
+  const _CreateMemorySpacing.normal()
+      : this(
+          formTopPadding: 8,
+          formBottomPadding: 16,
+          headerTopPadding: 8,
+          headerBackTitleGap: 20,
+          headerTitleSubtitleGap: 8,
+          headerBottomPadding: 16,
+          sectionFirstFieldGap: 14,
+          fieldLabelGap: 8,
+          fieldBlockGap: 18,
+          sectionTransitionGap: 24,
+          whenWhereFirstFieldGap: 14,
+          dateLocationGap: 12,
+          locationCtaGap: 24,
+        );
+
+  const _CreateMemorySpacing.compact()
+      : this(
+          formTopPadding: 4,
+          formBottomPadding: 8,
+          headerTopPadding: 12,
+          headerBackTitleGap: 14,
+          headerTitleSubtitleGap: 6,
+          headerBottomPadding: 8,
+          sectionFirstFieldGap: 8,
+          fieldLabelGap: 8,
+          fieldBlockGap: 12,
+          sectionTransitionGap: 14,
+          whenWhereFirstFieldGap: 8,
+          dateLocationGap: 6,
+          locationCtaGap: 12,
+        );
+
+  factory _CreateMemorySpacing.forAvailableHeight(double availableHeight) {
+    if (availableHeight < 860) {
+      return const _CreateMemorySpacing.compact();
+    }
+
+    return const _CreateMemorySpacing.normal();
+  }
+
+  final double formTopPadding;
+  final double formBottomPadding;
+  final double headerTopPadding;
+  final double headerBackTitleGap;
+  final double headerTitleSubtitleGap;
+  final double headerBottomPadding;
+  final double sectionFirstFieldGap;
+  final double fieldLabelGap;
+  final double fieldBlockGap;
+  final double sectionTransitionGap;
+  final double whenWhereFirstFieldGap;
+  final double dateLocationGap;
+  final double locationCtaGap;
+}
+
 typedef CreateMemoryLocationPicker = Future<MemoryLocation?> Function(
   MemoryLocation? initialLocation,
 );
@@ -74,6 +160,10 @@ class _CreateMemoryScreenState extends ConsumerState<CreateMemoryScreen> {
     final createState = createValue.asData?.value ?? const CreateMemoryState();
     final isSubmitting = _submitInFlight || createState.isSubmitting;
     final failureMessage = _failureMessage(l10n, createValue, createState);
+    final mediaQuery = MediaQuery.of(context);
+    final availableHeight =
+        mediaQuery.size.height - mediaQuery.padding.vertical;
+    final spacing = _CreateMemorySpacing.forAvailableHeight(availableHeight);
 
     return PopScope(
       canPop: false,
@@ -85,73 +175,89 @@ class _CreateMemoryScreenState extends ConsumerState<CreateMemoryScreen> {
         widget.onBack?.call();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
-        body: SafeArea(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              FocusScope.of(context).unfocus();
-            },
-            child: CustomScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: _CreateMemoryAppBar(
-                      isSubmitting: isSubmitting,
-                      onBack: widget.onBack,
-                    ),
-                  ),
-                ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    24,
-                    24,
-                    24,
-                    24 + MediaQuery.viewInsetsOf(context).bottom,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _CreateMemoryFormCard(
-                            titleController: _titleController,
-                            descriptionController: _descriptionController,
-                            placeNameController: _placeNameController,
-                            titleFocusNode: _titleFocusNode,
-                            descriptionFocusNode: _descriptionFocusNode,
-                            placeNameFocusNode: _placeNameFocusNode,
-                            selectedDate: _selectedDate,
-                            selectedLocation: _selectedLocation,
-                            showDateError: _dateErrorVisible,
-                            showLocationError: _locationErrorVisible,
-                            canPickLocation: widget.onPickLocation != null,
-                            enabled: !isSubmitting,
-                            onPickDate: _pickDate,
-                            onPickLocation: _pickLocation,
-                          ),
-                          if (failureMessage != null) ...[
-                            const SizedBox(height: 16),
-                            _CreateMemoryFailureBanner(
-                              message: failureMessage,
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          _CreateMemoryButton(
-                            isSubmitting: isSubmitting,
-                            onPressed: isSubmitting ? null : _submit,
-                          ),
-                        ],
+        backgroundColor: _createMemoryBackground,
+        body: Stack(
+          children: [
+            const Positioned(
+              right: -32,
+              top: -18,
+              child: _CreateMemoryTopDecoration(),
+            ),
+            const Positioned(
+              left: -32,
+              bottom: -14,
+              child: _CreateMemoryBottomDecoration(),
+            ),
+            SafeArea(
+              bottom: false,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                },
+                child: CustomScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _CreateMemoryHeader(
+                        isSubmitting: isSubmitting,
+                        onBack: widget.onBack,
+                        spacing: spacing,
                       ),
                     ),
-                  ),
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        spacing.formTopPadding,
+                        24,
+                        spacing.formBottomPadding +
+                            mediaQuery.viewInsets.bottom,
+                      ),
+                      sliver: SliverToBoxAdapter(
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _CreateMemoryFormCard(
+                                titleController: _titleController,
+                                descriptionController: _descriptionController,
+                                placeNameController: _placeNameController,
+                                titleFocusNode: _titleFocusNode,
+                                descriptionFocusNode: _descriptionFocusNode,
+                                placeNameFocusNode: _placeNameFocusNode,
+                                selectedDate: _selectedDate,
+                                selectedLocation: _selectedLocation,
+                                showDateError: _dateErrorVisible,
+                                showLocationError: _locationErrorVisible,
+                                canPickLocation: widget.onPickLocation != null,
+                                enabled: !isSubmitting,
+                                onPickDate: _pickDate,
+                                onPickLocation: _pickLocation,
+                                spacing: spacing,
+                              ),
+                              if (failureMessage != null) ...[
+                                const SizedBox(height: 16),
+                                _CreateMemoryFailureBanner(
+                                  message: failureMessage,
+                                ),
+                              ],
+                              SizedBox(height: spacing.locationCtaGap),
+                              _CreateMemoryButton(
+                                isSubmitting: isSubmitting,
+                                onPressed: isSubmitting ? null : _submit,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -293,43 +399,146 @@ class _CreateMemoryScreenState extends ConsumerState<CreateMemoryScreen> {
   }
 }
 
-class _CreateMemoryAppBar extends StatelessWidget {
-  const _CreateMemoryAppBar({
+class _CreateMemoryTopDecoration extends StatelessWidget {
+  const _CreateMemoryTopDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    const decorationWidthFactor = 0.52;
+    const decorationHeightFactor = 0.74;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final decorationViewportWidth =
+        (screenWidth * 0.54).clamp(190.0, 230.0).toDouble();
+    final decorationCanvasWidth =
+        decorationViewportWidth / decorationWidthFactor;
+
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: ClipRect(
+          child: Align(
+            alignment: Alignment.topRight,
+            widthFactor: decorationWidthFactor,
+            heightFactor: decorationHeightFactor,
+            child: Image.asset(
+              _createMemoryTopDecorationAsset,
+              width: decorationCanvasWidth,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CreateMemoryBottomDecoration extends StatelessWidget {
+  const _CreateMemoryBottomDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    const decorationWidthFactor = 0.45;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final decorationViewportWidth =
+        (screenWidth * 0.34).clamp(118.0, 150.0).toDouble();
+    final decorationCanvasWidth =
+        decorationViewportWidth / decorationWidthFactor;
+
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: Opacity(
+          opacity: 0.42,
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            widthFactor: decorationWidthFactor,
+            child: Image.asset(
+              _createMemoryBottomDecorationAsset,
+              width: decorationCanvasWidth,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CreateMemoryHeader extends StatelessWidget {
+  const _CreateMemoryHeader({
     required this.isSubmitting,
     required this.onBack,
+    required this.spacing,
   });
 
   final bool isSubmitting;
   final VoidCallback? onBack;
+  final _CreateMemorySpacing spacing;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Row(
-      children: [
-        IconButton(
-          key: const ValueKey('create-memory.back-action'),
-          onPressed: isSubmitting ? null : onBack,
-          tooltip: l10n.createMemoryBackLabel,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        Expanded(
-          child: Text(
-            l10n.createMemoryPageTitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        12,
+        spacing.headerTopPadding,
+        24,
+        spacing.headerBottomPadding,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: _createMemoryInputFill.withValues(alpha: 0.76),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.68),
+                width: 0.8,
+              ),
+            ),
+            child: IconButton(
+              key: const ValueKey('create-memory.back-action'),
+              onPressed: isSubmitting ? null : onBack,
+              tooltip: l10n.createMemoryBackLabel,
+              color: _createMemoryInk,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
             ),
           ),
-        ),
-        const SizedBox(width: 48),
-      ],
+          SizedBox(height: spacing.headerBackTitleGap),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              l10n.createMemoryPageTitle,
+              style: const TextStyle(
+                color: _createMemoryInk,
+                fontFamily: _createMemoryDisplayFontFamily,
+                fontFamilyFallback: <String>['NotoSerifGeorgian'],
+                fontSize: 33,
+                fontWeight: FontWeight.w500,
+                height: 1.08,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+          SizedBox(height: spacing.headerTitleSubtitleGap),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                l10n.createMemorySubtitle,
+                style: const TextStyle(
+                  color: _createMemoryMuted,
+                  fontSize: 16,
+                  height: 1.45,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -350,6 +559,7 @@ class _CreateMemoryFormCard extends StatelessWidget {
     required this.enabled,
     required this.onPickDate,
     required this.onPickLocation,
+    required this.spacing,
   });
 
   final TextEditingController titleController;
@@ -366,18 +576,20 @@ class _CreateMemoryFormCard extends StatelessWidget {
   final bool enabled;
   final VoidCallback onPickDate;
   final VoidCallback onPickLocation;
+  final _CreateMemorySpacing spacing;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return _CreateMemoryCardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _FieldLabel(label: l10n.createMemoryTitleLabel, required: true),
-          const SizedBox(height: 12),
-          TextFormField(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeading(text: l10n.createMemoryAboutSection),
+        SizedBox(height: spacing.sectionFirstFieldGap),
+        _FieldLabel(label: l10n.createMemoryTitleLabel, required: true),
+        SizedBox(height: spacing.fieldLabelGap),
+        TextFormField(
             key: const ValueKey('create-memory.title-field'),
             controller: titleController,
             focusNode: titleFocusNode,
@@ -403,87 +615,86 @@ class _CreateMemoryFormCard extends StatelessWidget {
               return null;
             },
             decoration: _inputDecoration(hintText: l10n.createMemoryTitleHint),
+        ),
+        SizedBox(height: spacing.fieldBlockGap),
+        _FieldLabel(
+          label: l10n.createMemoryDescriptionLabel,
+          optionalText: l10n.createMemoryOptionalLabel,
+        ),
+        SizedBox(height: spacing.fieldLabelGap),
+        TextFormField(
+          key: const ValueKey('create-memory.description-field'),
+          controller: descriptionController,
+          focusNode: descriptionFocusNode,
+          enabled: enabled,
+          minLines: 3,
+          maxLines: 6,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.newline,
+          decoration: _inputDecoration(
+            hintText: l10n.createMemoryDescriptionHint,
           ),
-          const SizedBox(height: 22),
-          _FieldLabel(
-            label: l10n.createMemoryDescriptionLabel,
-            optionalText: l10n.createMemoryOptionalLabel,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('create-memory.description-field'),
-            controller: descriptionController,
-            focusNode: descriptionFocusNode,
-            enabled: enabled,
-            minLines: 3,
-            maxLines: 6,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.newline,
-            decoration: _inputDecoration(
-              hintText: l10n.createMemoryDescriptionHint,
-            ),
-          ),
-          const SizedBox(height: 22),
-          _FieldLabel(
-            label: l10n.createMemoryPlaceNameLabel,
-            optionalText: l10n.createMemoryOptionalLabel,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const ValueKey('create-memory.place-name-field'),
-            controller: placeNameController,
-            focusNode: placeNameFocusNode,
-            enabled: enabled,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.done,
-            validator: (value) {
-              if (value != null && value.length > Memory.maxPlaceNameLength) {
-                return l10n.createMemoryPlaceNameMax;
-              }
+        ),
+        SizedBox(height: spacing.fieldBlockGap),
+        _FieldLabel(
+          label: l10n.createMemoryPlaceNameLabel,
+          optionalText: l10n.createMemoryOptionalLabel,
+        ),
+        SizedBox(height: spacing.fieldLabelGap),
+        TextFormField(
+          key: const ValueKey('create-memory.place-name-field'),
+          controller: placeNameController,
+          focusNode: placeNameFocusNode,
+          enabled: enabled,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          validator: (value) {
+            if (value != null && value.length > Memory.maxPlaceNameLength) {
+              return l10n.createMemoryPlaceNameMax;
+            }
 
-              return null;
-            },
-            decoration: _inputDecoration(
-              hintText: l10n.createMemoryPlaceNameHint,
-            ),
+            return null;
+          },
+          decoration: _inputDecoration(
+            hintText: l10n.createMemoryPlaceNameHint,
           ),
-          const SizedBox(height: 24),
-          const Divider(color: Color(0xFFE8EBEF)),
-          const SizedBox(height: 22),
-          _PickerField(
-            key: const ValueKey('create-memory.date-field'),
-            icon: Icons.calendar_today_rounded,
-            label: l10n.createMemoryEventDateLabel,
-            required: true,
-            value: selectedDate == null
-                ? l10n.createMemoryEventDateEmpty
-                : formatMemoryDate(l10n, selectedDate!),
-            actionLabel: selectedDate == null
-                ? l10n.createMemoryChooseDate
-                : l10n.createMemoryChangeDate,
-            errorText: showDateError ? l10n.createMemoryDateRequired : null,
-            enabled: enabled,
-            onPressed: onPickDate,
-          ),
-          const SizedBox(height: 16),
-          _PickerField(
-            key: const ValueKey('create-memory.location-field'),
-            icon: Icons.location_on_rounded,
-            label: l10n.createMemoryLocationLabel,
-            required: true,
-            value: selectedLocation == null
-                ? l10n.createMemoryLocationEmpty
-                : l10n.createMemoryLocationSelected,
-            actionLabel: selectedLocation == null
-                ? l10n.createMemoryChooseLocation
-                : l10n.createMemoryChangeLocation,
-            errorText:
-                showLocationError ? l10n.createMemoryLocationRequired : null,
-            enabled: enabled && canPickLocation,
-            onPressed: onPickLocation,
-          ),
-        ],
-      ),
+        ),
+        SizedBox(height: spacing.sectionTransitionGap),
+        _SectionHeading(text: l10n.createMemoryWhenWhereSection),
+        SizedBox(height: spacing.whenWhereFirstFieldGap),
+        _PickerField(
+          key: const ValueKey('create-memory.date-field'),
+          icon: Icons.calendar_today_rounded,
+          label: l10n.createMemoryEventDateLabel,
+          required: true,
+          value: selectedDate == null
+              ? l10n.createMemoryEventDateEmpty
+              : formatMemoryDate(l10n, selectedDate!),
+          actionLabel: selectedDate == null
+              ? l10n.createMemoryChooseDate
+              : l10n.createMemoryChangeDate,
+          errorText: showDateError ? l10n.createMemoryDateRequired : null,
+          enabled: enabled,
+          onPressed: onPickDate,
+        ),
+        SizedBox(height: spacing.dateLocationGap),
+        _PickerField(
+          key: const ValueKey('create-memory.location-field'),
+          icon: Icons.location_on_rounded,
+          label: l10n.createMemoryLocationLabel,
+          required: true,
+          value: selectedLocation == null
+              ? l10n.createMemoryLocationEmpty
+              : l10n.createMemoryLocationSelected,
+          actionLabel: selectedLocation == null
+              ? l10n.createMemoryChooseLocation
+              : l10n.createMemoryChangeLocation,
+          errorText:
+              showLocationError ? l10n.createMemoryLocationRequired : null,
+          enabled: enabled && canPickLocation,
+          onPressed: onPickLocation,
+        ),
+      ],
     );
   }
 
@@ -491,31 +702,31 @@ class _CreateMemoryFormCard extends StatelessWidget {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(
-        color: Color(0xFFA8AFBA),
+        color: Color(0xFFA0A7B1),
         fontWeight: FontWeight.w500,
       ),
       filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      fillColor: _createMemoryInputFill,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFD8DDE5)),
+        borderSide: const BorderSide(color: Color(0xFFEFE5E1), width: 0.8),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFFF6B7D), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xB8D16A74), width: 1.1),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFFF5D72), width: 1.5),
+        borderSide: const BorderSide(color: _createMemoryAccent, width: 1.4),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFFF5D72), width: 1.5),
+        borderSide: const BorderSide(color: _createMemoryAccent, width: 1.4),
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        borderSide: const BorderSide(color: Color(0xFFF2EBE8), width: 0.8),
       ),
     );
   }
@@ -545,52 +756,91 @@ class _PickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final actionKey = ValueKey<String>(
+      icon == Icons.calendar_today_rounded
+          ? 'create-memory.date-action'
+          : 'create-memory.location-action',
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _FieldLabel(label: label, required: required),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: enabled ? Colors.white : const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: errorText == null
-                  ? const Color(0xFFD8DDE5)
-                  : const Color(0xFFFF5D72),
-              width: errorText == null ? 1 : 1.5,
+        TextButton(
+          key: actionKey,
+          onPressed: enabled ? onPressed : null,
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            foregroundColor: _createMemoryAccent,
+            disabledForegroundColor: _createMemoryMuted,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(icon, color: const Color(0xFFFF5D72)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: enabled
+                  ? _createMemoryInputFill
+                  : _createMemoryInputFill.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: errorText == null
+                    ? const Color(0xFFEFE5E1)
+                    : _createMemoryAccent,
+                width: errorText == null ? 0.8 : 1.4,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _createMemoryAccentSoft,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, color: _createMemoryAccent),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _FieldLabel(label: label, required: required),
+                      const SizedBox(height: 5),
+                      Text(
+                        value,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _createMemoryMuted,
+                          fontSize: 15,
+                          height: 1.25,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  actionLabel,
                   style: const TextStyle(
-                    color: Color(0xFF4B5563),
-                    fontSize: 16,
+                    color: _createMemoryAccent,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              TextButton(
-                key: ValueKey(
-                  icon == Icons.calendar_today_rounded
-                      ? 'create-memory.date-action'
-                      : 'create-memory.location-action',
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _createMemoryAccent,
                 ),
-                onPressed: enabled ? onPressed : null,
-                child: Text(actionLabel),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         if (errorText != null) ...[
@@ -598,7 +848,7 @@ class _PickerField extends StatelessWidget {
           Text(
             errorText!,
             style: const TextStyle(
-              color: Color(0xFFFF5D72),
+              color: _createMemoryAccent,
               fontSize: 13,
               height: 1.35,
               fontWeight: FontWeight.w600,
@@ -632,9 +882,9 @@ class _FieldLabel extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF1F2937),
+            color: _createMemoryInk,
             fontSize: 17,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0,
           ),
         ),
@@ -642,9 +892,9 @@ class _FieldLabel extends StatelessWidget {
           const Text(
             '*',
             style: TextStyle(
-              color: Color(0xFFFF5D72),
+              color: _createMemoryAccent,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
           ),
@@ -652,13 +902,32 @@ class _FieldLabel extends StatelessWidget {
           Text(
             optionalText!,
             style: const TextStyle(
-              color: Color(0xFF8A93A3),
+              color: _createMemoryMuted,
               fontSize: 14,
               fontWeight: FontWeight.w600,
               letterSpacing: 0,
             ),
           ),
       ],
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Color(0xFF9A8178),
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+      ),
     );
   }
 }
@@ -676,38 +945,40 @@ class _CreateMemoryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return FilledButton.icon(
+    return FilledButton(
       key: const ValueKey('create-memory.submit-action'),
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFFFF5D72),
+        backgroundColor: _createMemoryAccent,
         foregroundColor: Colors.white,
-        disabledBackgroundColor: const Color(0xFFFFB3BD),
+        disabledBackgroundColor: const Color(0xFFE9A5AD),
         disabledForegroundColor: Colors.white,
-        minimumSize: const Size.fromHeight(58),
+        minimumSize: const Size.fromHeight(56),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),
         textStyle: const TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w900,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
           letterSpacing: 0,
         ),
       ),
-      icon: isSubmitting
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
+      child: isSubmitting
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(l10n.createMemorySubmittingButton),
+              ],
             )
-          : const Icon(Icons.bookmark_add_rounded),
-      label: Text(
-        isSubmitting
-            ? l10n.createMemorySubmittingButton
-            : l10n.createMemorySubmitButton,
-      ),
+          : Text(l10n.createMemorySubmitButton),
     );
   }
 }
@@ -725,23 +996,23 @@ class _CreateMemoryFailureBanner extends StatelessWidget {
         key: const ValueKey('create-memory.failure-banner'),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7F8),
+          color: _createMemoryAccentSoft,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFFD6DC)),
+          border: Border.all(color: const Color(0x2ED16A74)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(
               Icons.info_outline_rounded,
-              color: Color(0xFFFF5D72),
+              color: _createMemoryAccent,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: const TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: _createMemoryMuted,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   letterSpacing: 0,
@@ -751,32 +1022,6 @@ class _CreateMemoryFailureBanner extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _CreateMemoryCardShell extends StatelessWidget {
-  const _CreateMemoryCardShell({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
-      ),
-      child: child,
     );
   }
 }
