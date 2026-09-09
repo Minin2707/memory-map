@@ -2208,12 +2208,12 @@ void main() {
       expect(storyDetailsScreenFinder(), findsOneWidget);
     });
 
-    testWidgets('shouldOpenMemoryDetailsFromPlaybackAndReturnPaused', (
+    testWidgets('shouldNotExposeMemoryDetailsFromPlayback', (
       WidgetTester tester,
     ) async {
       final fakeAuthRepository = FakeAuthRepository()..restoreResult = session;
       final fakeMemoryRepository = FakeMemoryRepository();
-      final container = await pumpApp(
+      await pumpApp(
         tester,
         fakeAuthRepository,
         memoryRepository: fakeMemoryRepository,
@@ -2237,43 +2237,13 @@ void main() {
         find.byKey(const ValueKey('story-playback.fake-camera-arrived')),
       );
 
-      expect(find.byKey(const ValueKey('story-playback.details')), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
       expect(find.text(memoryA.title), findsOneWidget);
-
-      await tapButton(
-        tester,
-        find.byKey(const ValueKey('story-playback.details')),
-      );
-
-      expect(find.byKey(const ValueKey('memory-details.hero')), findsOneWidget);
       expect(storyDetailsScreenFinder(), findsNothing);
-      expect(find.byKey(const ValueKey('story-playback.screen')), findsNothing);
-      expect(fakeMemoryRepository.receivedMemoryIds, contains(memoryA.id));
-
-      container
-          .read(storyMemoriesProvider(ownerStory.story.id).notifier)
-          .upsertAuthoritativeRead(
-            MemoryReadModel.fromMemory(
-              memory(
-                id: 'memory-c',
-                title: 'Fresh shared memory',
-                location: memoryLocationA,
-                eventDate: MemoryDate(year: 2026, month: 6, day: 1),
-              ),
-            ),
-          );
-
-      await tapButton(
-        tester,
-        find.byKey(const ValueKey('memory-details.back-action')),
-      );
-
       expect(find.byKey(const ValueKey('story-playback.screen')), findsOneWidget);
-      expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
-      expect(find.text(memoryA.title), findsOneWidget);
       expect(find.text('Fake playback markers: 2'), findsOneWidget);
       expect(find.text('Fake playback current: 0'), findsOneWidget);
-      expect(find.text('Fresh shared memory'), findsNothing);
+      expect(fakeMemoryRepository.receivedMemoryIds, isNot(contains(memoryA.id)));
       expect(fakeMemoryRepository.getMemoriesCalls, 1);
     });
 

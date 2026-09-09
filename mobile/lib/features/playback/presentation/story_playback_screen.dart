@@ -19,6 +19,22 @@ import 'package:memory_map/features/playback/presentation/map/playback_marker_pr
 import 'package:memory_map/features/playback/presentation/map/playback_route_projection.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
 
+const Color _playbackInk = Color(0xFF182331);
+const Color _playbackMutedInk = Color(0xFF6F625B);
+const Color _playbackCoral = Color(0xFFD16A74);
+const String _playbackPolaroidFrameAsset =
+    'assets/playback_polaroid_frame.png';
+const double _playbackPolaroidFrameAspectRatio = 1140 / 1340;
+const double _playbackPolaroidPhotoLeft = 0.062;
+const double _playbackPolaroidPhotoTop = 0.055;
+const double _playbackPolaroidPhotoRight = 0.058;
+const double _playbackPolaroidPhotoBottom = 0.255;
+const double _playbackPolaroidCaptionLeft = 0.086;
+const double _playbackPolaroidCaptionTop = 0.748;
+const double _playbackPolaroidCaptionRight = 0.086;
+const double _playbackPolaroidCaptionBottom = 0.02;
+const double _playbackPhotoOverscan = 2;
+
 typedef PlaybackMapBuilder = Widget Function(
   BuildContext context,
   PlaybackMapPresentation presentation,
@@ -90,7 +106,6 @@ class StoryPlaybackScreen extends ConsumerWidget {
     final state = ref.watch(storyPlaybackProvider(storyId));
     final notifier = ref.read(storyPlaybackProvider(storyId).notifier);
     final title = storyTitle ?? l10n.playbackTitle;
-    final onMemoryDetailsSelected = this.onMemoryDetailsSelected;
 
     if (state.isLoading) {
       return _PlaybackFrame(
@@ -134,12 +149,6 @@ class StoryPlaybackScreen extends ConsumerWidget {
       onPause: notifier.pause,
       onResume: notifier.resume,
       onReplay: notifier.replay,
-      onMemoryDetailsSelected: onMemoryDetailsSelected == null
-          ? null
-          : (memory) {
-              notifier.pause();
-              onMemoryDetailsSelected(memory);
-            },
       onClose: onClose,
     );
   }
@@ -161,7 +170,6 @@ class _PlaybackSessionView extends StatefulWidget {
     required this.onResume,
     required this.onReplay,
     required this.onClose,
-    required this.onMemoryDetailsSelected,
   });
 
   final StoryPlaybackState playback;
@@ -178,7 +186,6 @@ class _PlaybackSessionView extends StatefulWidget {
   final VoidCallback onResume;
   final VoidCallback onReplay;
   final VoidCallback onClose;
-  final ValueChanged<MemoryReadModel>? onMemoryDetailsSelected;
 
   @override
   State<_PlaybackSessionView> createState() => _PlaybackSessionViewState();
@@ -408,7 +415,6 @@ class _PlaybackSessionViewState extends State<_PlaybackSessionView>
     final progressLabel = _progressLabel(l10n, playback);
     final progressValue = _progressValue(playback);
     final currentMemory = playback.currentMemory;
-    final onMemoryDetailsSelected = widget.onMemoryDetailsSelected;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -436,18 +442,13 @@ class _PlaybackSessionViewState extends State<_PlaybackSessionView>
                 onNext: () {
                   dismissThen(widget.onNext);
                 },
-                onDetails: onMemoryDetailsSelected == null
-                    ? null
-                    : () {
-                        onMemoryDetailsSelected(currentMemory);
-                      },
               );
             },
           ),
         if ((playback.phase == PlaybackPhase.presenting ||
                 playback.phase == PlaybackPhase.dismissing) &&
             currentMemory != null)
-          const SizedBox(height: 16),
+          const SizedBox(height: 22),
         if (progressLabel != null && progressValue != null)
           _PlaybackProgressOverlay(
             label: progressLabel,
@@ -605,30 +606,32 @@ class _PlaybackTopBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Color(0xE6FFFFFF),
-                    fontSize: 13,
+                    color: Color(0xBFFFF6EC),
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                    height: 1.15,
+                    letterSpacing: 0.35,
+                    height: 1.18,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 5),
                 Text(
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFFF8F1),
+                    fontFamily: 'NotoSerif',
+                    fontFamilyFallback: ['NotoSerifGeorgian'],
+                    fontSize: 22,
+                    fontWeight: FontWeight.w500,
                     letterSpacing: 0,
-                    height: 1.08,
+                    height: 1.05,
                     shadows: [
                       Shadow(
-                        color: Color(0x99000000),
-                        blurRadius: 10,
-                        offset: Offset(0, 2),
+                        color: Color(0xB0000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 3),
                       ),
                     ],
                   ),
@@ -671,6 +674,8 @@ class _PlaybackPhotoArrowButton extends StatelessWidget {
       onPressed: onPressed,
       size: 44,
       iconSize: 26,
+      foregroundColor: Colors.white,
+      disabledForegroundColor: const Color(0x99FFFFFF),
     );
   }
 }
@@ -858,7 +863,6 @@ class _CurrentMemoryCard extends StatelessWidget {
     required this.showNext,
     required this.onPrevious,
     required this.onNext,
-    required this.onDetails,
   });
 
   final MemoryReadModel readModel;
@@ -866,302 +870,71 @@ class _CurrentMemoryCard extends StatelessWidget {
   final bool showNext;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
-  final VoidCallback? onDetails;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final memory = readModel.memory;
-    final placeName = memory.placeName?.trim();
     final description = memory.description?.trim();
-    final onDetails = this.onDetails;
+
+    final paper = _PolaroidMemoryPaper(
+      preview: readModel.previewPhoto,
+      date: formatMemoryDate(l10n, memory.eventDate),
+      title: memory.title,
+      description: description != null && description.isNotEmpty
+          ? description
+          : null,
+    );
 
     return ConstrainedBox(
       key: const ValueKey('story-playback.memory-card'),
-      constraints: const BoxConstraints(maxWidth: 548),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xB80A1018),
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: const Color(0x33FFFFFF)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x5C000000),
-                  blurRadius: 30,
-                  offset: Offset(0, 16),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(9),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _MemoryPhotoPanel(
-                    preview: readModel.previewPhoto,
-                    showPrevious: showPrevious,
-                    showNext: showNext,
-                    onPrevious: onPrevious,
-                    onNext: onNext,
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: _MemoryMetaRow(
-                      icon: Icons.calendar_today_rounded,
-                      text: formatMemoryDate(l10n, memory.eventDate),
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      memory.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0,
-                        height: 1.1,
-                      ),
-                    ),
-                  ),
-                  if (description != null && description.isNotEmpty) ...[
-                    const SizedBox(height: 7),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        description,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xE6FFFFFF),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
-                          height: 1.34,
+      constraints: const BoxConstraints(maxWidth: 650),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final useSideControls = constraints.maxWidth >= 350;
+          if (!useSideControls) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                paper,
+                if (showPrevious || showNext) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (showPrevious)
+                        _PlaybackPhotoArrowButton(
+                          buttonKey: const ValueKey('story-playback.previous'),
+                          tooltip: l10n.playbackPreviousAction,
+                          icon: Icons.chevron_left_rounded,
+                          onPressed: onPrevious,
                         ),
-                      ),
-                    ),
-                  ],
-                  if (onDetails != null ||
-                      (placeName != null && placeName.isNotEmpty)) ...[
-                    const SizedBox(height: 11),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: onDetails == null
-                          ? _MemoryMetaRow(
-                              icon: Icons.place_rounded,
-                              text: placeName!,
-                            )
-                          : _MemoryCardFooter(
-                              placeName:
-                                  placeName != null && placeName.isNotEmpty
-                                      ? placeName
-                                      : null,
-                              onDetails: onDetails,
-                            ),
-                    ),
-                  ],
+                      if (showPrevious && showNext) const SizedBox(width: 16),
+                      if (showNext)
+                        _PlaybackPhotoArrowButton(
+                          buttonKey: const ValueKey('story-playback.next'),
+                          tooltip: l10n.playbackNextAction,
+                          icon: Icons.chevron_right_rounded,
+                          onPressed: onNext,
+                        ),
+                    ],
+                  ),
                 ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+              ],
+            );
+          }
 
-class _MemoryCardFooter extends StatelessWidget {
-  const _MemoryCardFooter({
-    required this.placeName,
-    required this.onDetails,
-  });
-
-  final String? placeName;
-  final VoidCallback? onDetails;
-
-  @override
-  Widget build(BuildContext context) {
-    final onDetails = this.onDetails;
-    if (onDetails == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Row(
-      children: [
-        Expanded(
-          child: placeName == null
-              ? const SizedBox.shrink()
-              : _MemoryPlaceChip(placeName: placeName!),
-        ),
-        const SizedBox(width: 8),
-        _MemoryDetailsAction(onPressed: onDetails),
-      ],
-    );
-  }
-}
-
-class _MemoryPlaceChip extends StatelessWidget {
-  const _MemoryPlaceChip({
-    required this.placeName,
-  });
-
-  final String placeName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0x1AFFFFFF),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0x33FFFFFF)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          child: _MemoryMetaRow(
-            icon: Icons.place_rounded,
-            text: placeName,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MemoryDetailsAction extends StatelessWidget {
-  const _MemoryDetailsAction({
-    required this.onPressed,
-  });
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return TextButton(
-      key: const ValueKey('story-playback.details'),
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        backgroundColor: const Color(0x1FFFFFFF),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.fromLTRB(13, 8, 10, 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-          side: const BorderSide(color: Color(0x3DFFFFFF)),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(l10n.storyMapShowDetailsAction),
-          const SizedBox(width: 3),
-          const Icon(Icons.chevron_right_rounded, size: 20),
-        ],
-      ),
-    );
-  }
-}
-
-class _MemoryPhotoPanel extends StatelessWidget {
-  const _MemoryPhotoPanel({
-    required this.preview,
-    required this.showPrevious,
-    required this.showNext,
-    required this.onPrevious,
-    required this.onNext,
-  });
-
-  final MemoryPhotoPreview? preview;
-  final bool showPrevious;
-  final bool showNext;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final preview = this.preview;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(21),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (preview == null)
-              _PhotoFallback(
-                key: const ValueKey('story-playback.no-photo'),
-                label: l10n.playbackNoPhotoTitle,
-                icon: Icons.photo_outlined,
-              )
-            else
-              Semantics(
-                label: l10n.playbackMemoryPhotoLabel,
-                image: true,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final decodeSize = playbackDisplayDecodeSizeForTesting(
-                      logicalSize: constraints.biggest,
-                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-                    );
-                    return AuthenticatedMediaPathImage(
-                      key: const ValueKey('story-playback.display-image'),
-                      thumbnailPath: _displayPath(preview),
-                      representation: AuthenticatedMediaRepresentation.display,
-                      fit: BoxFit.cover,
-                      cacheWidth: decodeSize.cacheWidth,
-                      cacheHeight: decodeSize.cacheHeight,
-                      placeholder: const _PhotoLoading(),
-                      errorBuilder: (_) {
-                        return _PhotoFallback(
-                          key: const ValueKey(
-                            'story-playback.photo-unavailable',
-                          ),
-                          label: l10n.playbackPhotoUnavailable,
-                          icon: Icons.broken_image_outlined,
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x14000000),
-                    Color(0x00000000),
-                    Color(0x52000000),
-                  ],
-                ),
-              ),
-            ),
-            if (showPrevious)
-              Positioned(
-                left: 10,
-                top: 0,
-                bottom: 0,
-                child: Center(
+          final paperHeight =
+              constraints.maxWidth / _playbackPolaroidFrameAspectRatio;
+          final arrowTop = (paperHeight * 0.42) - 22;
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              paper,
+              if (showPrevious)
+                Positioned(
+                  left: -6,
+                  top: arrowTop,
                   child: _PlaybackPhotoArrowButton(
                     buttonKey: const ValueKey('story-playback.previous'),
                     tooltip: l10n.playbackPreviousAction,
@@ -1169,23 +942,256 @@ class _MemoryPhotoPanel extends StatelessWidget {
                     onPressed: onPrevious,
                   ),
                 ),
-              ),
-            if (showNext)
-              Positioned(
-                right: 10,
-                top: 0,
-                bottom: 0,
-                child: Center(
+              if (showNext)
+                Positioned(
+                  right: -6,
+                  top: arrowTop,
                   child: _PlaybackPhotoArrowButton(
                     buttonKey: const ValueKey('story-playback.next'),
                     tooltip: l10n.playbackNextAction,
                     icon: Icons.chevron_right_rounded,
                     onPressed: onNext,
                   ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PolaroidMemoryPaper extends StatelessWidget {
+  const _PolaroidMemoryPaper({
+    required this.preview,
+    required this.date,
+    required this.title,
+    required this.description,
+  });
+
+  final MemoryPhotoPreview? preview;
+  final String date;
+  final String title;
+  final String? description;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x42000000),
+            blurRadius: 24,
+            offset: Offset(0, 14),
+          ),
+        ],
+      ),
+      child: AspectRatio(
+        aspectRatio: _playbackPolaroidFrameAspectRatio,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final size = constraints.biggest;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  _playbackPolaroidFrameAsset,
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.medium,
+                ),
+                Positioned(
+                  left: size.width * _playbackPolaroidPhotoLeft,
+                  top: size.height * _playbackPolaroidPhotoTop,
+                  right: size.width * _playbackPolaroidPhotoRight,
+                  bottom: size.height * _playbackPolaroidPhotoBottom,
+                  child: _MemoryPhotoPanel(preview: preview),
+                ),
+                Positioned(
+                  left: size.width * _playbackPolaroidCaptionLeft,
+                  top: size.height * _playbackPolaroidCaptionTop,
+                  right: size.width * _playbackPolaroidCaptionRight,
+                  bottom: size.height * _playbackPolaroidCaptionBottom,
+                  child: _PolaroidCaption(
+                    date: date,
+                    title: title,
+                    description: description,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PolaroidCaption extends StatelessWidget {
+  const _PolaroidCaption({
+    required this.date,
+    required this.title,
+    required this.description,
+  });
+
+  final String date;
+  final String title;
+  final String? description;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 130;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title,
+                    maxLines: compact ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _playbackInk,
+                      fontFamily: 'NotoSerif',
+                      fontFamilyFallback: const ['NotoSerifGeorgian'],
+                      fontSize: compact ? 19 : 23,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0,
+                      height: 1.08,
+                    ),
+                  ),
+                  if (description != null) ...[
+                    SizedBox(height: compact ? 3 : 5),
+                    Flexible(
+                      child: Text(
+                        description!,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _playbackMutedInk,
+                          fontSize: compact ? 13 : 15,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0,
+                          height: 1.22,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Text(
+                date,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: _playbackMutedInk,
+                  fontSize: compact ? 12 : 13,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
+                  height: 1.1,
                 ),
               ),
+            ),
           ],
-        ),
+        );
+      },
+    );
+  }
+}
+
+class _MemoryPhotoPanel extends StatelessWidget {
+  const _MemoryPhotoPanel({
+    required this.preview,
+  });
+
+  final MemoryPhotoPreview? preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final preview = this.preview;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (preview == null)
+            _PhotoFallback(
+              key: const ValueKey('story-playback.no-photo'),
+              label: l10n.playbackNoPhotoTitle,
+              icon: Icons.photo_outlined,
+            )
+          else
+            Semantics(
+              label: l10n.playbackMemoryPhotoLabel,
+              image: true,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final decodeSize = playbackDisplayDecodeSizeForTesting(
+                    logicalSize: constraints.biggest,
+                    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                  );
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    fit: StackFit.expand,
+                    children: [
+                      Positioned(
+                        left: -_playbackPhotoOverscan,
+                        top: -_playbackPhotoOverscan,
+                        right: -_playbackPhotoOverscan,
+                        bottom: -_playbackPhotoOverscan,
+                        child: AuthenticatedMediaPathImage(
+                          key: const ValueKey('story-playback.display-image'),
+                          thumbnailPath: _displayPath(preview),
+                          representation:
+                              AuthenticatedMediaRepresentation.display,
+                          fit: BoxFit.cover,
+                          cacheWidth: decodeSize.cacheWidth,
+                          cacheHeight: decodeSize.cacheHeight,
+                          placeholder: const _PhotoLoading(),
+                          errorBuilder: (_) {
+                            return _PhotoFallback(
+                              key: const ValueKey(
+                                'story-playback.photo-unavailable',
+                              ),
+                              label: l10n.playbackPhotoUnavailable,
+                              icon: Icons.broken_image_outlined,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x08000000),
+                  Color(0x00000000),
+                  Color(0x18000000),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1207,25 +1213,25 @@ class _PlaybackPrimaryPlaybackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 520),
+      constraints: const BoxConstraints(maxWidth: 280),
       child: SizedBox(
         width: double.infinity,
         child: FilledButton.icon(
           key: buttonKey,
           onPressed: onPressed,
-          icon: Icon(icon, size: 26),
+          icon: Icon(icon, size: 22),
           label: Text(label),
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0x300B1220),
-            foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(56),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            backgroundColor: const Color(0x2EFFFDFB),
+            foregroundColor: const Color(0xFFFDF7F2),
+            minimumSize: const Size.fromHeight(48),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(23),
-              side: const BorderSide(color: Color(0x40FFFFFF)),
+              borderRadius: BorderRadius.circular(999),
+              side: const BorderSide(color: Color(0x3DFFF1E6)),
             ),
             textStyle: const TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
@@ -1242,13 +1248,13 @@ class _PhotoLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const DecoratedBox(
-      decoration: BoxDecoration(color: Color(0xFF182232)),
+      decoration: BoxDecoration(color: Color(0xFFF5ECE5)),
       child: Center(
         child: SizedBox.square(
           dimension: 24,
           child: CircularProgressIndicator(
             strokeWidth: 3,
-            color: Color(0xFFFF5D72),
+            color: _playbackCoral,
           ),
         ),
       ),
@@ -1274,9 +1280,9 @@ class _PhotoFallback extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1E2937),
-            Color(0xFF332032),
-            Color(0xFF15303A),
+            Color(0xFFF8EFE8),
+            Color(0xFFFFF7F3),
+            Color(0xFFF1E4DC),
           ],
         ),
       ),
@@ -1284,14 +1290,14 @@ class _PhotoFallback extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: const Color(0xFFFF7A8A), size: 34),
+            Icon(icon, color: _playbackCoral, size: 34),
             const SizedBox(height: 8),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Colors.white,
+                color: _playbackMutedInk,
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0,
@@ -1300,40 +1306,6 @@ class _PhotoFallback extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MemoryMetaRow extends StatelessWidget {
-  const _MemoryMetaRow({
-    required this.icon,
-    required this.text,
-  });
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: const Color(0xFFFF7A8A)),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xCCFFFFFF),
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1403,7 +1375,7 @@ class _PlaybackProgressOverlay extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xD9FFFFFF),
+                color: Color(0xE6FFF6EC),
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0,
@@ -1432,23 +1404,17 @@ class _PlaybackProgressTrack extends StatelessWidget {
       key: const ValueKey('story-playback.progress'),
       borderRadius: BorderRadius.circular(999),
       child: SizedBox(
-        height: 6,
+        height: 4,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const ColoredBox(color: Color(0x55FFFFFF)),
+            const ColoredBox(color: Color(0x4DFFF1E6)),
             FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: value.clamp(0.0, 1.0).toDouble(),
               child: const DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Color(0xFFFF5D72),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x55FF5D72),
-                      blurRadius: 8,
-                    ),
-                  ],
+                  color: _playbackCoral,
                 ),
               ),
             ),
@@ -1481,6 +1447,8 @@ class _PlaybackChromeButton extends StatelessWidget {
       onPressed: onPressed,
       size: 50,
       iconSize: 24,
+      foregroundColor: Colors.white,
+      disabledForegroundColor: const Color(0x99FFFFFF),
     );
   }
 }

@@ -146,6 +146,10 @@ final class StoryPlaybackNotifier extends Notifier<PlaybackSessionState> {
   }
 
   void stop() {
+    if (!ref.mounted) {
+      return;
+    }
+
     if (_transition(
       (playback) => playback.stop(),
       allowCameraFailure: true,

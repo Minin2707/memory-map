@@ -80,6 +80,7 @@ flutter:
     - assets/hero_stories_empty_state.png
     - assets/memory_details_no_photo_hero.png
     - assets/memory_timeline_no_photo_preview.png
+    - assets/playback_polaroid_frame.png
     - assets/transparent_accept_invite_open_envelope_polaroid_flowers.png
     - assets/transparent_invite_envelope_polaroid_flowers.png
     - assets/participants_header_polaroids_flowers.png

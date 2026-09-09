@@ -203,7 +203,7 @@ void main() {
       );
       expect(find.text('Sunrise picnic'), findsOneWidget);
       expect(find.text('Aug 9, 2026'), findsOneWidget);
-      expect(find.text('Memory place'), findsOneWidget);
+      expect(find.text('Memory place'), findsNothing);
       expect(find.text('Visible description'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('story-playback.display-image')),
@@ -576,7 +576,7 @@ void main() {
       expect(presentations.last.cameraCommand, isNotNull);
     });
 
-    testWidgets('shouldPauseBeforeOpeningMemoryDetailsFromPresentingCard', (
+    testWidgets('shouldNotExposeMemoryDetailsActionFromPresentingCard', (
       tester,
     ) async {
       final scheduler = FakePlaybackScheduler();
@@ -597,22 +597,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('story-playback.details')), findsOneWidget);
-      expect(find.text('Show details'), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
+      expect(find.text('Show details'), findsNothing);
       expect(find.byKey(const ValueKey('story-playback.pause')), findsOneWidget);
       expect(scheduler.activeTaskCount, 1);
-
-      await pressButton(
-        tester,
-        find.byKey(const ValueKey('story-playback.details')),
-      );
-
-      expect(selectedMemories.single.memory.id, memoryA.id);
-      expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
-      expect(scheduler.activeTaskCount, 0);
+      expect(selectedMemories, isEmpty);
     });
 
-    testWidgets('shouldOpenMemoryDetailsFromAlreadyPausedPresentation', (
+    testWidgets('shouldKeepMemoryDetailsActionHiddenWhenPausedPresentation', (
       tester,
     ) async {
       final scheduler = FakePlaybackScheduler();
@@ -639,13 +631,9 @@ void main() {
 
       expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
       expect(scheduler.activeTaskCount, 0);
-
-      await pressButton(
-        tester,
-        find.byKey(const ValueKey('story-playback.details')),
-      );
-
-      expect(selectedMemories.single.memory.id, memoryA.id);
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
+      expect(find.text('Show details'), findsNothing);
+      expect(selectedMemories, isEmpty);
       expect(find.byKey(const ValueKey('story-playback.resume')), findsOneWidget);
       expect(scheduler.activeTaskCount, 0);
     });
@@ -718,7 +706,7 @@ void main() {
 
       expect(find.byKey(const ValueKey('story-playback.no-photo')), findsOneWidget);
       expect(find.text('No photo'), findsOneWidget);
-      expect(find.byKey(const ValueKey('story-playback.details')), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
     });
 
     testWidgets('shouldRenderSafePhotoFailureWithoutStoppingPlayback', (
@@ -753,7 +741,7 @@ void main() {
         find.byKey(const ValueKey('story-playback.photo-unavailable')),
         findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('story-playback.details')), findsOneWidget);
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
       expect(find.text('Photo unavailable'), findsOneWidget);
       expect(find.textContaining('/api/v1/media'), findsNothing);
       expect(find.textContaining('media-a'), findsNothing);
@@ -1067,26 +1055,19 @@ void main() {
       expect(audioOrchestrator.operations, <String>['close']);
     });
 
-    testWidgets('shouldNotShutdownWhenMemoryDetailsTemporarilyCoversPlayback', (
+    testWidgets('shouldNotExposeMemoryDetailsActionFromPlaybackRoute', (
       tester,
     ) async {
       final audioOrchestrator = FakePlaybackAudioSessionOrchestrator();
       final presentations = <PlaybackMapPresentation>[];
+      final selectedMemories = <MemoryReadModel>[];
       await pumpPlaybackRoute(
         tester,
         FakeMemoryRepository()
           ..memoryReadModelsResult = <MemoryReadModel>[readModel(memoryA)],
         audioOrchestrator: audioOrchestrator,
         presentations: presentations,
-        onMemoryDetailsSelected: (_) {
-          Navigator.of(tester.element(find.byType(StoryPlaybackRoute))).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const Scaffold(
-                body: Text('Memory details overlay'),
-              ),
-            ),
-          );
-        },
+        onMemoryDetailsSelected: selectedMemories.add,
       );
       presentations.last.onCameraArrived(
         presentations.last.cameraCommand!.revision,
@@ -1094,13 +1075,11 @@ void main() {
       await tester.pumpAndSettle();
 
       audioOrchestrator.operations.clear();
-      await pressButton(
-        tester,
-        find.byKey(const ValueKey('story-playback.details')),
-      );
 
-      expect(find.text('Memory details overlay'), findsOneWidget);
-      expect(audioOrchestrator.operations, <String>['pause']);
+      expect(find.byKey(const ValueKey('story-playback.details')), findsNothing);
+      expect(find.text('Show details'), findsNothing);
+      expect(selectedMemories, isEmpty);
+      expect(audioOrchestrator.operations, isEmpty);
       expect(audioOrchestrator.operations, isNot(contains('close')));
     });
   });
