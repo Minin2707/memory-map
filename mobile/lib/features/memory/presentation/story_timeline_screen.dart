@@ -6,11 +6,21 @@ import 'package:memory_map/features/memory/application/story_memories_state.dart
 import 'package:memory_map/features/memory/application/story_timeline_projection.dart';
 import 'package:memory_map/features/memory/application/story_timeline_section.dart';
 import 'package:memory_map/features/memory/domain/memory.dart';
-import 'package:memory_map/features/memory/domain/memory_date.dart';
 import 'package:memory_map/features/memory/domain/memory_read_model.dart';
 import 'package:memory_map/features/memory/presentation/memory_date_format.dart';
 import 'package:memory_map/features/memory/presentation/memory_failure_message.dart';
 import 'package:memory_map/l10n/app_localizations.dart';
+
+const _timelineBackground = Color(0xFFFBF6F1);
+const _timelineInk = Color(0xFF182331);
+const _timelineMuted = Color(0xFF747B86);
+const _timelineAccent = Color(0xFFD16A74);
+const _timelineAccentSoft = Color(0xFFFFEEF0);
+const _timelineWarmWhite = Color(0xFFFFFDFB);
+const _timelineWarmBorder = Color(0xFFEFE5E1);
+const _timelineDisplayFontFamily = 'NotoSerif';
+const _timelineNoPhotoPreviewAsset =
+    'assets/memory_timeline_no_photo_preview.png';
 
 class StoryTimelineScreen extends ConsumerWidget {
   const StoryTimelineScreen({
@@ -43,10 +53,11 @@ class StoryTimelineScreen extends ConsumerWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFF8F8),
+        backgroundColor: _timelineBackground,
         body: SafeArea(
+          bottom: false,
           child: RefreshIndicator(
-            color: const Color(0xFFFF5D72),
+            color: _timelineAccent,
             onRefresh: () {
               return ref
                   .read(storyMemoriesProvider(storyId).notifier)
@@ -56,9 +67,9 @@ class StoryTimelineScreen extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 24, 10),
                   sliver: SliverToBoxAdapter(
-                    child: _StoryTimelineAppBar(
+                    child: _StoryTimelineHeader(
                       title: storyTitle,
                       isRefreshing: _isRefreshing(memoriesValue),
                       onBack: onBack,
@@ -72,20 +83,21 @@ class StoryTimelineScreen extends ConsumerWidget {
                   ),
                 ),
                 ..._contentSlivers(context, ref, memoriesValue, sectionsValue),
-                const SliverToBoxAdapter(child: SizedBox(height: 104)),
+                const SliverToBoxAdapter(child: SizedBox(height: 96)),
               ],
             ),
           ),
         ),
         floatingActionButton: onCreateMemory == null
             ? null
-            : FloatingActionButton.extended(
+            : FloatingActionButton(
                 key: const ValueKey('story-timeline.create-action'),
                 onPressed: onCreateMemory,
-                backgroundColor: const Color(0xFFFF5D72),
+                tooltip: AppLocalizations.of(context).storyTimelineCreate,
+                backgroundColor: _timelineAccent,
                 foregroundColor: Colors.white,
-                icon: const Icon(Icons.add_rounded),
-                label: Text(AppLocalizations.of(context).storyTimelineCreate),
+                elevation: 3,
+                child: const Icon(Icons.add_rounded),
               ),
       ),
     );
@@ -168,8 +180,8 @@ class StoryTimelineScreen extends ConsumerWidget {
           sliver: SliverToBoxAdapter(
             child: LinearProgressIndicator(
               minHeight: 3,
-              color: Color(0xFFFF5D72),
-              backgroundColor: Color(0xFFFFE6EA),
+              color: _timelineAccent,
+              backgroundColor: _timelineAccentSoft,
             ),
           ),
         ),
@@ -199,7 +211,7 @@ class StoryTimelineScreen extends ConsumerWidget {
         )
       else
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 20, 0),
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
           sliver: _TimelineSliverList(
             sections: sections,
             onMemorySelected: onMemorySelected,
@@ -213,8 +225,8 @@ class StoryTimelineScreen extends ConsumerWidget {
   }
 }
 
-class _StoryTimelineAppBar extends StatelessWidget {
-  const _StoryTimelineAppBar({
+class _StoryTimelineHeader extends StatelessWidget {
+  const _StoryTimelineHeader({
     required this.title,
     required this.isRefreshing,
     required this.onBack,
@@ -233,41 +245,101 @@ class _StoryTimelineAppBar extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        IconButton(
-          key: const ValueKey('story-timeline.back-action'),
-          onPressed: onBack,
-          tooltip: l10n.storyTimelineBackLabel,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: _timelineWarmWhite.withValues(alpha: 0.76),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.68),
+              width: 0.8,
+            ),
+          ),
+          child: IconButton(
+            key: const ValueKey('story-timeline.back-action'),
+            onPressed: onBack,
+            tooltip: l10n.storyTimelineBackLabel,
+            color: _timelineInk,
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          ),
         ),
+        const SizedBox(width: 16),
         Expanded(
-          child: Text(
-            _visibleText(title) ?? l10n.storyTimelinePageTitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _visibleText(title) ?? l10n.storyTimelinePageTitle,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _timelineInk,
+                fontFamily: _timelineDisplayFontFamily,
+                fontFamilyFallback: <String>['NotoSerifGeorgian'],
+                fontSize: 33,
+                fontWeight: FontWeight.w500,
+                height: 1.08,
+                letterSpacing: 0,
+              ),
             ),
           ),
         ),
+        const SizedBox(width: 12),
         if (onPlaybackSelected != null)
-          IconButton(
-            key: const ValueKey('story-timeline.playback-action'),
+          _TimelineCircleAction(
+            actionKey: const ValueKey('story-timeline.playback-action'),
             onPressed: onPlaybackSelected,
             tooltip: l10n.playbackTitle,
-            icon: const Icon(Icons.play_circle_fill_rounded),
+            icon: Icons.play_arrow_rounded,
+            foregroundColor: Colors.white,
+            backgroundColor: _timelineAccent,
           ),
-        IconButton(
-          key: const ValueKey('story-timeline.refresh-action'),
+        const SizedBox(width: 8),
+        _TimelineCircleAction(
+          actionKey: const ValueKey('story-timeline.refresh-action'),
           onPressed: isRefreshing ? null : onRefresh,
           tooltip: l10n.storyTimelineRefreshAction,
-          icon: const Icon(Icons.refresh_rounded),
+          icon: Icons.refresh_rounded,
+          foregroundColor: _timelineInk,
+          backgroundColor: _timelineWarmWhite.withValues(alpha: 0.76),
         ),
       ],
+    );
+  }
+}
+
+class _TimelineCircleAction extends StatelessWidget {
+  const _TimelineCircleAction({
+    required this.actionKey,
+    required this.onPressed,
+    required this.tooltip,
+    required this.icon,
+    required this.foregroundColor,
+    required this.backgroundColor,
+  });
+
+  final Key actionKey;
+  final VoidCallback? onPressed;
+  final String tooltip;
+  final IconData icon;
+  final Color foregroundColor;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: actionKey,
+      onPressed: onPressed,
+      tooltip: tooltip,
+      color: foregroundColor,
+      disabledColor: _timelineMuted.withValues(alpha: 0.56),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(44),
+        backgroundColor: backgroundColor,
+        disabledBackgroundColor: _timelineWarmWhite.withValues(alpha: 0.48),
+        shape: const CircleBorder(),
+      ),
+      icon: Icon(icon),
     );
   }
 }
@@ -342,26 +414,26 @@ class _TimelineYearHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       key: ValueKey<String>('story-timeline.year.$year'),
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 14),
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 22),
       child: Row(
         children: [
-          SizedBox(
-            width: 70,
-            child: Text(
-              year.toString(),
-              style: const TextStyle(
-                color: Color(0xFFFF5D72),
-                fontSize: 25,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
-              ),
+          Text(
+            year.toString(),
+            style: const TextStyle(
+              color: _timelineAccent,
+              fontFamily: _timelineDisplayFontFamily,
+              fontFamilyFallback: <String>['NotoSerifGeorgian'],
+              fontSize: 38,
+              fontWeight: FontWeight.w500,
+              height: 1,
+              letterSpacing: 0,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Container(
               height: 1,
-              color: const Color(0xFFFFCDD5),
+              color: const Color(0x5CD16A74),
             ),
           ),
         ],
@@ -381,120 +453,16 @@ class _TimelineMemoryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final memory = readModel.memory;
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 22),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _TimelineDateLabel(date: memory.eventDate),
-            const SizedBox(width: 12),
-            const _TimelineRail(),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: _TimelineMemoryCard(
-                    readModel: readModel,
-                    onMemorySelected: onMemorySelected,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TimelineDateLabel extends StatelessWidget {
-  const _TimelineDateLabel({
-    required this.date,
-  });
-
-  final MemoryDate date;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 58,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            date.day.toString(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1F2937),
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-              height: 1,
-            ),
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: _TimelineMemoryCard(
+            readModel: readModel,
+            onMemorySelected: onMemorySelected,
           ),
-          const SizedBox(height: 4),
-          Text(
-            _monthNumber(date.month),
-            textAlign: TextAlign.right,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF8A93A3),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TimelineRail extends StatelessWidget {
-  const _TimelineRail();
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      child: SizedBox(
-        width: 20,
-        child: Stack(
-          alignment: Alignment.topCenter,
-          children: [
-            Positioned.fill(
-              top: 10,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Container(
-                  width: 2,
-                  color: const Color(0xFFFFCDD5),
-                ),
-              ),
-            ),
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF5D72),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 4),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x33FF5D72),
-                    offset: Offset(0, 4),
-                    blurRadius: 10,
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -523,67 +491,146 @@ class _TimelineMemoryCard extends StatelessWidget {
       button: selected != null,
       label: selected == null ? memory.title : l10n.memoryOpenLabel(memory.title),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        elevation: 10,
-        shadowColor: const Color(0x1F0F172A),
+        color: _timelineWarmWhite,
+        borderRadius: BorderRadius.circular(22),
+        elevation: 0,
+        shadowColor: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           onTap: selected == null
               ? null
               : () {
                   selected(memory);
                 },
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _TimelinePreview(readModel: readModel),
-                const SizedBox(height: 14),
-                Text(
-                  memory.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF1F2937),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0,
-                    height: 1.2,
-                  ),
-                ),
-                if (description != null) ...[
-                  const SizedBox(height: 8),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: _timelineWarmBorder, width: 0.8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TimelinePreview(readModel: readModel),
+                  const SizedBox(height: 16),
                   Text(
-                    description,
-                    maxLines: 3,
+                    memory.title,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF6B7280),
-                      fontSize: 14,
-                      height: 1.4,
-                      fontWeight: FontWeight.w600,
+                      color: _timelineInk,
+                      fontFamily: _timelineDisplayFontFamily,
+                      fontFamilyFallback: <String>['NotoSerifGeorgian'],
+                      fontSize: 22,
+                      fontWeight: FontWeight.w500,
                       letterSpacing: 0,
+                      height: 1.16,
                     ),
                   ),
-                ],
-                const SizedBox(height: 12),
-                _TimelineMetaRow(
-                  icon: Icons.calendar_today_rounded,
-                  text: formatMemoryDate(l10n, memory.eventDate),
-                ),
-                if (placeName != null) ...[
-                  const SizedBox(height: 7),
-                  _TimelineMetaRow(
-                    icon: Icons.place_rounded,
-                    text: placeName,
+                  if (description != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      description,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _timelineMuted,
+                        fontSize: 14,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  _TimelineMetaLine(
+                    date: formatMemoryDate(l10n, memory.eventDate),
+                    placeName: placeName,
                   ),
                 ],
-              ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TimelineMetaLine extends StatelessWidget {
+  const _TimelineMetaLine({
+    required this.date,
+    required this.placeName,
+  });
+
+  final String date;
+  final String? placeName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _TimelineMetaPill(
+          icon: Icons.calendar_today_rounded,
+          text: date,
+        ),
+        if (placeName != null) ...[
+          const Text(
+            '·',
+            style: TextStyle(
+              color: _timelineMuted,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+          _TimelineMetaPill(
+            icon: Icons.place_rounded,
+            text: placeName!,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TimelineMetaPill extends StatelessWidget {
+  const _TimelineMetaPill({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 280),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: _timelineMuted),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _timelineMuted,
+                fontSize: 13,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -606,13 +653,13 @@ class _TimelinePreview extends StatelessWidget {
         child: AspectRatio(
           aspectRatio: 16 / 9,
           child: preview == null
-              ? _NoPhotoVisual(date: readModel.memory.eventDate)
+              ? const _NoPhotoVisual()
               : AuthenticatedMediaPathImage(
                   thumbnailPath: preview.thumbnailPath,
                   fit: BoxFit.cover,
-                  placeholder: _NoPhotoVisual(date: readModel.memory.eventDate),
+                  placeholder: const _PhotoFallbackVisual(),
                   errorBuilder: (_) {
-                    return _NoPhotoVisual(date: readModel.memory.eventDate);
+                    return const _PhotoFallbackVisual();
                   },
                 ),
         ),
@@ -622,99 +669,36 @@ class _TimelinePreview extends StatelessWidget {
 }
 
 class _NoPhotoVisual extends StatelessWidget {
-  const _NoPhotoVisual({
-    required this.date,
-  });
-
-  final MemoryDate date;
+  const _NoPhotoVisual();
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Image.asset(
+      _timelineNoPhotoPreviewAsset,
       key: const ValueKey('story-timeline.no-photo-visual'),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFE6EA),
-            Color(0xFFFFF6D9),
-            Color(0xFFEAF7FF),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Container(
-          width: 74,
-          height: 74,
-          decoration: BoxDecoration(
-            color: const Color(0xCCFFFFFF),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                date.day.toString(),
-                style: const TextStyle(
-                  color: Color(0xFFFF5D72),
-                  fontSize: 25,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                _monthNumber(date.month),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFFF5D72),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      fit: BoxFit.cover,
     );
   }
 }
 
-class _TimelineMetaRow extends StatelessWidget {
-  const _TimelineMetaRow({
-    required this.icon,
-    required this.text,
-  });
-
-  final IconData icon;
-  final String text;
+class _PhotoFallbackVisual extends StatelessWidget {
+  const _PhotoFallbackVisual();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 17, color: const Color(0xFF8A93A3)),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF4B5563),
-              fontSize: 14,
-              height: 1.35,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
-          ),
+    return const DecoratedBox(
+      key: ValueKey('story-timeline.photo-fallback-visual'),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _timelineAccentSoft,
+            _timelineWarmWhite,
+            Color(0xFFF7E8E2),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -738,22 +722,22 @@ class _RefreshFailureBanner extends StatelessWidget {
         key: const ValueKey('story-timeline.refresh.failure-banner'),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7F8),
+          color: _timelineAccentSoft,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFFD6DC)),
+          border: Border.all(color: const Color(0x3DD16A74)),
         ),
         child: Row(
           children: [
             const Icon(
               Icons.info_outline_rounded,
-              color: Color(0xFFFF5D72),
+              color: _timelineAccent,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 '${l10n.storyTimelineRefreshFailureTitle}. $message',
                 style: const TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: _timelineMuted,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   letterSpacing: 0,
@@ -796,12 +780,12 @@ class _StoryTimelineErrorView extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE6EA),
+              color: _timelineAccentSoft,
               borderRadius: BorderRadius.circular(24),
             ),
             child: const Icon(
               Icons.cloud_off_rounded,
-              color: Color(0xFFFF5D72),
+              color: _timelineAccent,
               size: 34,
             ),
           ),
@@ -810,9 +794,9 @@ class _StoryTimelineErrorView extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF1F2937),
+              color: _timelineInk,
               fontSize: 22,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
           ),
@@ -821,7 +805,7 @@ class _StoryTimelineErrorView extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _timelineMuted,
               fontSize: 16,
               height: 1.45,
               fontWeight: FontWeight.w500,
@@ -832,6 +816,10 @@ class _StoryTimelineErrorView extends StatelessWidget {
           OutlinedButton.icon(
             key: const ValueKey('story-timeline.error.retry-action'),
             onPressed: onRetry,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _timelineAccent,
+              side: const BorderSide(color: Color(0x3DD16A74)),
+            ),
             icon: const Icon(Icons.refresh_rounded),
             label: Text(l10n.retry),
           ),
@@ -861,12 +849,12 @@ class _StoryTimelineEmptyState extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE6EA),
+              color: _timelineAccentSoft,
               borderRadius: BorderRadius.circular(24),
             ),
             child: const Icon(
               Icons.timeline_rounded,
-              color: Color(0xFFFF5D72),
+              color: _timelineAccent,
               size: 34,
             ),
           ),
@@ -875,9 +863,9 @@ class _StoryTimelineEmptyState extends StatelessWidget {
             l10n.storyTimelineEmptyTitle,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF1F2937),
+              color: _timelineInk,
               fontSize: 22,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
           ),
@@ -886,7 +874,7 @@ class _StoryTimelineEmptyState extends StatelessWidget {
             l10n.storyTimelineEmptyBody,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: _timelineMuted,
               fontSize: 16,
               height: 1.45,
               fontWeight: FontWeight.w500,
@@ -899,7 +887,7 @@ class _StoryTimelineEmptyState extends StatelessWidget {
               key: const ValueKey('story-timeline.empty.create-action'),
               onPressed: onCreateMemory,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF5D72),
+                backgroundColor: _timelineAccent,
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(54),
                 shape: RoundedRectangleBorder(
@@ -953,15 +941,9 @@ class _TimelineCardShell extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _timelineWarmWhite,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            offset: Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
+        border: Border.all(color: _timelineWarmBorder, width: 0.8),
       ),
       child: child,
     );
@@ -981,15 +963,9 @@ class _SkeletonBlock extends StatelessWidget {
       width: double.infinity,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _timelineWarmWhite,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x100F172A),
-            offset: Offset(0, 10),
-            blurRadius: 24,
-          ),
-        ],
+        border: Border.all(color: _timelineWarmBorder, width: 0.8),
       ),
     );
   }
@@ -1001,8 +977,4 @@ String? _visibleText(String? value) {
   }
 
   return value;
-}
-
-String _monthNumber(int month) {
-  return month.toString().padLeft(2, '0');
 }

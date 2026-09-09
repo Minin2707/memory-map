@@ -154,6 +154,12 @@ void main() {
         find.byKey(const ValueKey('story-timeline.no-photo-visual')),
         findsOneWidget,
       );
+      expect(
+        find.image(
+          const AssetImage('assets/memory_timeline_no_photo_preview.png'),
+        ),
+        findsOneWidget,
+      );
       expect(mediaRepository.getThumbnailByPathCalls, 0);
       expect(mediaRepository.getMediaCalls, 0);
       expect(mediaRepository.getDisplayCalls, 0);
@@ -178,7 +184,7 @@ void main() {
       expect(find.text('Family picnic'), findsOneWidget);
       expect(find.text('Central Park'), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('story-timeline.no-photo-visual')),
+        find.byKey(const ValueKey('story-timeline.photo-fallback-visual')),
         findsOneWidget,
       );
       expect(find.textContaining('binary failed'), findsNothing);
@@ -219,7 +225,7 @@ void main() {
       );
 
       expect(find.text('No timeline yet'), findsOneWidget);
-      expect(find.text('Add memory'), findsNWidgets(2));
+      expect(find.text('Add memory'), findsOneWidget);
 
       await pressButton(
         tester,
